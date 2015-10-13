@@ -1,0 +1,77 @@
+/*
+ * Copyright 2015 Namihiko Matsumura (https://github.com/n-i-e/)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.github.n_i_e.dirtreedb;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
+public class ZipLister extends AbstractArchiveLister {
+
+	private ZipInputStream instream;
+	private static String charset = "windows-31j";
+
+	public ZipLister (PathEntry basepath, InputStream inf, String charset) {
+		super(basepath);
+		instream = new ZipInputStream(inf, Charset.forName(charset));
+	}
+
+	public ZipLister (PathEntry basepath, InputStream inf) {
+		this(basepath, inf, charset);
+	}
+
+	public static String getCharset() {
+		return charset;
+	}
+
+	public static void setCharset(String charset) {
+		ZipLister.charset = charset;
+	}
+
+	public InputStream getInputStream() {
+		return instream;
+	}
+
+	protected void getNext(boolean csum) throws IOException {
+		if (next_entry != null) {
+			return;
+		}
+		ZipEntry z = instream.getNextEntry();
+		if (z == null) {
+			return;
+		}
+		int newtype = z.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;
+		String s = z.getName();
+		s = s.replace("\\", "/");
+		next_entry = new PathEntry(basepath.getPath() + "/" + s, newtype);
+		next_entry.setDateLastModified(z.getTime());
+		next_entry.setStatus(PathEntry.DIRTY);
+		next_entry.setSize(z.getSize());
+		next_entry.setCompressedSize(z.getCompressedSize());
+		if (csum && newtype == PathEntry.COMPRESSEDFILE) {
+			next_entry.setCsum(instream);
+		}
+		if (next_entry.getSize() < 0) {
+			next_entry.setSize(0);
+		}
+		if (next_entry.getCompressedSize() < 0) {
+			next_entry.setCompressedSize(next_entry.getSize());
+		}
+	}
+}
