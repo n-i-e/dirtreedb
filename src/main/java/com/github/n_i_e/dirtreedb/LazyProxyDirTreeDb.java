@@ -645,8 +645,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							newfolderIter = ArchiveListerFactory.getArchiveLister(entry, newentry.getInputStream());
 							dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 						}
-						if (isCsumForce() || (isCsum() && (entry.isCsumNull() && !dscMatch(entry, newentry)))) {
+						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
 							newentry.setCsumAndClose(newentry.getInputStream());
+							if (newentry.isNoAccess()) {
+								newentry.setStatus(PathEntry.DIRTY);
+							}
 						}
 					} catch (IOException e) {
 						disable(entry, newentry);
@@ -687,10 +690,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 						} else {
 							newfolderIter = null;
 						}
-						if (isCsumForce() || (isCsum() && entry.isCsumNull())) {
+						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
+							assert(stack != null);
 							inf = getInputStream(stack);
-							if (entry.isNoAccess()) {
-								entry.setStatus(PathEntry.DIRTY);
+							if (newentry.isNoAccess()) {
+								newentry.setStatus(PathEntry.DIRTY);
 							}
 						} else {
 							inf = null;
@@ -798,8 +802,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							newfolderIter = ArchiveListerFactory.getArchiveLister(entry, newentry.getInputStream());
 							dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 						}
-						if (isCsumForce() || (isCsum() && (entry.isCsumNull() && !dscMatch(entry, newentry)))) {
+						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
 							newentry.setCsumAndClose(newentry.getInputStream());
+							if (newentry.isNoAccess()) {
+								newentry.setStatus(PathEntry.DIRTY);
+							}
 						}
 					} catch (IOException e) {
 						disable(entry, newentry);
@@ -851,10 +858,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 						} else {
 							newfolderIter = null;
 						}
-						if (isCsumForce() || (isCsum() && entry.isCsumNull())) {
+						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
+							assert(stack != null);
 							inf = getInputStream(stack);
-							if (entry.isNoAccess()) {
-								entry.setStatus(PathEntry.DIRTY);
+							if (newentry.isNoAccess()) {
+								newentry.setStatus(PathEntry.DIRTY);
 							}
 						} else {
 							inf = null;

@@ -736,8 +736,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return result;
 	}
 
-	public static PathEntry getNewPathEntry(final PathEntry entry) throws SQLException, IOException
-	{
+	public static PathEntry getNewPathEntry(final PathEntry entry) throws SQLException, IOException {
 		if (entry.isFolder() || entry.isFile()) {
 			final File fileobj = getFileIfExists(entry);
 			if (fileobj == null) {
@@ -893,10 +892,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					assert(newfolderIter != null);
 					dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 				}
-				if (isCsumForce() || (isCsum() && (entry.isCsumNull() && !dscMatch(entry, newentry)))) {
+				if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
 					newentry.setCsumAndClose(newentry.getInputStream());
-					if (entry.isNoAccess()) {
-						entry.setStatus(PathEntry.DIRTY);
+					if (newentry.isNoAccess()) {
+						newentry.setStatus(PathEntry.DIRTY);
 					}
 				}
 				update(entry, newentry);
@@ -937,11 +936,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				}
 
 				if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
-					if (stack != null) {
-						newentry.setCsumAndClose(getInputStream(stack));
-						if (entry.isNoAccess()) {
-							entry.setStatus(PathEntry.DIRTY);
-						}
+					assert(stack != null);
+					newentry.setCsumAndClose(getInputStream(stack));
+					if (newentry.isNoAccess()) {
+						newentry.setStatus(PathEntry.DIRTY);
 					}
 				}
 				update(entry, newentry);
