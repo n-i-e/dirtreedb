@@ -232,7 +232,7 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 		try {
 			ps.setLong(1, upper);
 			ps.setLong(2, lower);
-			ps.executeQuery();
+			ps.executeUpdate();
 		} finally {
 			ps.close();
 		}
