@@ -575,43 +575,42 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	public void refreshDuplicateFields() throws InterruptedException, SQLException {
 		threadHook();
 
-		Statement stmt = createStatement();
+		Statement stmt1 = createStatement();
 		try {
-			{
-				ResultSet rs = stmt.executeQuery("SELECT pathid FROM directory AS d1 "
-						+ "WHERE (duplicate<>0 OR dedupablesize<>0) "
-						+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE (d2.type=1 OR d2.type=3) "
-						+ "AND d2.csum IS NOT NULL AND d1.size=d2.size AND d1.csum=d2.csum AND d1.pathid<>d2.pathid)");
-				try {
-					while (rs.next()) {
-						threadHook();
-						updateDuplicateFields(rs.getLong("pathid"), 0, 0);
-					}
-				} finally {
-					rs.close();
+			ResultSet rs = stmt1.executeQuery("SELECT pathid, newduplicate, newdedupablesize "
+					+ "FROM directory AS d1, "
+					+ "(SELECT size, csum, count(size)-1 AS newduplicate, (count(size)-1)*size AS newdedupablesize "
+					+ "FROM directory WHERE (type=1 OR type=3) AND CSUM IS NOT NULL GROUP BY size, csum "
+					+ "HAVING (COUNT(size)>=2 AND COUNT(size)-1<>MAX(duplicate)) "
+					+ "OR (COUNT(size)>=2 AND COUNT(size)-1<>MAX(duplicate)) "
+					+ "OR MAX(duplicate)>MIN(duplicate)) AS d2 "
+					+ "WHERE (d1.type=1 OR d1.type=3) AND d1.size=d2.size AND d1.csum=d2.csum");
+			try {
+				while (rs.next()) {
+					threadHook();
+					updateDuplicateFields(rs.getLong("pathid"), rs.getLong("newduplicate"), rs.getLong("newdedupablesize"));
 				}
-			}
-
-			threadHook();
-			{
-				ResultSet rs = stmt.executeQuery("SELECT pathid, newduplicate, newdedupablesize "
-						+ "FROM directory AS d1, "
-						+ "(SELECT size, csum, count(size)-1 AS newduplicate, (count(size)-1)*size AS newdedupablesize "
-						+ "FROM directory WHERE (type=1 OR type=3) AND CSUM IS NOT NULL GROUP BY size, csum "
-						+ "HAVING count(size)>=2 AND count(size)-1<>max(duplicate)) AS d2 "
-						+ "WHERE (d1.type=1 OR d1.type=3) "
-						+ "AND d1.size=d2.size AND d1.csum=d2.csum");
-				try {
-					while (rs.next()) {
-						threadHook();
-						updateDuplicateFields(rs.getLong("pathid"), rs.getLong("newduplicate"), rs.getLong("newdedupablesize"));
-					}
-				} finally {
-					rs.close();
-				}
+			} finally {
+				rs.close();
 			}
 		} finally {
-			stmt.close();
+			stmt1.close();
+		}
+
+		Statement stmt2 = createStatement();
+		try {
+			ResultSet rs = stmt2.executeQuery("SELECT * FROM directory WHERE (duplicate>0 OR dedupablesize>0) "
+					+ "AND (type=0 OR type=2 OR csum IS NULL)");
+			try {
+				while (rs.next()) {
+					threadHook();
+					updateDuplicateFields(rs.getLong("pathid"), 0, 0);
+				}
+			} finally {
+				rs.close();
+			}
+		} finally {
+			stmt2.close();
 		}
 	}
 
