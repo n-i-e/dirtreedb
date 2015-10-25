@@ -27,7 +27,7 @@ public class StackingLock extends BinaryStateReentrantLock
 		super(true); // fair
 	}
 
-	private boolean isInStack() {
+	private synchronized boolean isInStack() {
 		Iterator<Thread> iter = stack.iterator();
 		boolean result = false;
 		while (iter.hasNext()) {
@@ -42,7 +42,7 @@ public class StackingLock extends BinaryStateReentrantLock
 		return result;
 	}
 
-	public int size() {
+	public synchronized int size() {
 		Iterator<Thread> iter = stack.iterator();
 		while (iter.hasNext()) {
 			Thread i = iter.next();
@@ -78,7 +78,7 @@ public class StackingLock extends BinaryStateReentrantLock
 		}
 	}
 
-	public void unregist() {
+	public synchronized void unregist() {
 		Iterator<Thread> iter = stack.iterator();
 		while (iter.hasNext()) {
 			Thread i = iter.next();
