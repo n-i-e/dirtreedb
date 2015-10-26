@@ -29,7 +29,7 @@ public class StatementWithSlowQueryLog implements Statement {
 	public ResultSet executeQuery(String sql) throws SQLException {
 		long t1 = (new Date()).getTime();
 		try {
-			return instance.executeQuery(sql);
+			return ResultSetWithIntegrityCheck.create(instance.executeQuery(sql));
 		} finally {
 			long dt = (new Date()).getTime() - t1;
 			if (dt > 30*1000) {
@@ -126,7 +126,7 @@ public class StatementWithSlowQueryLog implements Statement {
 
 	@Override
 	public ResultSet getResultSet() throws SQLException {
-		return instance.getResultSet();
+		return ResultSetWithIntegrityCheck.create(instance.getResultSet());
 	}
 
 	@Override
@@ -196,7 +196,7 @@ public class StatementWithSlowQueryLog implements Statement {
 
 	@Override
 	public ResultSet getGeneratedKeys() throws SQLException {
-		return instance.getGeneratedKeys();
+		return ResultSetWithIntegrityCheck.create(instance.getGeneratedKeys());
 	}
 
 	@Override

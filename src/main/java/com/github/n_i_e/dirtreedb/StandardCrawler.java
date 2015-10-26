@@ -170,9 +170,7 @@ public class StandardCrawler extends LazyAccessorThread {
 							DbPathEntry f = getDb().rsToPathEntry(rs);
 							assert (f.isFolder() || f.isFile());
 							disp.dispatch(f);
-							int c = rs.getRow();
 							cleanupDbAndListIfRecommended();
-							assert(c == rs.getRow());
 							count++;
 						}
 					} finally {

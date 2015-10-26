@@ -45,7 +45,7 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 		this.sql = sql;
 		long t1 = (new java.util.Date()).getTime();
 		try {
-			return instance.executeQuery(sql);
+			return ResultSetWithIntegrityCheck.create(instance.executeQuery(sql));
 		} finally {
 			long dt = (new java.util.Date()).getTime() - t1;
 			if (dt > 30*1000) {
@@ -144,7 +144,7 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 
 	@Override
 	public ResultSet getResultSet() throws SQLException {
-		return instance.getResultSet();
+		return ResultSetWithIntegrityCheck.create(instance.getResultSet());
 	}
 
 	@Override
@@ -223,7 +223,7 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 
 	@Override
 	public ResultSet getGeneratedKeys() throws SQLException {
-		return instance.getGeneratedKeys();
+		return ResultSetWithIntegrityCheck.create(instance.getGeneratedKeys());
 	}
 
 	@Override
@@ -359,7 +359,7 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 	public ResultSet executeQuery() throws SQLException {
 		long t1 = (new java.util.Date()).getTime();
 		try {
-			return instance.executeQuery();
+			return ResultSetWithIntegrityCheck.create(instance.executeQuery());
 		} finally {
 			long dt = (new java.util.Date()).getTime() - t1;
 			if (dt > 30*1000) {
