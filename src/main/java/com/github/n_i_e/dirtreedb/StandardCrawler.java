@@ -153,6 +153,8 @@ public class StandardCrawler extends LazyAccessorThread {
 					writelog2("--- csum finished count=" + count + " ---");
 				}
 
+				crawlEqualityUpdate();
+
 				if (true) {
 					writelog2("--- checkupdate ---");
 					Dispatcher disp = getDb().getDispatcher();
@@ -177,10 +179,6 @@ public class StandardCrawler extends LazyAccessorThread {
 						rs.close();
 					}
 					writelog2("--- checkupdate finished count=" + count + " ---");
-				}
-
-				if (true) {
-					crawlEqualityUpdate();
 				}
 
 				writelog2("--- complete cleanup/list items (1/2) ---");
