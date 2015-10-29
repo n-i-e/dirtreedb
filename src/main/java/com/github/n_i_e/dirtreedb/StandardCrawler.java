@@ -216,6 +216,8 @@ public class StandardCrawler extends LazyAccessorThread {
 			ResultSet rs1 = stmt.executeQuery(sql1);
 			writelog2("+++ equality (new) query finished +++");
 			try {
+				Dispatcher disp = getDb().getDispatcher();
+				disp.setNoReturn(true);
 				while (rs1.next()) {
 					String sql2 = "SELECT " + d1d2SubSql + " FROM directory AS d1, directory AS d2 "
 							+ "WHERE (d1.type=1 OR d1.type=3) AND (d2.type=1 OR d2.type=3) "
@@ -235,7 +237,7 @@ public class StandardCrawler extends LazyAccessorThread {
 						while (rs2.next()) {
 							DbPathEntry p1 = getDb().rsToPathEntry(rs2, "d1_");
 							DbPathEntry p2 = getDb().rsToPathEntry(rs2, "d2_");
-							getDb().checkEquality(p1, p2, true);
+							disp.checkEquality(p1, p2, true);
 							//cleanupDbAndListIfRecommended();
 							getDb().consumeSomeUpdateQueue();
 							count1++;
@@ -276,6 +278,8 @@ public class StandardCrawler extends LazyAccessorThread {
 
 	private void crawlEqualityUpdate() throws SQLException, InterruptedException, IOException {
 		writelog2("--- equality ---");
+		Dispatcher disp = getDb().getDispatcher();
+		disp.setNoReturn(true);
 		Statement stmt = getDb().createStatement();
 		String sql = "SELECT * FROM equality ORDER BY datelasttested";
 		ResultSet rs = stmt.executeQuery(sql);
@@ -285,7 +289,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			while (rs.next()) {
 				DbPathEntry p1 = getDb().getDbPathEntryByPathId(rs.getLong("pathid1"));
 				DbPathEntry p2 = getDb().getDbPathEntryByPathId(rs.getLong("pathid2"));
-				getDb().checkEquality(p1, p2, false);
+				disp.checkEquality(p1, p2, false);
 				cleanupDbAndListIfRecommended();
 				//getDb().consumeSomeUpdateQueue();
 				count++;

@@ -483,39 +483,6 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 	}
 
-	public boolean checkEqualityNoLazy(final DbPathEntry entry1, final DbPathEntry entry2, final boolean inserting)
-			throws SQLException, InterruptedException {
-		return super.checkEquality(entry1, entry2, inserting);
-	}
-
-	@Override
-	public boolean checkEquality(final DbPathEntry entry1, final DbPathEntry entry2, final boolean inserting)
-			throws SQLException, InterruptedException {
-		Assertion.assertAssertionError(iAmLazyAccessorThread());
-
-		Assertion.assertAssertionError(entry1.isFile() || entry1.isCompressedFile(),
-				"wrong type " + entry1.getType() + " for checkEquality: path=" + entry1.getPath());
-		Assertion.assertAssertionError(entry2.isFile() || entry2.isCompressedFile(),
-				"wrong type " + entry2.getType() + " for checkEquality: path=" + entry2.getPath());
-
-		Assertion.assertAssertionError(entry1.getSize() == entry2.getSize());
-		Assertion.assertAssertionError(!entry1.isCsumNull());
-		Assertion.assertAssertionError(!entry2.isCsumNull());
-		Assertion.assertAssertionError(entry1.getCsum() == entry2.getCsum());
-
-		final List<DbPathEntry> stack1 = getCompressionStack(entry1);
-		final List<DbPathEntry> stack2 = getCompressionStack(entry2);
-		if (stack1 == null || stack2 == null) { return false; /* orphan */ }
-		DbPathEntry p = (entry1.getRootId() == entry2.getRootId()) ? entry1 : null;
-		LazyQueue lq = inserting ? lazyqueue_insertable : lazyqueue_dontinsert;
-		lq.execute(p, new LazyQueueableRunnable() {
-			public void run() throws SQLException, InterruptedException {
-				checkEqualityCore(entry1, entry2, inserting, stack1, stack2);
-			}
-		});
-		return true;
-	}
-
 	public Dispatcher getDispatcher() {
 		return new Dispatcher();
 	}
@@ -879,6 +846,72 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				}
 			});
 			return entry;
+		}
+
+		@Override
+		public boolean checkEquality(final DbPathEntry entry1, final DbPathEntry entry2, final boolean inserting)
+				throws SQLException, InterruptedException {
+			if (isNoReturn()) {
+				checkEqualityNoReturn(entry1, entry2, inserting);
+				return true;
+			} else {
+				return super.checkEquality(entry1, entry2, inserting);
+			}
+		}
+
+		protected void checkEqualityNoReturn(final DbPathEntry entry1, final DbPathEntry entry2, final boolean inserting)
+				throws SQLException, InterruptedException {
+			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
+			if (entry1 == null || entry2 == null) { return; }
+
+			final List<DbPathEntry> stack1 = getCompressionStack(entry1);
+			if (stack1 == null) { return; /* orphan */ }
+			final List<DbPathEntry> stack2 = getCompressionStack(entry2);
+			if (stack2 == null) { return; /* orphan */ }
+
+			checkEqualityNoReturn(stack1, stack2, inserting);
+		}
+
+		@Override
+		public boolean checkEquality(
+				final List<DbPathEntry> stack1,
+				final List<DbPathEntry> stack2,
+				final boolean inserting
+				) throws SQLException, InterruptedException {
+			if (isNoReturn()) {
+				checkEqualityNoReturn(stack1, stack2, inserting);
+				return true;
+			} else {
+				return super.checkEquality(stack1, stack2, inserting);
+			}
+		}
+
+		protected void checkEqualityNoReturn(
+				final List<DbPathEntry> stack1,
+				final List<DbPathEntry> stack2,
+				final boolean inserting
+				) throws SQLException, InterruptedException {
+			if (stack1 == null || stack2 == null) { return; /* orphan */ }
+			DbPathEntry entry1 = stack1.get(0);
+			DbPathEntry entry2 = stack2.get(0);
+
+			Assertion.assertAssertionError(entry1.isFile() || entry1.isCompressedFile(),
+					"wrong type " + entry1.getType() + " for checkEquality: path=" + entry1.getPath());
+			Assertion.assertAssertionError(entry2.isFile() || entry2.isCompressedFile(),
+					"wrong type " + entry2.getType() + " for checkEquality: path=" + entry2.getPath());
+			Assertion.assertAssertionError(entry1.getSize() == entry2.getSize());
+			Assertion.assertAssertionError(!entry1.isCsumNull());
+			Assertion.assertAssertionError(!entry2.isCsumNull());
+			Assertion.assertAssertionError(entry1.getCsum() == entry2.getCsum());
+
+			DbPathEntry p = (entry1.getRootId() == entry2.getRootId()) ? entry1 : null;
+			LazyQueue lq = inserting ? lazyqueue_insertable : lazyqueue_dontinsert;
+			lq.execute(p, new LazyQueueableRunnable() {
+				public void run() throws SQLException, InterruptedException {
+					Dispatcher.super.checkEquality(stack1, stack2, inserting);
+				}
+			});
 		}
 	}
 

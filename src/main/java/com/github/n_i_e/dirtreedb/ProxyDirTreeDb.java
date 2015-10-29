@@ -614,113 +614,6 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		}
 	}
 
-	public boolean checkEquality(final DbPathEntry entry1, final DbPathEntry entry2, final boolean inserting)
-			throws SQLException, InterruptedException {
-		Assertion.assertAssertionError(entry1.isFile() || entry1.isCompressedFile(),
-				"wrong type " + entry1.getType() + " for checkEquality: path=" + entry1.getPath());
-		Assertion.assertAssertionError(entry2.isFile() || entry2.isCompressedFile(),
-				"wrong type " + entry2.getType() + " for checkEquality: path=" + entry2.getPath());
-
-		Assertion.assertAssertionError(entry1.getSize() == entry2.getSize());
-		Assertion.assertAssertionError(!entry1.isCsumNull());
-		Assertion.assertAssertionError(!entry2.isCsumNull());
-		Assertion.assertAssertionError(entry1.getCsum() == entry2.getCsum());
-
-		final List<DbPathEntry> stack1 = getCompressionStack(entry1);
-		final List<DbPathEntry> stack2 = getCompressionStack(entry2);
-		if (stack1 == null || stack2 == null) { return false; /* orphan */ }
-		return checkEqualityCore(entry1, entry2, inserting, stack1, stack2);
-	}
-
-	protected boolean checkEqualityCore(final DbPathEntry entry1,
-			final DbPathEntry entry2, final boolean inserting,
-			final List<DbPathEntry> stack1,
-			final List<DbPathEntry> stack2) throws SQLException,
-			InterruptedException {
-		DbPathEntry re = null;
-		long count=0L;
-		try {
-			boolean isEqual;
-			re = entry1;
-			InputStream stream1 = getInputStream(stack1);
-			re = entry2;
-			InputStream stream2 = getInputStream(stack2);
-			re = null;
-
-			try {
-				for (;;) {
-					re = entry1;
-					int s1 = stream1.read();
-					re = entry2;
-					int s2 = stream2.read();
-					re = null;
-					if (s1 != s2) {
-						isEqual = false;
-						break;
-					}
-					if (s1 == -1 && s2 == -1) {
-						isEqual = true;
-						break;
-					}
-					count++;
-				}
-			} finally {
-				re = entry1;
-				stream1.close();
-				re = entry2;
-				stream2.close();
-				re = null;
-			}
-			if (isEqual && count==entry1.getSize()) {
-				if (inserting) {
-					insertEquality(entry1.getPathId(), entry2.getPathId(), entry1.getSize(), entry1.getCsum());
-				} else {
-					updateEquality(entry1.getPathId(), entry2.getPathId());
-				}
-				if (entry1.isNoAccess()) {
-					updateStatus(entry1, PathEntry.DIRTY);
-				}
-				if (entry2.isNoAccess()) {
-					updateStatus(entry2, PathEntry.DIRTY);
-				}
-				return true;
-			} else {
-				if (!isEqual) {
-					writelog("!! WARNING NOT EQUAL");
-				} else {
-					writelog("!! EQUAL, BUT SIZE CHANGED "+entry1.getSize()+"->"+count);
-				}
-				if (!inserting) {
-					deleteEquality(entry1.getPathId(), entry2.getPathId());
-				}
-				re = entry1;
-				PathEntry newentry1 = getNewPathEntry(entry1);
-				stream1 = getInputStream(stack1);
-				newentry1.setCsumAndClose(stream1);
-				if (newentry1.isNoAccess()) {
-					newentry1.setStatus(PathEntry.DIRTY);
-				}
-				update(entry1, newentry1);
-
-				re = entry2;
-				PathEntry newentry2 = getNewPathEntry(entry2);
-				stream2 = getInputStream(stack2);
-				newentry2.setCsumAndClose(stream2);
-				if (newentry2.isNoAccess()) {
-					newentry2.setStatus(PathEntry.DIRTY);
-				}
-				update(entry2, newentry2);
-				re = null;
-				return false;
-			}
-		} catch (IOException e) {
-			if (re != null) {
-				disable(re);
-			}
-			return false;
-		}
-	}
-
 	public static File getFileIfExists(final PathEntry entry) throws SQLException {
 		assert(entry.getType() == PathEntry.FOLDER || entry.getType() == PathEntry.FILE);
 
@@ -1043,6 +936,117 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			delete(oldfolder.values().iterator());
 			newentry.setStatus(PathEntry.CLEAN);
 			update(entry, newentry);
+		}
+
+		public boolean checkEquality(final DbPathEntry entry1, final DbPathEntry entry2, final boolean inserting)
+				throws SQLException, InterruptedException {
+			final List<DbPathEntry> stack1 = getCompressionStack(entry1);
+			if (stack1 == null) { return false; /* orphan */ }
+			final List<DbPathEntry> stack2 = getCompressionStack(entry2);
+			if (stack2 == null) { return false; /* orphan */ }
+			return checkEquality(stack1, stack2, inserting);
+		}
+
+		public boolean checkEquality(
+				final List<DbPathEntry> stack1,
+				final List<DbPathEntry> stack2,
+				final boolean inserting
+				) throws SQLException, InterruptedException {
+			if (stack1 == null || stack2 == null) { return false; /* orphan */ }
+			DbPathEntry entry1 = stack1.get(0);
+			DbPathEntry entry2 = stack2.get(0);
+
+			Assertion.assertAssertionError(entry1.isFile() || entry1.isCompressedFile(),
+					"wrong type " + entry1.getType() + " for checkEquality: path=" + entry1.getPath());
+			Assertion.assertAssertionError(entry2.isFile() || entry2.isCompressedFile(),
+					"wrong type " + entry2.getType() + " for checkEquality: path=" + entry2.getPath());
+			Assertion.assertAssertionError(entry1.getSize() == entry2.getSize());
+			Assertion.assertAssertionError(!entry1.isCsumNull());
+			Assertion.assertAssertionError(!entry2.isCsumNull());
+			Assertion.assertAssertionError(entry1.getCsum() == entry2.getCsum());
+
+			DbPathEntry re = null;
+			long count=0L;
+			try {
+				boolean isEqual;
+				re = entry1;
+				InputStream stream1 = getInputStream(stack1);
+				re = entry2;
+				InputStream stream2 = getInputStream(stack2);
+				re = null;
+
+				try {
+					for (;;) {
+						re = entry1;
+						int s1 = stream1.read();
+						re = entry2;
+						int s2 = stream2.read();
+						re = null;
+						if (s1 != s2) {
+							isEqual = false;
+							break;
+						}
+						if (s1 == -1 && s2 == -1) {
+							isEqual = true;
+							break;
+						}
+						count++;
+					}
+				} finally {
+					re = entry1;
+					stream1.close();
+					re = entry2;
+					stream2.close();
+					re = null;
+				}
+				if (isEqual && count==entry1.getSize()) {
+					if (inserting) {
+						insertEquality(entry1.getPathId(), entry2.getPathId(), entry1.getSize(), entry1.getCsum());
+					} else {
+						updateEquality(entry1.getPathId(), entry2.getPathId());
+					}
+					if (entry1.isNoAccess()) {
+						updateStatus(entry1, PathEntry.DIRTY);
+					}
+					if (entry2.isNoAccess()) {
+						updateStatus(entry2, PathEntry.DIRTY);
+					}
+					return true;
+				} else {
+					if (!isEqual) {
+						writelog("!! WARNING NOT EQUAL");
+					} else {
+						writelog("!! EQUAL, BUT SIZE CHANGED "+entry1.getSize()+"->"+count);
+					}
+					if (!inserting) {
+						deleteEquality(entry1.getPathId(), entry2.getPathId());
+					}
+					re = entry1;
+					PathEntry newentry1 = getNewPathEntry(entry1);
+					stream1 = getInputStream(stack1);
+					newentry1.setCsumAndClose(stream1);
+					if (newentry1.isNoAccess()) {
+						newentry1.setStatus(PathEntry.DIRTY);
+					}
+					update(entry1, newentry1);
+
+					re = entry2;
+					PathEntry newentry2 = getNewPathEntry(entry2);
+					stream2 = getInputStream(stack2);
+					newentry2.setCsumAndClose(stream2);
+					if (newentry2.isNoAccess()) {
+						newentry2.setStatus(PathEntry.DIRTY);
+					}
+					update(entry2, newentry2);
+					re = null;
+					return false;
+				}
+			} catch (IOException e) {
+				if (re != null) {
+					disable(re);
+				}
+				return false;
+			}
 		}
 	}
 }
