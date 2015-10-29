@@ -127,13 +127,13 @@ public class StandardCrawler extends LazyAccessorThread {
 				}
 
 				if (true) {
-					writelog2("--- csum ---");
+					writelog2("--- csum (1/2) ---");
 					String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND csum IS NULL "
 							+ dontCheckUpdateRootIdsSubSql + " AND EXISTS (SELECT * FROM directory AS d2 "
 							+ "WHERE (type=1 OR type=3) AND d1.size=d2.size AND d1.pathid<>d2.pathid) "
 							+ "ORDER BY size DESC";
 					ResultSet rs = stmt.executeQuery(sql);
-					writelog2("--- csum query finished ---");
+					writelog2("--- csum (1/2) query finished ---");
 					int count = 0;
 					try {
 						Dispatcher disp = getDb().getDispatcher();
@@ -150,7 +150,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					} finally {
 						rs.close();
 					}
-					writelog2("--- csum finished count=" + count + " ---");
+					writelog2("--- csum (1/2) finished count=" + count + " ---");
 				}
 
 				crawlEqualityUpdate();
@@ -182,13 +182,41 @@ public class StandardCrawler extends LazyAccessorThread {
 				}
 
 				writelog2("--- complete cleanup/list items (1/2) ---");
-				getDb().consumeUpdateQueue();
+				getDb().consumeSomeUpdateQueue();
 				cleanupDbAndList(false);
 				while (cleanupDb_RoundRobinState > 0) {
 					writelog2("--- complete cleanup/list items (2/2) ---");
-					getDb().consumeUpdateQueue();
+					getDb().consumeSomeUpdateQueue();
 					cleanupDbAndList(false);
 				}
+
+				if (true) {
+					writelog2("--- csum (2/2) ---");
+					String sql = "SELECT * FROM directory WHERE (type=1 OR type=3) AND (csum IS NULL OR status=2) "
+							+ dontCheckUpdateRootIdsSubSql;
+					ResultSet rs = stmt.executeQuery(sql);
+					writelog2("--- csum (2/2) query finished ---");
+					int count = 0;
+					try {
+						Dispatcher disp = getDb().getDispatcher();
+						disp.setList(Dispatcher.NONE);
+						disp.setCsum(Dispatcher.CSUM_FORCE);
+						disp.setNoReturn(true);
+						while (rs.next()) {
+							DbPathEntry f = getDb().rsToPathEntry(rs);
+							assert(f.isFile() || f.isCompressedFile());
+							disp.dispatch(f);
+							cleanupDbAndListIfRecommended();
+							count++;
+						}
+					} finally {
+						rs.close();
+					}
+					writelog2("--- csum (2/2) finished count=" + count + " ---");
+				}
+				writelog2("--- consume all update queue ---");
+				getDb().consumeUpdateQueue();
+				writelog2("--- consume all update queue finished ---");
 			}
 		} catch (SQLException e) {
 			writelog2("Crawler WARNING caught SQLException, trying to recover");
