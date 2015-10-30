@@ -1018,6 +1018,8 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					} else {
 						writelog("!! EQUAL, BUT SIZE CHANGED "+entry1.getSize()+"->"+count);
 					}
+					writelog(entry1.getPath());
+					writelog(entry2.getPath());
 					if (!inserting) {
 						deleteEquality(entry1.getPathId(), entry2.getPathId());
 					}
