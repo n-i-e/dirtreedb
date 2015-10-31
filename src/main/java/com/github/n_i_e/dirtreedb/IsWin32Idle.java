@@ -29,15 +29,19 @@ public class IsWin32Idle {
 	}
 
 	public static boolean isWin32Idle() {
-		try {
-			int t = getWin32IdleTime();
-			if (t > getWindowsIdleSeconds()*1000) {
-				return true;
-			} else {
+		if (getWindowsIdleSeconds() <= 0) {
+			return true;
+		} else {
+			try {
+				int t = getWin32IdleTime();
+				if (t > getWindowsIdleSeconds()*1000) {
+					return true;
+				} else {
+					return false;
+				}
+			} catch (GetLastInputInfoException e) {
 				return false;
 			}
-		} catch (GetLastInputInfoException e) {
-			return false;
 		}
 	}
 

@@ -181,14 +181,8 @@ public class StandardCrawler extends LazyAccessorThread {
 					writelog2("--- checkupdate finished count=" + count + " ---");
 				}
 
-				writelog2("--- complete cleanup/list items (1/2) ---");
-				getDb().consumeSomeUpdateQueue();
-				cleanupDbAndList(false);
-				while (cleanupDb_RoundRobinState > 0) {
-					writelog2("--- complete cleanup/list items (2/2) ---");
-					getDb().consumeSomeUpdateQueue();
-					cleanupDbAndList(false);
-				}
+				writelog2("--- complete cleanup/list items ---");
+				cleanupDbAndList(true);
 
 				if (true) {
 					writelog2("--- csum (2/2) ---");
@@ -337,14 +331,17 @@ public class StandardCrawler extends LazyAccessorThread {
 	}
 
 	private void cleanupDbAndListIfRecommended() throws InterruptedException, SQLException, IOException {
-		getDb().consumeSomeUpdateQueue();
 		if (getDb().getDontInsertQueueSize() > 100000) {
 			cleanupDbAndList(false);
+		} else {
+			getDb().consumeSomeUpdateQueue();
 		}
 	}
 
 	private static int cleanupDb_RoundRobinState = 0;
 	private void cleanupDbAndList(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
+		getDb().consumeSomeUpdateQueue();
+
 		boolean isReadyToCleanupDb = getDb().getUpdateQueueSize() == 0;
 		if (isReadyToCleanupDb) {
 			assert(cleanupDb_RoundRobinState >= 0);
@@ -352,13 +349,20 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			List<Long> dontListRootIds = getDb().getInsertableRootIdList();
 			boolean isReadyToList = getDb().getInsertableQueueSize() < 100000 && getDb().getUpdateQueueSize() == 0;
-			if (doAllAtOnce || cleanupDb_RoundRobinState == 0) {
+
+			if (cleanupDb_RoundRobinState == 0) {
 				writelog2("+++ refresh duplicate fields +++");
 				getDb().refreshDuplicateFields();
 				writelog2("+++ refresh duplicate fields finished +++");
 				getDb().consumeSomeUpdateQueue();
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				}
 			}
-			if (doAllAtOnce || cleanupDb_RoundRobinState == 1) {
+
+			if (cleanupDb_RoundRobinState == 1) {
 				if (isReadyToList) {
 					writelog2("+++ refresh upperlower entries (1/2) +++");
 					getDb().refreshDirectUpperLower();
@@ -367,8 +371,14 @@ public class StandardCrawler extends LazyAccessorThread {
 				} else {
 					writelog2("+++ SKIP refresh upperlower entries (1/2) +++");
 				}
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				}
 			}
-			if (doAllAtOnce || cleanupDb_RoundRobinState == 2) {
+
+			if (cleanupDb_RoundRobinState == 2) {
 				if (isReadyToList) {
 					writelog2("+++ refresh upperlower entries (2/2) +++");
 					getDb().refreshIndirectUpperLower();
@@ -377,32 +387,67 @@ public class StandardCrawler extends LazyAccessorThread {
 				} else {
 					writelog2("+++ SKIP refresh upperlower entries (2/2) +++");
 				}
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				}
 			}
-			if (doAllAtOnce || cleanupDb_RoundRobinState == 3) {
+
+			if (cleanupDb_RoundRobinState == 3) {
 				writelog2("+++ cleanup directory orphans +++");
 				int count = getDb().cleanupOrphans();
 				writelog2("+++ cleanup directory orphans finished count=" + count + " +++");
 				getDb().consumeSomeUpdateQueue();
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				} else if (count > 0) {
+					cleanupDb_RoundRobinState--;
+				}
 			}
-			if (doAllAtOnce || cleanupDb_RoundRobinState == 4) {
+
+			if (cleanupDb_RoundRobinState == 4) {
 				writelog2("+++ refresh directory sizes +++");
 				int count = getDb().refreshFolderSizes();
 				writelog2("+++ refresh directory sizes finished count=" + count + " +++");
 				getDb().consumeSomeUpdateQueue();
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				} else if (count > 0) {
+					cleanupDb_RoundRobinState--;
+				}
 			}
-			if (doAllAtOnce || cleanupDb_RoundRobinState == 5) {
+
+			if (cleanupDb_RoundRobinState == 5) {
 				if (isReadyToList) {
 					list(dontListRootIds);
 				} else {
 					writelog2("+++ SKIP list +++");
 				}
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				}
 			}
-			if (doAllAtOnce || cleanupDb_RoundRobinState == 6) {
+
+			if (cleanupDb_RoundRobinState == 6) {
 				unlistDisabledExtensions();
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				}
 			}
+
 			if (!doAllAtOnce) {
-				cleanupDb_RoundRobinState = (cleanupDb_RoundRobinState + 1) % 7;
+				cleanupDb_RoundRobinState++;
 			}
+			cleanupDb_RoundRobinState = cleanupDb_RoundRobinState % 7;
 		}
 		getDb().consumeSomeUpdateQueue();
 	}
