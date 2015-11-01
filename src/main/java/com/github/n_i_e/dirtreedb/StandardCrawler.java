@@ -64,8 +64,8 @@ public class StandardCrawler extends LazyAccessorThread {
 					}
 				} catch (InterruptedException e) {
 					writelog("--- Crawler Interrupted ---");
-				} catch (Exception e) {
-					writelog("Crawler Reached StandardDirTreeDbHouseKeeper bottom due to Exception: " + e.toString());
+				} catch (Throwable e) {
+					writelog("Crawler Reached StandardCrawler bottom due to Exception: " + e.toString());
 					writeError("Exception", "This may be a fatal trouble. Exiting.\n" + e.toString());
 					e.printStackTrace();
 					System.exit(1);
@@ -74,8 +74,9 @@ public class StandardCrawler extends LazyAccessorThread {
 					endingHook1();
 					try {
 						getConf().unregist();
-					} catch (SQLException e) {
-						writeError("SQLException", "Failed closeing DB file. This is may be a fatal trouble. Exiting.\n" + e.toString());
+					} catch (Throwable e) {
+						writelog("Failed closeing DB file");
+						writeError("Error", "Failed closeing DB file. This is may be a fatal trouble. Exiting.\n" + e.toString());
 						e.printStackTrace();
 						System.exit(1);
 					}
@@ -184,7 +185,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				writelog2("--- complete cleanup/list items ---");
 				cleanupDbAndList(true);
 
-				if (true) {
+				if (getDb().getUpdateQueueSize()>0) {
 					writelog2("--- csum (2/2) ---");
 					String sql = "SELECT * FROM directory WHERE (type=1 OR type=3) AND (csum IS NULL OR status=2) "
 							+ dontCheckUpdateRootIdsSubSql;
@@ -196,7 +197,7 @@ public class StandardCrawler extends LazyAccessorThread {
 						disp.setList(Dispatcher.NONE);
 						disp.setCsum(Dispatcher.CSUM_FORCE);
 						disp.setNoReturn(true);
-						while (rs.next()) {
+						while (getDb().getUpdateQueueSize()>0 && rs.next()) {
 							DbPathEntry f = getDb().rsToPathEntry(rs);
 							assert(f.isFile() || f.isCompressedFile());
 							disp.dispatch(f);
@@ -476,25 +477,25 @@ public class StandardCrawler extends LazyAccessorThread {
 		disp.setCsum(Dispatcher.NONE);
 		disp.setNoReturn(true);
 
-		String sql = "SELECT d1.*, csumhint FROM (SELECT * FROM directory WHERE "
+		String sql = "SELECT d1.*, childhint FROM (SELECT * FROM directory WHERE "
 				+ "(type=0 OR ((type=1 OR type=3) " + archiveExtSubSql + ")) "
 				+ getDontListRootIdsSubSql(dontListRootIds)
-				+ " AND (status=1 OR status=2)) AS d1 "
+				+ " AND (status=1 OR status=2 OR parentid=0)) AS d1 "
 				+ "LEFT JOIN "
-				+ "(SELECT DISTINCT parentid AS csumhint FROM directory) AS d2 ON pathid=csumhint WHERE csumhint IS NULL";
+				+ "(SELECT DISTINCT parentid AS childhint FROM directory) AS d2 ON pathid=childhint";
 		ResultSet rs = stmt.executeQuery(sql);
 		writelog2("+++ list query finished +++");
 		int count = 0;
 		try {
 			while (rs.next()) {
-				rs.getLong("csumhint");
+				rs.getLong("childhint");
 				if (rs.wasNull()) {
 					disp.setNoChildInDb(true);
 				} else {
 					disp.setNoChildInDb(false);
 				}
 				DbPathEntry f = getDb().rsToPathEntry(rs);
-				Assertion.assertAssertionError(f.isDirty() || f.isNoAccess(),
+				Assertion.assertAssertionError(f.isDirty() || f.isNoAccess() || f.getParentId()==0,
 						"!! STATUS NOT DIRTY: " + f.getStatus() + " at " + f.getPath());
 				Assertion.assertAssertionError(f.isFolder()
 						|| ((f.isFile() || f.isCompressedFile()) && ArchiveListerFactory.isArchivable(f)),
