@@ -413,7 +413,13 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 	@Override
 	public void setLong(int parameterIndex, long x) throws SQLException {
 		parameter.put(new Integer(parameterIndex), String.valueOf(x));
-		instance.setLong(parameterIndex, x);
+		try {
+			instance.setLong(parameterIndex, x);
+		} catch (Throwable e) {
+			writelog("Throwable caught at setLong: parameterIndex=" + parameterIndex + " vaule=" + x);
+			writelogQuery();
+			throw e;
+		}
 	}
 
 	@Override
@@ -715,6 +721,10 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 
 	protected void writelog(long dtime) {
 		writelog("PreparedStatement execution too long: " + dtime + " msec");
+		writelogQuery();
+	}
+
+	protected void writelogQuery() {
 		writelog(sql);
 		ArrayList<Integer> keylist = new ArrayList<Integer>(parameter.keySet());
 		Collections.sort(keylist);

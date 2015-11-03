@@ -45,4 +45,23 @@ public class MdbDirTreeDb extends CommonSqlDirTreeDb {
 		conn = DriverManager.getConnection("jdbc:ucanaccess://" + filename);
 		conn.setAutoCommit(true);
 	}
+
+	@Override
+	public void insert(DbPathEntry basedir, PathEntry newentry) throws SQLException, InterruptedException {
+		if ((basedir != null && hasSurrogatePair(basedir.getPath())) || hasSurrogatePair(newentry.getPath())) {
+			return; // don't do anything for Unicode surrogate pair.
+		} else {
+			super.insert(basedir, newentry);
+		}
+	}
+
+	private static boolean hasSurrogatePair(String str) {
+		int len = str.length();
+		for (int i=0; i<len; i++) {
+			if (Character.isSurrogate(str.charAt(i))) {
+				return true;
+			}
+		}
+		return false;
+	}
 }
