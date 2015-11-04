@@ -267,6 +267,15 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		return lazyqueue_dontinsert.getRootIdList();
 	}
 
+	public void discardAllQueueItems() {
+		lazyqueue_thread.close();
+		lazyqueue_insertable.discardAllItems();
+		lazyqueue_dontinsert.discardAllItems();
+		while (updatequeue.size() > 0) {
+			updatequeue.next();
+		}
+	}
+
 	private boolean iAmLazyAccessorThread() {
 		try {
 			return (LazyAccessorThread.RunnerThread)Thread.currentThread() != null;
@@ -333,9 +342,16 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 
 		public synchronized void close() {
-			for (int i = 0; i < size(); i++) {
+			for (int i = size()-1; i >= 0; i--) {
 				if (get(i).isAlive()) {
 					get(i).interrupt();
+				}
+			}
+			for (int i = size()-1; i >= 0; i--) {
+				if (get(i).isAlive()) {
+					try {
+						get(i).join();
+					} catch (InterruptedException e) {}
 				}
 			}
 		}
@@ -427,6 +443,18 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				}
 			}
 			return false;
+		}
+
+		public void discardAllItems() {
+			for (LazyQueueElement elm: this.values()) {
+				LazyQueueRunnerThread t = elm.getThread();
+				if (t != null) {
+					t.interrupt();
+				}
+				while (elm.size() > 0) {
+					elm.next();
+				}
+			}
 		}
 
 		public void execute(DbPathEntry entry, LazyQueueableRunnable newtodo) throws InterruptedException {

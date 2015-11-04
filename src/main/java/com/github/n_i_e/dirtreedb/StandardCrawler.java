@@ -51,17 +51,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					startingHook2();
 					writelog("--- Crawler Start Scenario (2/2) ---");
 					threadHook();
-					try {
-						StandardCrawler.this.run();
-					} catch (SQLException e) {
-						writelog("Crawler Reached thread bottom due to SQLException: " + e.toString());
-						writeWarning("SQLException",
-								"SQLException caught. This might be a program bug, but usually you can ignore.\n" + e.toString());
-						e.printStackTrace();
-						try {
-							Thread.sleep(10*1000);
-						} catch (InterruptedException e1) {}
-					}
+					StandardCrawler.this.run();
 				} catch (InterruptedException e) {
 					writelog("--- Crawler Interrupted ---");
 				} catch (Throwable e) {
@@ -197,12 +187,22 @@ public class StandardCrawler extends LazyAccessorThread {
 						disp.setList(Dispatcher.NONE);
 						disp.setCsum(Dispatcher.CSUM_FORCE);
 						disp.setNoReturn(true);
-						while (getDb().getUpdateQueueSize()>0 && rs.next()) {
+						while (rs.next()) {
 							DbPathEntry f = getDb().rsToPathEntry(rs);
 							assert(f.isFile() || f.isCompressedFile());
 							disp.dispatch(f);
-							cleanupDbAndListIfRecommended();
+							getDb().consumeSomeUpdateQueue();
 							count++;
+							if (getDb().getUpdateQueueSize()==0) {
+								writelog2("--- cleanup orphans ---");
+								int c = getDb().cleanupOrphans();
+								if (c==0) {
+									writelog2("--- cleanup orphans finished count=0, csum (2/2) finished ---");
+									break;
+								} else {
+									writelog2("--- cleanup orphans finished count=" + c + ", csum (2/2) ongoing ---");
+								}
+							}
 						}
 					} finally {
 						rs.close();
@@ -214,8 +214,10 @@ public class StandardCrawler extends LazyAccessorThread {
 				writelog2("--- consume all update queue finished ---");
 			}
 		} catch (SQLException e) {
+			writeWarning("Warning", "Caught SQLException, trying to recover (this is usually OK)");
 			writelog2("Crawler WARNING caught SQLException, trying to recover");
 			e.printStackTrace();
+			getDb().discardAllQueueItems();
 			getDb().cleanupOrphans();
 			getDb().consumeUpdateQueue();
 		} finally {
@@ -346,7 +348,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		boolean isReadyToCleanupDb = getDb().getUpdateQueueSize() == 0;
 		if (isReadyToCleanupDb) {
 			assert(cleanupDb_RoundRobinState >= 0);
-			assert(cleanupDb_RoundRobinState <= 6);
+			assert(cleanupDb_RoundRobinState <= 5);
 
 			List<Long> dontListRootIds = getDb().getInsertableRootIdList();
 			boolean isReadyToList = getDb().getInsertableQueueSize() < 100000 && getDb().getUpdateQueueSize() == 0;
@@ -396,20 +398,6 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (cleanupDb_RoundRobinState == 3) {
-				writelog2("+++ cleanup directory orphans +++");
-				int count = getDb().cleanupOrphans();
-				writelog2("+++ cleanup directory orphans finished count=" + count + " +++");
-				getDb().consumeSomeUpdateQueue();
-
-				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				} else if (count > 0) {
-					cleanupDb_RoundRobinState--;
-				}
-			}
-
-			if (cleanupDb_RoundRobinState == 4) {
 				writelog2("+++ refresh directory sizes +++");
 				int count = getDb().refreshFolderSizes();
 				writelog2("+++ refresh directory sizes finished count=" + count + " +++");
@@ -423,7 +411,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				}
 			}
 
-			if (cleanupDb_RoundRobinState == 5) {
+			if (cleanupDb_RoundRobinState == 4) {
 				if (isReadyToList) {
 					list(dontListRootIds);
 				} else {
@@ -436,7 +424,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				}
 			}
 
-			if (cleanupDb_RoundRobinState == 6) {
+			if (cleanupDb_RoundRobinState == 5) {
 				unlistDisabledExtensions();
 
 				if (doAllAtOnce) {
@@ -448,7 +436,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (!doAllAtOnce) {
 				cleanupDb_RoundRobinState++;
 			}
-			cleanupDb_RoundRobinState = cleanupDb_RoundRobinState % 7;
+			cleanupDb_RoundRobinState = cleanupDb_RoundRobinState % 6;
 		}
 		getDb().consumeSomeUpdateQueue();
 	}
