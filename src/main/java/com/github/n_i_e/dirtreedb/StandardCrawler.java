@@ -175,6 +175,12 @@ public class StandardCrawler extends LazyAccessorThread {
 				writelog2("--- complete cleanup/list items ---");
 				cleanupDbAndList(true);
 
+				if (getDb().getInsertableQueueSize() == 0 && getDb().getDontInsertQueueSize() > 0) {
+					writelog2("--- cleanup orphans (1/2) ---");
+					int c = getDb().cleanupOrphans();
+					writelog2("--- cleanup orphans (1/2) finished count=" + c + " ---");
+				}
+
 				if (getDb().getUpdateQueueSize()>0) {
 					writelog2("--- csum (2/2) ---");
 					String sql = "SELECT * FROM directory WHERE (type=1 OR type=3) AND (csum IS NULL OR status=2) "
@@ -194,13 +200,13 @@ public class StandardCrawler extends LazyAccessorThread {
 							getDb().consumeSomeUpdateQueue();
 							count++;
 							if (getDb().getUpdateQueueSize()==0) {
-								writelog2("--- cleanup orphans ---");
+								writelog2("--- cleanup orphans (2/2) ---");
 								int c = getDb().cleanupOrphans();
 								if (c==0) {
-									writelog2("--- cleanup orphans finished count=0, csum (2/2) finished ---");
+									writelog2("--- cleanup orphans (2/2) finished count=0, csum (2/2) finished ---");
 									break;
 								} else {
-									writelog2("--- cleanup orphans finished count=" + c + ", csum (2/2) ongoing ---");
+									writelog2("--- cleanup orphans (2/2) finished count=" + c + ", csum (2/2) ongoing ---");
 								}
 							}
 						}

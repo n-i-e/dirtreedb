@@ -73,9 +73,14 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 
 	@Override
 	public void insert(DbPathEntry basedir, PathEntry newentry) throws SQLException, InterruptedException {
-		assert(newentry != null);
+		Assertion.assertNullPointerException(newentry != null);
 		threadHook();
-		parent.insert(basedir, newentry);
+		try {
+			parent.insert(basedir, newentry);
+		} catch (SQLException e) {
+			cleanupOrphans_NoOverride(newentry.getPath());
+			parent.insert(basedir, newentry);
+		}
 	}
 
 	@Override
@@ -114,12 +119,16 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		}
 	}
 
-	@Override
-	public void delete(DbPathEntry entry) throws SQLException, InterruptedException {
+	private void delete_NoOverride(DbPathEntry entry) throws SQLException, InterruptedException {
 		deleteEquality_NoOverride(entry.getPathId());
 		deleteUpperLower_NoOverride(entry.getPathId());
 		threadHook();
 		parent.delete(entry);
+	}
+
+	@Override
+	public void delete(DbPathEntry entry) throws SQLException, InterruptedException {
+		delete_NoOverride(entry);
 	}
 
 	public void delete(Iterator<DbPathEntry> entries) throws SQLException, InterruptedException {
@@ -264,12 +273,13 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 
 		DbPathEntry cursor = entry;
 		while(!cursor.isFile()) {
-			Assertion.assertAssertionError(cursor.isCompressedFile());
+			Assertion.assertAssertionError(cursor.isCompressedFolder() || cursor.isCompressedFile());
 			threadHook();
 			cursor = getParent(cursor);
 			if (cursor == null) {
 				return null; // orphan
 			}
+			Assertion.assertAssertionError(cursor.isFile() || cursor.isCompressedFile());
 			result.add(cursor);
 		}
 		assert(result.size()>0);
@@ -394,16 +404,30 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	/**
 	 * An orphan entry is a DIRECTORY entry with invalid PARENTID (there is no row with PATHID of that number).
 	 */
-	public int cleanupOrphans() throws SQLException, InterruptedException {
-		Statement stmt = createStatement();
+	private int cleanupOrphans(String path, boolean noOverride) throws SQLException, InterruptedException {
+		PreparedStatement ps;
+		if (path == null) {
+			String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 "
+					+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
+			ps = prepareStatement(sql);
+		} else {
+			String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 AND path=? "
+					+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
+			ps = prepareStatement(sql);
+			ps.setString(1, path);
+		}
 		try {
-			ResultSet rs = stmt.executeQuery("SELECT * FROM directory AS d1 WHERE parentid>0 "
-					+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)");
+			ResultSet rs = ps.executeQuery();
 			try {
 				int count = 0;
 				while (rs.next()) {
 					threadHook();
-					delete(rsToPathEntry(rs));
+					if (noOverride) {
+						writelog("cleanupOrphans_NoLazy: deleting " + rsToPathEntry(rs).getPath());
+						delete_NoOverride(rsToPathEntry(rs));
+					} else {
+						delete(rsToPathEntry(rs));
+					}
 					count++;
 				}
 				return count;
@@ -411,8 +435,20 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				rs.close();
 			}
 		} finally {
-			stmt.close();
+			ps.close();
 		}
+	}
+
+	private int cleanupOrphans_NoOverride(String path) throws SQLException, InterruptedException {
+		return cleanupOrphans(path, true);
+	}
+
+	public int cleanupOrphans(String path) throws SQLException, InterruptedException {
+		return cleanupOrphans(path, false);
+	}
+
+	public int cleanupOrphans() throws SQLException, InterruptedException {
+		return cleanupOrphans(null);
 	}
 
 	public void cleanupOrphansAll() throws SQLException, InterruptedException {

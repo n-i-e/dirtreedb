@@ -544,11 +544,12 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 						return dispatchFolder(entry);
 					} else if (entry.isFile()) {
 						return dispatchFile(entry);
+					} else if (entry.isCompressedFolder()) {
+						return dispatchCompressedFolder(entry);
 					} else if (entry.isCompressedFile()) {
 						return dispatchCompressedFile(entry);
 					} else {
-						// COMPRESSEDFOLDER - DON'T DO ANYTHING
-						return new PathEntry(entry);
+						throw new AssertionError();
 					}
 				}
 			} finally {
@@ -811,6 +812,25 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				}
 			});
 			return newentry;
+		}
+
+		protected PathEntry dispatchCompressedFolder(final DbPathEntry entry) throws SQLException, InterruptedException {
+			threadHook();
+
+			final List<DbPathEntry> stack = getCompressionStack(entry);
+			if (stack == null) { return null; /* orphan */ }
+			try {
+				DbPathEntry p1 = stack.get(stack.size()-1);
+				PathEntry p2 = getNewPathEntry(p1);
+				if (!dscMatch(p1, p2)) {
+					updateStatus(p1, PathEntry.DIRTY);
+				}
+			} catch (IOException e) {
+				disable(entry);
+				return null;
+			}
+
+			return entry;
 		}
 
 		protected PathEntry dispatchCompressedFile(final DbPathEntry entry) throws SQLException, InterruptedException {
