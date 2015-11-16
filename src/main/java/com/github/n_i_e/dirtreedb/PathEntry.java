@@ -295,18 +295,18 @@ public class PathEntry {
 	}
 
 	private void assertInvariantConditions() {
-		assert(!isFolder()           ||  getPath().endsWith("\\"));
-		assert(!isFolder()           || !getPath().contains("/"));
-		assert(!isFolder()           ||  isCsumNull());
+		assert(!isFolder()           ||  getPath().endsWith("\\")) : "Folder path is " + getPath();
+		assert(!isFolder()           || !getPath().contains("/"))  : "Folder path is " + getPath();
+		assert(!isFolder()           ||  isCsumNull())             : "Folder path is " + getPath();
 
-		assert(!isFile()             || !getPath().endsWith("\\"));
-		assert(!isFile()             || !getPath().contains("/"));
+		assert(!isFile()             || !getPath().endsWith("\\")) : "File path is " + getPath();
+		assert(!isFile()             || !getPath().contains("/"))  : "File path is " + getPath();
 
-		assert(!isCompressedFolder() ||  getPath().endsWith("/"));
-		assert(!isCompressedFolder() ||  isCsumNull());
+		assert(!isCompressedFolder() ||  getPath().endsWith("/"))  : "CompressedFolder path is " + getPath();
+		assert(!isCompressedFolder() ||  isCsumNull())             : "CompressedFolder path is " + getPath();
 
-		assert(!isCompressedFile()   || !getPath().endsWith("/"));
-		assert(!isCompressedFile()   ||  getPath().contains("/"));
+		assert(!isCompressedFile()   || !getPath().endsWith("/"))  : "CompressedFile path is " + getPath();
+		assert(!isCompressedFile()   ||  getPath().contains("/"))  : "CompressedFile path is " + getPath();
 	}
 
 }

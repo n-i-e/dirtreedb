@@ -42,6 +42,10 @@ public class ArchiveListerFactory {
 			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new LzhLister(base, inf); }
 		};
 
+		final ArchiveListerReturner svnzR = new ArchiveListerReturner () {
+			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new SevenZipArchiveLister(base); }
+		};
+
 		final ArchiveListerReturner gzR = new ArchiveListerReturner () {
 			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new GzLister(base, inf); }
 		};
@@ -68,7 +72,7 @@ public class ArchiveListerFactory {
 		result.put("tbz", apacheCAR);
 		result.put("tgz", apacheCAR);
 		result.put("arj", apacheAR);
-		result.put("7z", apacheAR);
+		result.put("7z", svnzR);
 		result.put("bz2", apacheCR);
 		result.put("xz", apacheCR);
 		result.put("z", apacheCR);

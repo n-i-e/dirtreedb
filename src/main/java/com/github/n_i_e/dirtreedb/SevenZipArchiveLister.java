@@ -16,49 +16,47 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 
-import org.apache.commons.compress.archivers.ArchiveEntry;
-import org.apache.commons.compress.archivers.ArchiveException;
-import org.apache.commons.compress.archivers.ArchiveInputStream;
-import org.apache.commons.compress.archivers.ArchiveStreamFactory;
+import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
+import org.apache.commons.compress.archivers.sevenz.SevenZFile;
 
-public class ApacheCompressArchiveLister extends AbstractArchiveLister {
-	ArchiveInputStream instream;
+public class SevenZipArchiveLister extends AbstractArchiveLister {
+	SevenZFile sevenzfile;
 
-	public ApacheCompressArchiveLister(PathEntry basepath, InputStream inf) throws IOException {
+	public SevenZipArchiveLister(PathEntry basepath) throws IOException {
 		super(basepath);
-		Assertion.assertAssertionError(inf.markSupported());
-		try {
-			instream = new ArchiveStreamFactory().createArchiveInputStream(inf);
-		} catch (ArchiveException e) {
-			throw new IOException(e.toString());
-		}
+		Assertion.assertIOException(basepath.isFile());
+		sevenzfile = new SevenZFile(new File(basepath.getPath()));
 	}
 
 	public InputStream getInputStream() {
-		return instream;
+		return new SevenZipInputStream(sevenzfile);
 	}
 
 	protected void getNext(boolean csum) throws IOException {
 		if (next_entry != null) {
 			return;
 		}
-		ArchiveEntry z = instream.getNextEntry();
+		SevenZArchiveEntry z = sevenzfile.getNextEntry();
 		if (z == null) {
 			return;
 		}
 		int newtype = z.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;
 		String s = z.getName();
 		s = s.replace("\\", "/");
+		if (z.isDirectory() && !s.endsWith("/")) {
+			s = s + "/";
+		}
 		next_entry = new PathEntry(basepath.getPath() + "/" + s, newtype);
 		next_entry.setDateLastModified(z.getLastModifiedDate().getTime());
 		next_entry.setStatus(PathEntry.DIRTY);
 		next_entry.setSize(z.getSize());
 		next_entry.setCompressedSize(z.getSize());
 		if (csum && newtype == PathEntry.COMPRESSEDFILE) {
-			next_entry.setCsum(instream);
+			next_entry.setCsum(new SevenZipInputStream(sevenzfile));
 		}
 		if (next_entry.getSize() < 0) {
 			next_entry.setSize(0);
