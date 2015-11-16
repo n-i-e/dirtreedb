@@ -147,6 +147,31 @@ public class StandardCrawler extends LazyAccessorThread {
 				crawlEqualityUpdate();
 
 				if (true) {
+					writelog2("--- csum (2/2) ---");
+					String sql = "SELECT * FROM directory WHERE (type=1 OR type=3) AND (csum IS NULL OR status=2) "
+							+ dontCheckUpdateRootIdsSubSql;
+					ResultSet rs = stmt.executeQuery(sql);
+					writelog2("--- csum (2/2) query finished ---");
+					int count = 0;
+					try {
+						Dispatcher disp = getDb().getDispatcher();
+						disp.setList(Dispatcher.NONE);
+						disp.setCsum(Dispatcher.CSUM_FORCE);
+						disp.setNoReturn(true);
+						while (rs.next()) {
+							DbPathEntry f = getDb().rsToPathEntry(rs);
+							assert(f.isFile() || f.isCompressedFile());
+							disp.dispatch(f);
+							cleanupDbAndListIfRecommended();
+							count++;
+						}
+					} finally {
+						rs.close();
+					}
+					writelog2("--- csum (2/2) finished count=" + count + " ---");
+				}
+
+				if (true) {
 					writelog2("--- checkupdate ---");
 					Dispatcher disp = getDb().getDispatcher();
 					disp.setList(Dispatcher.NONE);
@@ -175,46 +200,6 @@ public class StandardCrawler extends LazyAccessorThread {
 				writelog2("--- complete cleanup/list items ---");
 				cleanupDbAndList(true);
 
-				if (getDb().getInsertableQueueSize() == 0 && getDb().getDontInsertQueueSize() > 0) {
-					writelog2("--- cleanup orphans (1/2) ---");
-					int c = getDb().cleanupOrphans();
-					writelog2("--- cleanup orphans (1/2) finished count=" + c + " ---");
-				}
-
-				if (getDb().getUpdateQueueSize()>0) {
-					writelog2("--- csum (2/2) ---");
-					String sql = "SELECT * FROM directory WHERE (type=1 OR type=3) AND (csum IS NULL OR status=2) "
-							+ dontCheckUpdateRootIdsSubSql;
-					ResultSet rs = stmt.executeQuery(sql);
-					writelog2("--- csum (2/2) query finished ---");
-					int count = 0;
-					try {
-						Dispatcher disp = getDb().getDispatcher();
-						disp.setList(Dispatcher.NONE);
-						disp.setCsum(Dispatcher.CSUM_FORCE);
-						disp.setNoReturn(true);
-						while (rs.next()) {
-							DbPathEntry f = getDb().rsToPathEntry(rs);
-							assert(f.isFile() || f.isCompressedFile());
-							disp.dispatch(f);
-							getDb().consumeSomeUpdateQueue();
-							count++;
-							if (getDb().getUpdateQueueSize()==0) {
-								writelog2("--- cleanup orphans (2/2) ---");
-								int c = getDb().cleanupOrphans();
-								if (c==0) {
-									writelog2("--- cleanup orphans (2/2) finished count=0, csum (2/2) finished ---");
-									break;
-								} else {
-									writelog2("--- cleanup orphans (2/2) finished count=" + c + ", csum (2/2) ongoing ---");
-								}
-							}
-						}
-					} finally {
-						rs.close();
-					}
-					writelog2("--- csum (2/2) finished count=" + count + " ---");
-				}
 				writelog2("--- consume all update queue ---");
 				getDb().consumeUpdateQueue();
 				writelog2("--- consume all update queue finished ---");
@@ -354,7 +339,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		boolean isReadyToCleanupDb = getDb().getUpdateQueueSize() == 0;
 		if (isReadyToCleanupDb) {
 			assert(cleanupDb_RoundRobinState >= 0);
-			assert(cleanupDb_RoundRobinState <= 5);
+			assert(cleanupDb_RoundRobinState <= 6);
 
 			List<Long> dontListRootIds = getDb().getInsertableRootIdList();
 			boolean isReadyToList = getDb().getInsertableQueueSize() < 100000 && getDb().getUpdateQueueSize() == 0;
@@ -439,10 +424,21 @@ public class StandardCrawler extends LazyAccessorThread {
 				}
 			}
 
+			if (cleanupDb_RoundRobinState == 6) {
+				writelog2("--- cleanup orphans ---");
+				int c = getDb().cleanupOrphans();
+				writelog2("--- cleanup orphans finished count=" + c + " ---");
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				}
+			}
+
 			if (!doAllAtOnce) {
 				cleanupDb_RoundRobinState++;
 			}
-			cleanupDb_RoundRobinState = cleanupDb_RoundRobinState % 6;
+			cleanupDb_RoundRobinState = cleanupDb_RoundRobinState % 7;
 		}
 		getDb().consumeSomeUpdateQueue();
 	}

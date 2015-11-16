@@ -123,6 +123,17 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	}
 
 	@Override
+	protected void delete_LowPriority(final DbPathEntry entry) throws SQLException,
+	InterruptedException {
+		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+		updatequeue.execute(new UpdateQueueableRunnable () {
+			public void run() throws SQLException, InterruptedException {
+				LazyProxyDirTreeDb.super.delete(entry);
+			}
+		}, 1);
+	}
+
+	@Override
 	public void deleteChildren(final DbPathEntry entry)
 			throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
@@ -236,9 +247,17 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		abstract void run() throws SQLException, InterruptedException;
 	}
 
-	public class UpdateQueue extends AsynchronousProducerConsumerIterator<UpdateQueueableRunnable> {
+	public class UpdateQueue extends AsynchronousProducerConsumerIteratorWithPriority<UpdateQueueableRunnable> {
+		public UpdateQueue() {
+			super(2);
+		}
+
 		public void execute(UpdateQueueableRunnable newtodo) throws InterruptedException {
 			add(newtodo);
+		}
+
+		public void execute(UpdateQueueableRunnable newtodo, int priority) throws InterruptedException {
+			add(newtodo, priority);
 		}
 	}
 
@@ -979,13 +998,14 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 		String dss = ds.size()==0 ? "" : "("+String.join(", ", ds)+")";
 
-		System.out.println(String.format("%s qL=%d %s qC=%d %s qS=%d qT=%d %s",
+		System.out.println(String.format("%s qL=%d %s qC=%d %s qS=%d+%d qT=%d %s",
 				new Date().toString(),
 				lazyqueue_insertable.size(),
 				iss,
 				lazyqueue_dontinsert.size(),
 				dss,
-				updatequeue.size(),
+				updatequeue.size(0),
+				updatequeue.size(1),
 				lazyqueue_thread.size(),
 				message));
 	}

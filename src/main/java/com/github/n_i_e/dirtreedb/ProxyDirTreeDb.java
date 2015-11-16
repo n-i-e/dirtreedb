@@ -131,6 +131,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		delete_NoOverride(entry);
 	}
 
+	protected void delete_LowPriority(DbPathEntry entry) throws SQLException, InterruptedException {
+		delete_NoOverride(entry);
+	}
+
 	public void delete(Iterator<DbPathEntry> entries) throws SQLException, InterruptedException {
 		while (entries.hasNext()) {
 			delete(entries.next());
@@ -426,7 +430,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 						writelog("cleanupOrphans_NoLazy: deleting " + rsToPathEntry(rs).getPath());
 						delete_NoOverride(rsToPathEntry(rs));
 					} else {
-						delete(rsToPathEntry(rs));
+						delete_LowPriority(rsToPathEntry(rs));
 					}
 					count++;
 				}

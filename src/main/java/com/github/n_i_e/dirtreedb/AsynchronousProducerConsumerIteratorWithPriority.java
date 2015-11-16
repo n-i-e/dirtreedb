@@ -19,31 +19,40 @@ package com.github.n_i_e.dirtreedb;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-public class AsynchronousProducerConsumerIterator<T> implements Iterator<T>, Iterable<T> {
+public class AsynchronousProducerConsumerIteratorWithPriority<T> implements Iterator<T>, Iterable<T> {
 
-	private ArrayList<T> buffer = new ArrayList<T>();
+	private ArrayList<ArrayList<T>> buffer;
 	private boolean isOpen = true;
 
+	public AsynchronousProducerConsumerIteratorWithPriority(int numPriorityLevels) {
+		buffer = new ArrayList<ArrayList<T>>();
+		for (int i=0; i<numPriorityLevels; i++) {
+			buffer.add(new ArrayList<T>());
+		}
+	}
+
 	public synchronized boolean hasNext() {
-		return buffer.size() > 0;
+		return size() > 0;
 	}
 
 	public synchronized T next() {
-		if (buffer.size() == 0) {
-			return null;
-		} else {
-			T result = buffer.get(0);
-			buffer.remove(0);
-			return result;
+		for(ArrayList<T> element: buffer) {
+			if (element.size() > 0) {
+				T result = element.get(0);
+				element.remove(0);
+				return result;
+			}
 		}
+		return null;
 	}
 
 	public synchronized T previewNext() {
-		if (buffer.size() == 0) {
-			return null;
-		} else {
-			return buffer.get(0);
+		for(ArrayList<T> element: buffer) {
+			if (element.size() > 0) {
+				return element.get(0);
+			}
 		}
+		return null;
 	}
 
 	public synchronized Iterator<T> iterator() {
@@ -51,12 +60,25 @@ public class AsynchronousProducerConsumerIterator<T> implements Iterator<T>, Ite
 	}
 
 	public synchronized int size() {
-		return buffer.size();
+		int result = 0;
+		for(ArrayList<T> element: buffer) {
+			result += element.size();
+		}
+		return result;
 	}
 
-	public synchronized void add(T op) {
+	public synchronized int size(int priority) {
+		return buffer.get(priority).size();
+	}
+
+	public synchronized void add(T op, int priority) {
+		Assertion.assertAssertionError(priority < buffer.size());
 		Assertion.assertNullPointerException(isOpen, "!! AsynchronousProducerConsumerIterator already closed");
-		buffer.add(op);
+		buffer.get(priority).add(op);
+	}
+
+	public void add(T op) {
+		add(op, 0);
 	}
 
 	public synchronized void close() {
