@@ -331,7 +331,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 	}
 
-	public void consumeSomeUpdateQueueWithTimeLimit(int milliseconds) throws InterruptedException, SQLException {
+	public void consumeSomeUpdateQueueWithTimeLimit(long milliseconds) throws InterruptedException, SQLException {
 		long t1 = new Date().getTime();
 		threadHook();
 		while ((lazyqueue_insertable.size() > 0 || lazyqueue_dontinsert.size() > 0) && updatequeue.size() > 0) {
