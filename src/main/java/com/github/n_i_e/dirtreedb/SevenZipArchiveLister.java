@@ -19,6 +19,8 @@ package com.github.n_i_e.dirtreedb;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
@@ -26,10 +28,20 @@ import org.apache.commons.compress.archivers.sevenz.SevenZFile;
 public class SevenZipArchiveLister extends AbstractArchiveLister {
 	SevenZFile sevenzfile;
 
-	public SevenZipArchiveLister(PathEntry basepath) throws IOException {
+	public SevenZipArchiveLister(PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
-		Assertion.assertIOException(basepath.isFile());
-		sevenzfile = new SevenZFile(new File(basepath.getPath()));
+		Assertion.assertIOException(basepath.isFile() || basepath.isCompressedFile());
+		if (basepath.isFile()) {
+			sevenzfile = new SevenZFile(new File(basepath.getPath()));
+		} else {
+			File toFile = File.createTempFile("DTDB", "temp.7z");
+			Assertion.assertNullPointerException(toFile != null);
+			Assertion.assertAssertionError(toFile.canWrite());
+			toFile.deleteOnExit();
+			Files.copy(inf, toFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			inf.close();
+			sevenzfile = new SevenZFile(toFile);
+		}
 	}
 
 	public InputStream getInputStream() {
