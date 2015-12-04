@@ -333,6 +333,7 @@ public class StandardCrawler extends LazyAccessorThread {
 	}
 
 	private static int cleanupDb_RoundRobinState = 0;
+	private static int cleanupDb_RefreshDirectorySizesCounter = 0;
 	private void cleanupDbAndList(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
 		getDb().consumeSomeUpdateQueue();
 
@@ -370,6 +371,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					getDb().consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
 				}
+				cleanupDb_RefreshDirectorySizesCounter = 0;
 			}
 
 			if (cleanupDb_RoundRobinState == 2) {
@@ -397,8 +399,9 @@ public class StandardCrawler extends LazyAccessorThread {
 				if (doAllAtOnce) {
 					getDb().consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
-				} else if (count > 0) {
+				} else if (count > 0 && cleanupDb_RefreshDirectorySizesCounter < 10) {
 					cleanupDb_RoundRobinState--;
+					cleanupDb_RefreshDirectorySizesCounter++;
 				}
 			}
 
