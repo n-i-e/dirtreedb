@@ -833,6 +833,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				update(entry, newentry);
 			} catch (IOException e) {
 				disable(entry, newentry);
+			} catch (OutOfMemoryError e) {
+				writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
+				e.printStackTrace();
+				disable(entry, newentry);
 			}
 			return newentry;
 		}
@@ -877,6 +881,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				update(entry, newentry);
 			} catch (IOException e) {
 				disable(entry);
+			} catch (OutOfMemoryError e) {
+				writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
+				e.printStackTrace();
+				disable(entry, newentry);
 			}
 			return newentry;
 		}

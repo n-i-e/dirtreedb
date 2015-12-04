@@ -669,6 +669,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					} catch (IOException e) {
 						disable(entry, newentry);
 						return;
+					} catch (OutOfMemoryError e) {
+						writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
+						e.printStackTrace();
+						disable(entry, newentry);
+						return;
 					}
 					update(entry, newentry);
 				}
@@ -720,6 +725,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 						}
 					} catch (IOException e) {
 						disable(entry);
+						return;
+					} catch (OutOfMemoryError e) {
+						writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
+						e.printStackTrace();
+						disable(entry, newentry);
 						return;
 					}
 					update(entry, newentry);
@@ -826,6 +836,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					} catch (IOException e) {
 						disable(entry, newentry);
 						return;
+					} catch (OutOfMemoryError e) {
+						writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
+						e.printStackTrace();
+						disable(entry, newentry);
+						return;
 					}
 					update(entry, newentry);
 				}
@@ -907,6 +922,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 						}
 					} catch (IOException e) {
 						disable(entry);
+						return;
+					} catch (OutOfMemoryError e) {
+						writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
+						e.printStackTrace();
+						disable(entry, newentry);
 						return;
 					}
 					update(entry, newentry);
