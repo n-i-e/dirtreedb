@@ -316,8 +316,15 @@ public class StandardCrawler extends LazyAccessorThread {
 		writelog2("--- equality finished count=" + count + " ---");
 	}
 
+	long debugBeaconMessageTimer = 0L;
 	@Override
 	public void threadHook() throws InterruptedException {
+		long t = new Date().getTime();
+		if (t - debugBeaconMessageTimer >= 10*60*1000) {
+			debugBeaconMessageTimer = t;
+			writelog2("beacon.");
+		}
+
 		super.threadHook();
 		if (!IsWin32Idle.isWin32Idle()) {
 			throw new InterruptedException("!! Windows busy now! get out!");
@@ -340,7 +347,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		boolean isReadyToCleanupDb = getDb().getUpdateQueueSize() == 0;
 		if (isReadyToCleanupDb) {
 			assert(cleanupDb_RoundRobinState >= 0);
-			assert(cleanupDb_RoundRobinState <= 6);
+			assert(cleanupDb_RoundRobinState <= 7);
 
 			List<Long> dontListRootIds = getDb().getInsertableRootIdList();
 			boolean isReadyToList = getDb().getInsertableQueueSize() < 100000 && getDb().getUpdateQueueSize() == 0;
@@ -407,9 +414,11 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (cleanupDb_RoundRobinState == 4) {
 				if (isReadyToList) {
-					list(dontListRootIds);
+					writelog2("+++ list (1/2) +++");
+					int count = list(dontListRootIds, "type=0");
+					writelog2("+++ list (1/2) finished count=" + count + " +++");
 				} else {
-					writelog2("+++ SKIP list +++");
+					writelog2("+++ SKIP list (1/2) +++");
 				}
 
 				if (doAllAtOnce) {
@@ -419,7 +428,13 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (cleanupDb_RoundRobinState == 5) {
-				unlistDisabledExtensions();
+				if (isReadyToList) {
+					writelog2("+++ list (2/2) +++");
+					int count = list(dontListRootIds, "((type=1 OR type=3) AND (" + getArchiveExtSubSql() + "))");
+					writelog2("+++ list (2/2) finished count=" + count + " +++");
+				} else {
+					writelog2("+++ SKIP list (2/2) +++");
+				}
 
 				if (doAllAtOnce) {
 					getDb().consumeSomeUpdateQueue();
@@ -428,6 +443,15 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (cleanupDb_RoundRobinState == 6) {
+				unlistDisabledExtensions();
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				}
+			}
+
+			if (cleanupDb_RoundRobinState == 7) {
 				writelog2("--- cleanup orphans ---");
 				int c = getDb().cleanupOrphans();
 				writelog2("--- cleanup orphans finished count=" + c + " ---");
@@ -441,37 +465,27 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (!doAllAtOnce) {
 				cleanupDb_RoundRobinState++;
 			}
-			cleanupDb_RoundRobinState = cleanupDb_RoundRobinState % 7;
+			cleanupDb_RoundRobinState = cleanupDb_RoundRobinState % 8;
 		}
 		getDb().consumeSomeUpdateQueue();
 	}
 
 	private void list(List<Long> dontListRootIds) throws SQLException, InterruptedException, IOException {
+		writelog2("+++ list +++");
+		int count = list(dontListRootIds, "(type=0 OR ((type=1 OR type=3) AND (" + getArchiveExtSubSql() + "))) ");
+		writelog2("+++ list finished count=" + count + " +++");
+	}
+
+	private int list(List<Long> dontListRootIds, String typeSubSql) throws SQLException, InterruptedException, IOException {
 		Statement stmt = getDb().createStatement();
 
-		ArrayList<String> p = new ArrayList<String>();
-		HashMap<String, Boolean> eal = getConf().getExtensionAvailabilityMap();
-		for (String ext: ArchiveListerFactory.getExtensionList()) {
-			Boolean v = eal.get(ext);
-			if (v != null && v) {
-				p.add("path LIKE '%." + ext + "'");
-			}
-		}
-		String archiveExtSubSql;
-		if (p.size() == 0) {
-			archiveExtSubSql = "";
-		} else {
-			archiveExtSubSql = "AND (" + String.join(" OR ", p) + ")";
-		}
-
-		writelog2("+++ list +++");
 		Dispatcher disp = getDb().getDispatcher();
 		disp.setList(Dispatcher.LIST);
 		disp.setCsum(Dispatcher.NONE);
 		disp.setNoReturn(true);
 
 		String sql = "SELECT d1.*, childhint FROM (SELECT * FROM directory WHERE "
-				+ "(type=0 OR ((type=1 OR type=3) " + archiveExtSubSql + ")) "
+				+ typeSubSql
 				+ getDontListRootIdsSubSql(dontListRootIds)
 				+ " AND (status=1 OR status=2 OR parentid=0)) AS d1 "
 				+ "LEFT JOIN "
@@ -500,7 +514,25 @@ public class StandardCrawler extends LazyAccessorThread {
 		} finally {
 			rs.close();
 		}
-		writelog2("+++ list finished count=" + count + " +++");
+		return count;
+	}
+
+	private String getArchiveExtSubSql() {
+		ArrayList<String> p = new ArrayList<String>();
+		HashMap<String, Boolean> eal = getConf().getExtensionAvailabilityMap();
+		for (String ext: ArchiveListerFactory.getExtensionList()) {
+			Boolean v = eal.get(ext);
+			if (v != null && v) {
+				p.add("path LIKE '%." + ext + "'");
+			}
+		}
+		String result;
+		if (p.size() == 0) {
+			result = "";
+		} else {
+			result = String.join(" OR ", p);
+		}
+		return result;
 	}
 
 	private static String getDontListRootIdsSubSql(List<Long> dontListRootIds) {
