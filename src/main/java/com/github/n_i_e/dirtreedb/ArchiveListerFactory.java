@@ -62,6 +62,10 @@ public class ArchiveListerFactory {
 			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new ApacheCompressCompressingArchiveLister(base, inf); }
 		};
 
+		final ArchiveListerReturner emlR = new ArchiveListerReturner () {
+			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new EmlLister(base, inf); }
+		};
+
 		result.put("zip", zipR);
 		result.put("lzh", lzhR);
 		result.put("gz", gzR);
@@ -78,6 +82,8 @@ public class ArchiveListerFactory {
 		result.put("z", apacheCR);
 		result.put("lzma", apacheCR);
 		result.put("sz", apacheCR);
+		result.put("eml", emlR);
+		result.put("wdseml", emlR);
 
 		result.put("jar", uzipR);
 
