@@ -148,8 +148,9 @@ public class StandardCrawler extends LazyAccessorThread {
 
 				if (true) {
 					writelog2("--- csum (2/2) ---");
-					String sql = "SELECT * FROM directory WHERE (type=1 OR type=3) AND (csum IS NULL OR status=2) "
-							+ dontCheckUpdateRootIdsSubSql;
+					String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND (csum IS NULL OR status=2) "
+							+ dontCheckUpdateRootIdsSubSql
+							+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND status=0)";
 					ResultSet rs = stmt.executeQuery(sql);
 					writelog2("--- csum (2/2) query finished ---");
 					int count = 0;
@@ -178,8 +179,10 @@ public class StandardCrawler extends LazyAccessorThread {
 					disp.setCsum(Dispatcher.NONE);
 					disp.setNoReturn(true);
 
-					String sql = "SELECT * FROM directory AS d1 WHERE ((type=0 AND status<>1) OR type=1) "
-							+ dontCheckUpdateRootIdsSubSql + " ORDER BY datelastmodified DESC";
+					String sql = "SELECT * FROM directory AS d1 WHERE ((type=0 AND status=0) OR type=1) "
+							+ dontCheckUpdateRootIdsSubSql
+							+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND type=0 AND status=0)"
+							+ " ORDER BY datelastmodified DESC";
 					ResultSet rs = stmt.executeQuery(sql);
 					writelog2("--- checkupdate query finished ---");
 					int count = 0;
@@ -490,6 +493,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				+ " AND (status=1 OR status=2 OR parentid=0)) AS d1 "
 				+ "LEFT JOIN "
 				+ "(SELECT DISTINCT parentid AS childhint FROM directory) AS d2 ON pathid=childhint";
+		writelog2(sql);
 		ResultSet rs = stmt.executeQuery(sql);
 		writelog2("+++ list query finished +++");
 		int count = 0;
@@ -567,7 +571,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		} else {
 			dontArchiveExtSubSql = "AND (" + String.join(" OR ", ext) + ")";
 			String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) " + dontArchiveExtSubSql
-					+ "AND EXISTS (SELECT * FROM directory AS d2 WHERE d1.pathid=d2.parentid)";
+					+ " AND EXISTS (SELECT * FROM directory AS d2 WHERE d1.pathid=d2.parentid)";
 			ResultSet rs = stmt.executeQuery(sql);
 			int count = 0;
 			try {
