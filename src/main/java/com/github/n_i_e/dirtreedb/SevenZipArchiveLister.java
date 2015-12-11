@@ -58,6 +58,9 @@ public class SevenZipArchiveLister extends AbstractArchiveLister {
 		}
 		int newtype = z.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;
 		String s = z.getName();
+		if (s == null) {
+			throw new NullPointerException("!! name is null at SevenZipArchiveLister: basepath=" + basepath.getPath());
+		};
 		s = s.replace("\\", "/");
 		if (z.isDirectory() && !s.endsWith("/")) {
 			s = s + "/";
