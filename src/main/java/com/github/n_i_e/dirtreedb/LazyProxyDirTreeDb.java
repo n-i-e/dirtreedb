@@ -996,7 +996,12 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			LazyQueue lq = inserting ? lazyqueue_insertable : lazyqueue_dontinsert;
 			lq.execute(p, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException {
-					Dispatcher.super.checkEquality(stack1, stack2, inserting);
+					try {
+						Dispatcher.super.checkEquality(stack1, stack2, inserting);
+					} catch (OutOfMemoryError e){
+						writelog2("OutOfMemoryError caught: entry1=" + entry1.getPath() + ", entry2=" + entry2.getPath());
+						throw e;
+					}
 				}
 			});
 		}

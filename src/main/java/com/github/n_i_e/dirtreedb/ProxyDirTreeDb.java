@@ -1096,6 +1096,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					disable(re);
 				}
 				return false;
+			} catch (OutOfMemoryError e) {
+				writelog("!! OutOfMemory at ProxyDirTreeDb re=" + re.getPath());
+				throw e;
 			}
 		}
 	}
