@@ -120,7 +120,12 @@ public class EmlLister extends AbstractArchiveLister {
 		return;
 	}
 
-    private static String subjectToFilename(String subject, String type, int subjectFilenameCount) {
+	@Override
+	public void close() throws IOException {
+		inf.close();
+	}
+
+	private static String subjectToFilename(String subject, String type, int subjectFilenameCount) {
 		String ext;
 		if (type.startsWith("text/html")) {
 			ext = ".html";
@@ -146,22 +151,22 @@ public class EmlLister extends AbstractArchiveLister {
     	}
 	}
 
-	private static InputStream textContentToInputStream(Object content) throws IOException {
+	private InputStream textContentToInputStream(Object content) throws IOException {
 		try {
-			return new AddBomInputStream((InputStream) content);
+			return new AddBomInputStreamWithCascadingClose((InputStream) content);
 		} catch (ClassCastException e) {
-			return new ByteArrayInputStream(getByteArrayWithBom(content.toString()));
+			return new ByteArrayInputStreamWithCascadingClose(getByteArrayWithBom(content.toString()));
 		}
 	}
 
-	private static InputStream binaryContentToInputStream(Object content) {
+	private InputStream binaryContentToInputStream(Object content) {
 		try {
 			return (InputStream) content;
 		} catch (ClassCastException e) {
 			try {
-				return new ByteArrayInputStream((byte[]) content);
+				return new ByteArrayInputStreamWithCascadingClose((byte[]) content);
 			} catch (ClassCastException e2) {
-				return new ByteArrayInputStream(getByteArrayWithBom(content.toString()));
+				return new ByteArrayInputStreamWithCascadingClose(getByteArrayWithBom(content.toString()));
 			}
 		}
 	}
@@ -181,7 +186,33 @@ public class EmlLister extends AbstractArchiveLister {
 		}
 	}
 
-	static class AddBomInputStream extends SequenceInputStream {
+	private class ByteArrayInputStreamWithCascadingClose extends ByteArrayInputStream {
+
+		public ByteArrayInputStreamWithCascadingClose(byte[] inArray) {
+			super(inArray);
+		}
+
+		@Override
+		public void close() throws IOException {
+			super.close();
+			EmlLister.this.close();
+		}
+	}
+
+	private class AddBomInputStreamWithCascadingClose extends AddBomInputStream {
+
+		public AddBomInputStreamWithCascadingClose(InputStream inf) throws IOException {
+			super(inf);
+		}
+
+		@Override
+		public void close() throws IOException {
+			super.close();
+			EmlLister.this.close();
+		}
+	}
+
+	private static class AddBomInputStream extends SequenceInputStream {
 
 		static final byte[] utf8bom = {(byte)0xEF, (byte)0xBB, (byte)0xBF};
 
