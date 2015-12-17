@@ -106,9 +106,13 @@ public class StandardCrawler extends LazyAccessorThread {
 				writelog2("--- starting main loop ---");
 				getDb().consumeUpdateQueue();
 
+				boolean dontCrawlEquality = false;
 				ArrayList<String> s = new ArrayList<String>();
 				for (Long i: getDb().getDontInsertRootIdList()) {
 					s.add("rootid<>" + i);
+					if (i == 0) {
+						dontCrawlEquality = true;
+					}
 				}
 				String dontCheckUpdateRootIdsSubSql;
 				if (s.size() > 0) {
@@ -119,10 +123,13 @@ public class StandardCrawler extends LazyAccessorThread {
 
 				if (true) {
 					writelog2("--- csum (1/2) ---");
-					String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND csum IS NULL "
-							+ dontCheckUpdateRootIdsSubSql + " AND EXISTS (SELECT * FROM directory AS d2 "
+					String sql = "SELECT * FROM directory AS d1 WHERE ((type=1 AND status<>2) OR type=3) "
+							+ "AND csum IS NULL "
+							+ dontCheckUpdateRootIdsSubSql
+							+ " AND EXISTS (SELECT * FROM directory AS d2 "
 							+ "WHERE (type=1 OR type=3) AND d1.size=d2.size AND d1.pathid<>d2.pathid) "
-							+ "ORDER BY size DESC";
+							//+ "ORDER BY size DESC"
+							;
 					ResultSet rs = stmt.executeQuery(sql);
 					writelog2("--- csum (1/2) query finished ---");
 					int count = 0;
@@ -144,7 +151,9 @@ public class StandardCrawler extends LazyAccessorThread {
 					writelog2("--- csum (1/2) finished count=" + count + " ---");
 				}
 
-				crawlEqualityUpdate();
+				if (!dontCrawlEquality) {
+					crawlEqualityUpdate();
+				}
 
 				if (true) {
 					writelog2("--- csum (2/2) ---");
@@ -182,7 +191,8 @@ public class StandardCrawler extends LazyAccessorThread {
 					String sql = "SELECT * FROM directory AS d1 WHERE ((type=0 AND status=0) OR type=1) "
 							+ dontCheckUpdateRootIdsSubSql
 							+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND type=0 AND status=0)"
-							+ " ORDER BY datelastmodified DESC";
+							//+ " ORDER BY datelastmodified DESC"
+							;
 					ResultSet rs = stmt.executeQuery(sql);
 					writelog2("--- checkupdate query finished ---");
 					int count = 0;
@@ -219,19 +229,23 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 	}
 
-	@Deprecated
 	private void crawlEqualityNew(boolean skipNoAccess, List<Long> dontListRootIds)
 			throws SQLException, InterruptedException, IOException {
 		writelog2("+++ equality (new) +++");
 		int count1 = 0;
 		Statement stmt = getDb().createStatement();
 		try {
-			String sql1 = "SELECT size, csum FROM directory "
-					+ "WHERE csum IS NOT NULL "
+			String sql1 = "SELECT d1.size, d1.csum FROM (SELECT size, csum, MAX(duplicate) AS duplicate "
+					+ "FROM directory WHERE csum IS NOT NULL AND duplicate>=1 "
 					+ (skipNoAccess ? "AND status<>2 " : "")
-					+ "GROUP BY size, csum "
-					+ "HAVING count(*)>=2 AND count(*)-1>max(duplicate) "
-					+ "ORDER BY size DESC";
+					+ "AND EXISTS (SELECT * FROM (SELECT COUNT(*) AS c FROM equality "
+					+ "WHERE pathid1=pathid OR pathid2=pathid) WHERE c<duplicate) "
+					+ "GROUP BY size, csum) AS d1 "
+					//+ "LEFT JOIN (SELECT size, csum, count(*) AS c FROM equality GROUP BY size, csum) AS d2 "
+					//+ "ON d1.size=d2.size AND d1.csum=d2.csum WHERE c IS NULL OR c<duplicate*(duplicate+1)/2 "
+					//+ "ORDER BY d1.size DESC"
+					;
+			writelog2(sql1);
 			ResultSet rs1 = stmt.executeQuery(sql1);
 			writelog2("+++ equality (new) query finished +++");
 			try {
@@ -350,7 +364,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		boolean isReadyToCleanupDb = getDb().getUpdateQueueSize() == 0;
 		if (isReadyToCleanupDb) {
 			assert(cleanupDb_RoundRobinState >= 0);
-			assert(cleanupDb_RoundRobinState <= 7);
+			assert(cleanupDb_RoundRobinState <= 8);
 
 			List<Long> dontListRootIds = getDb().getInsertableRootIdList();
 			boolean isReadyToList = getDb().getInsertableQueueSize() < 100000 && getDb().getUpdateQueueSize() == 0;
@@ -418,7 +432,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (cleanupDb_RoundRobinState == 4) {
 				if (isReadyToList) {
 					writelog2("+++ list (1/2) +++");
-					int count = list(dontListRootIds, "type=0");
+					int count = list(dontListRootIds, "type=0", "", "ORDER BY status DESC");
 					writelog2("+++ list (1/2) finished count=" + count + " +++");
 				} else {
 					writelog2("+++ SKIP list (1/2) +++");
@@ -433,7 +447,10 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (cleanupDb_RoundRobinState == 5) {
 				if (isReadyToList) {
 					writelog2("+++ list (2/2) +++");
-					int count = list(dontListRootIds, "((type=1 OR type=3) AND (" + getArchiveExtSubSql() + "))");
+					int count = list(dontListRootIds,
+							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + "))",
+							" AND (status=1 OR status=2)",
+							"");
 					writelog2("+++ list (2/2) finished count=" + count + " +++");
 				} else {
 					writelog2("+++ SKIP list (2/2) +++");
@@ -455,9 +472,9 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (cleanupDb_RoundRobinState == 7) {
-				writelog2("--- cleanup orphans ---");
+				writelog2("+++ cleanup orphans +++");
 				int c = getDb().cleanupOrphans();
-				writelog2("--- cleanup orphans finished count=" + c + " ---");
+				writelog2("+++ cleanup orphans finished count=" + c + " +++");
 
 				if (doAllAtOnce) {
 					getDb().consumeSomeUpdateQueue();
@@ -465,21 +482,67 @@ public class StandardCrawler extends LazyAccessorThread {
 				}
 			}
 
+			if (cleanupDb_RoundRobinState == 8) {
+				if (isReadyToList && !dontListRootIds.contains(0L)) {
+					crawlEqualityNew(true, dontListRootIds);
+				} else {
+					writelog2("+++ SKIP equality (new) +++");
+				}
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				}
+			}
+/*
+			if (cleanupDb_RoundRobinState == 9) {
+				writelog2("+++ reset diretories to dirty +++");
+				int count = 0;
+				Statement stmt = getDb().createStatement();
+				try {
+					ResultSet rs = stmt.executeQuery("SELECT * FROM directory WHERE type=0 AND status=0");
+					writelog2("+++ reset diretories to dirty query finished +++");
+					try {
+						while (rs.next()) {
+							DbPathEntry entry = getDb().rsToPathEntry(rs);
+							getDb().updateStatus(entry, PathEntry.DIRTY);
+							getDb().consumeSomeUpdateQueue();
+							count++;
+						}
+					} finally {
+						rs.close();
+					}
+				} finally {
+					stmt.close();
+				}
+				writelog2("+++ reset diretories to dirty query finished count=" + count + " +++");
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				}
+			}
+*/
+
 			if (!doAllAtOnce) {
 				cleanupDb_RoundRobinState++;
 			}
-			cleanupDb_RoundRobinState = cleanupDb_RoundRobinState % 8;
+			cleanupDb_RoundRobinState = cleanupDb_RoundRobinState % 9;
 		}
 		getDb().consumeSomeUpdateQueue();
 	}
 
 	private void list(List<Long> dontListRootIds) throws SQLException, InterruptedException, IOException {
 		writelog2("+++ list +++");
-		int count = list(dontListRootIds, "(type=0 OR ((type=1 OR type=3) AND (" + getArchiveExtSubSql() + "))) ");
+		int count = list(dontListRootIds, 
+				"(type=0 OR ((type=1 OR type=3) AND (" + getArchiveExtSubSql() + "))) ",
+				" AND (status=1 OR status=2 OR parentid=0))",
+				"");
 		writelog2("+++ list finished count=" + count + " +++");
 	}
 
-	private int list(List<Long> dontListRootIds, String typeSubSql) throws SQLException, InterruptedException, IOException {
+	private int list(List<Long> dontListRootIds, String typeSubSql, String statusSubSql, String orderSubSql)
+			throws SQLException, InterruptedException, IOException {
 		Statement stmt = getDb().createStatement();
 
 		Dispatcher disp = getDb().getDispatcher();
@@ -490,9 +553,12 @@ public class StandardCrawler extends LazyAccessorThread {
 		String sql = "SELECT d1.*, childhint FROM (SELECT * FROM directory WHERE "
 				+ typeSubSql
 				+ getDontListRootIdsSubSql(dontListRootIds)
-				+ " AND (status=1 OR status=2 OR parentid=0)) AS d1 "
+				+ statusSubSql
+				+ ") AS d1 "
 				+ "LEFT JOIN "
-				+ "(SELECT DISTINCT parentid AS childhint FROM directory) AS d2 ON pathid=childhint";
+				+ "(SELECT DISTINCT parentid AS childhint FROM directory) AS d2 ON pathid=childhint "
+				+ orderSubSql
+				;
 		writelog2(sql);
 		ResultSet rs = stmt.executeQuery(sql);
 		writelog2("+++ list query finished +++");
@@ -506,8 +572,6 @@ public class StandardCrawler extends LazyAccessorThread {
 					disp.setNoChildInDb(false);
 				}
 				DbPathEntry f = getDb().rsToPathEntry(rs);
-				Assertion.assertAssertionError(f.isDirty() || f.isNoAccess() || f.getParentId()==0,
-						"!! STATUS NOT DIRTY: " + f.getStatus() + " at " + f.getPath());
 				Assertion.assertAssertionError(f.isFolder()
 						|| ((f.isFile() || f.isCompressedFile()) && ArchiveListerFactory.isArchivable(f)),
 						"!! CANNOT LIST THIS ENTRY: " + f.getType() + " at " + f.getPath());
