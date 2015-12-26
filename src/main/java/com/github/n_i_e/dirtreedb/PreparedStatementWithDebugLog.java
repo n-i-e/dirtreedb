@@ -26,16 +26,15 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
 
-public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
+public class PreparedStatementWithDebugLog extends AbstractStatementWithDebugLog implements PreparedStatement {
 	private PreparedStatement instance;
-	private String sql = "";
 	private HashMap<Integer, String> parameter = new HashMap<Integer, String>();
 
-	public PreparedStatementWithSlowQueryLog(PreparedStatement originalPreparedStatement) {
+	public PreparedStatementWithDebugLog(PreparedStatement originalPreparedStatement) {
 		instance = originalPreparedStatement;
 	}
 
-	public PreparedStatementWithSlowQueryLog(PreparedStatement originalPreparedStatement, String sql) {
+	public PreparedStatementWithDebugLog(PreparedStatement originalPreparedStatement, String sql) {
 		instance = originalPreparedStatement;
 		this.sql = sql;
 	}
@@ -45,7 +44,7 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 		this.sql = sql;
 		long t1 = (new java.util.Date()).getTime();
 		try {
-			return ResultSetWithIntegrityCheck.create(instance.executeQuery(sql));
+			return ResultSetWithDebugLog.create(instance.executeQuery(sql), this);
 		} finally {
 			long dt = (new java.util.Date()).getTime() - t1;
 			if (dt > 30*1000) {
@@ -144,7 +143,7 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 
 	@Override
 	public ResultSet getResultSet() throws SQLException {
-		return ResultSetWithIntegrityCheck.create(instance.getResultSet());
+		return ResultSetWithDebugLog.create(instance.getResultSet(), this);
 	}
 
 	@Override
@@ -223,7 +222,7 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 
 	@Override
 	public ResultSet getGeneratedKeys() throws SQLException {
-		return ResultSetWithIntegrityCheck.create(instance.getGeneratedKeys());
+		return ResultSetWithDebugLog.create(instance.getGeneratedKeys(), this);
 	}
 
 	@Override
@@ -359,7 +358,7 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 	public ResultSet executeQuery() throws SQLException {
 		long t1 = (new java.util.Date()).getTime();
 		try {
-			return ResultSetWithIntegrityCheck.create(instance.executeQuery());
+			return ResultSetWithDebugLog.create(instance.executeQuery(), this);
 		} finally {
 			long dt = (new java.util.Date()).getTime() - t1;
 			if (dt > 30*1000) {
@@ -415,8 +414,8 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 		parameter.put(new Integer(parameterIndex), String.valueOf(x));
 		try {
 			instance.setLong(parameterIndex, x);
-		} catch (Throwable e) {
-			writelog("Throwable caught at setLong: parameterIndex=" + parameterIndex + " vaule=" + x);
+		} catch (SQLException e) {
+			writelog("SQLException caught at setLong: parameterIndex=" + parameterIndex + " vaule=" + x);
 			writelogQuery();
 			throw e;
 		}
@@ -731,13 +730,6 @@ public class PreparedStatementWithSlowQueryLog implements PreparedStatement {
 		for (int key: keylist) {
 			writelog(key + " " + parameter.get(key));
 		}
-	}
-
-	protected static void writelog(final String message) {
-		java.util.Date now = new java.util.Date();
-		System.out.print(now);
-		System.out.print(" ");
-		System.out.println(message);
 	}
 
 }

@@ -38,19 +38,22 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Map;
 
-public class ResultSetWithIntegrityCheck implements ResultSet {
+public class ResultSetWithDebugLog implements ResultSet {
 	private ResultSet instance;
+	private AbstractStatementWithDebugLog stmt;
 	private int rowcount = 0;
 
-	public ResultSetWithIntegrityCheck(ResultSet originalResultSet) {
+	public ResultSetWithDebugLog(ResultSet originalResultSet, AbstractStatementWithDebugLog stmt) {
 		instance = originalResultSet;
+		this.stmt = stmt;
 	}
 
-	public static ResultSetWithIntegrityCheck create(ResultSet originalResultSet) {
+	public static ResultSetWithDebugLog create(ResultSet originalResultSet,
+			AbstractStatementWithDebugLog stmt) {
 		if (originalResultSet == null) {
 			return null;
 		} else {
-			return new ResultSetWithIntegrityCheck(originalResultSet);
+			return new ResultSetWithDebugLog(originalResultSet, stmt);
 		}
 	}
 
@@ -66,7 +69,16 @@ public class ResultSetWithIntegrityCheck implements ResultSet {
 
 	@Override
 	public boolean next() throws SQLException {
-		boolean result = instance.next();
+		boolean result;
+		try {
+			result = instance.next();
+		} catch (SQLException e) {
+			if (stmt != null) {
+				e.printStackTrace();
+				stmt.writelogQuery();
+			}
+			throw e;
+		}
 		rowcount++;
 		if (result) {
 			Assertion.assertAssertionError(instance.getRow() == rowcount, instance.getRow() + " != " + rowcount);
@@ -125,6 +137,7 @@ public class ResultSetWithIntegrityCheck implements ResultSet {
 	}
 
 	@Override
+	@Deprecated
 	public BigDecimal getBigDecimal(int columnIndex, int scale)
 			throws SQLException {
 		return instance.getBigDecimal(columnIndex, scale);
@@ -156,6 +169,7 @@ public class ResultSetWithIntegrityCheck implements ResultSet {
 	}
 
 	@Override
+	@Deprecated
 	public InputStream getUnicodeStream(int columnIndex) throws SQLException {
 		return instance.getUnicodeStream(columnIndex);
 	}
@@ -206,6 +220,7 @@ public class ResultSetWithIntegrityCheck implements ResultSet {
 	}
 
 	@Override
+	@Deprecated
 	public BigDecimal getBigDecimal(String columnLabel, int scale)
 			throws SQLException {
 		return instance.getBigDecimal(columnLabel, scale);
@@ -237,6 +252,7 @@ public class ResultSetWithIntegrityCheck implements ResultSet {
 	}
 
 	@Override
+	@Deprecated
 	public InputStream getUnicodeStream(String columnLabel) throws SQLException {
 		return instance.getUnicodeStream(columnLabel);
 	}
