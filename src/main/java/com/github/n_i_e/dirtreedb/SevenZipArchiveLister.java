@@ -27,9 +27,11 @@ import org.apache.commons.compress.archivers.sevenz.SevenZFile;
 
 public class SevenZipArchiveLister extends AbstractArchiveLister {
 	SevenZFile sevenzfile;
+	InputStream inf;
 
 	public SevenZipArchiveLister(PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
+		this.inf = inf;
 		Assertion.assertIOException(basepath.isFile() || basepath.isCompressedFile());
 		if (basepath.isFile()) {
 			sevenzfile = new SevenZFile(new File(basepath.getPath()));
@@ -39,13 +41,12 @@ public class SevenZipArchiveLister extends AbstractArchiveLister {
 			Assertion.assertAssertionError(toFile.canWrite());
 			toFile.deleteOnExit();
 			Files.copy(inf, toFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-			inf.close();
 			sevenzfile = new SevenZFile(toFile);
 		}
 	}
 
 	public InputStream getInputStream() {
-		return new SevenZipInputStream(sevenzfile);
+		return new SevenZipInputStream();
 	}
 
 	protected void getNext(boolean csum) throws IOException {
@@ -59,7 +60,7 @@ public class SevenZipArchiveLister extends AbstractArchiveLister {
 		int newtype = z.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;
 		String s = z.getName();
 		if (s == null) {
-			throw new NullPointerException("!! name is null at SevenZipArchiveLister: basepath=" + basepath.getPath());
+			s = AbstractCompressorLister.getBasename(basepath);
 		};
 		s = s.replace("\\", "/");
 		if (z.isDirectory() && !s.endsWith("/")) {
@@ -71,13 +72,31 @@ public class SevenZipArchiveLister extends AbstractArchiveLister {
 		next_entry.setSize(z.getSize());
 		next_entry.setCompressedSize(z.getSize());
 		if (csum && newtype == PathEntry.COMPRESSEDFILE) {
-			next_entry.setCsum(new SevenZipInputStream(sevenzfile));
+			next_entry.setCsum(new SevenZipInputStream());
 		}
 		if (next_entry.getSize() < 0) {
 			next_entry.setSize(0);
 		}
 		if (next_entry.getCompressedSize() < 0) {
 			next_entry.setCompressedSize(next_entry.getSize());
+		}
+	}
+
+	@Override
+	public void close() throws IOException {
+		inf.close();
+	}
+
+	public class SevenZipInputStream extends InputStream {
+
+		@Override
+		public int read() throws IOException {
+			return sevenzfile.read();
+		}
+
+		@Override
+		public void close() throws IOException {
+			inf.close();
 		}
 	}
 }
