@@ -20,6 +20,8 @@ import java.io.BufferedInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashSet;
+import java.util.Set;
 
 public abstract class AbstractArchiveLister implements IArchiveLister {
 	protected PathEntry basepath;
@@ -31,9 +33,24 @@ public abstract class AbstractArchiveLister implements IArchiveLister {
 	}
 
 	protected abstract void getNext(boolean csum) throws IOException;
-	
+
+	private Set<String> pathnameUniquenessChecker = new HashSet<String> ();
+	private void getNextWithIntegrityCheck(boolean csum) throws IOException {
+		if (next_entry != null) {
+			getNext(csum);
+		} else {
+			getNext(csum);
+			if (next_entry != null) {
+				Assertion.assertIOException(!pathnameUniquenessChecker.contains(next_entry.getPath()),
+						"!! duplicate pathname: " + next_entry.getPath()
+						);
+				pathnameUniquenessChecker.add(next_entry.getPath());
+			}
+		}
+	}
+
 	public boolean hasNext(boolean csum) throws IOException {
-		getNext(csum);
+		getNextWithIntegrityCheck(csum);
 		if (next_entry == null) {
 			return false;
 		} else {
@@ -42,7 +59,7 @@ public abstract class AbstractArchiveLister implements IArchiveLister {
 	}
 
 	public PathEntry next(boolean csum) throws IOException {
-		getNext(csum);
+		getNextWithIntegrityCheck(csum);
 
 		PathEntry result = next_entry;
 		next_entry = null;
