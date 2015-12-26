@@ -936,17 +936,17 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 
 		@Override
-		public boolean checkEquality(final DbPathEntry entry1, final DbPathEntry entry2, final boolean inserting)
+		public boolean checkEquality(final DbPathEntry entry1, final DbPathEntry entry2, final int dbAccessMode)
 				throws SQLException, InterruptedException {
 			if (isNoReturn()) {
-				checkEqualityNoReturn(entry1, entry2, inserting);
+				checkEqualityNoReturn(entry1, entry2, dbAccessMode);
 				return true;
 			} else {
-				return super.checkEquality(entry1, entry2, inserting);
+				return super.checkEquality(entry1, entry2, dbAccessMode);
 			}
 		}
 
-		protected void checkEqualityNoReturn(final DbPathEntry entry1, final DbPathEntry entry2, final boolean inserting)
+		protected void checkEqualityNoReturn(final DbPathEntry entry1, final DbPathEntry entry2, final int dbAccessMode)
 				throws SQLException, InterruptedException {
 			Assertion.assertAssertionError(iAmLazyAccessorThread());
 
@@ -957,31 +957,32 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			final List<DbPathEntry> stack2 = getCompressionStack(entry2);
 			if (stack2 == null) { return; /* orphan */ }
 
-			checkEqualityNoReturn(stack1, stack2, inserting);
+			checkEqualityNoReturn(stack1, stack2, dbAccessMode);
 		}
 
 		@Override
 		public boolean checkEquality(
 				final List<DbPathEntry> stack1,
 				final List<DbPathEntry> stack2,
-				final boolean inserting
+				final int dbAccessMode
 				) throws SQLException, InterruptedException {
 			if (isNoReturn()) {
-				checkEqualityNoReturn(stack1, stack2, inserting);
+				checkEqualityNoReturn(stack1, stack2, dbAccessMode);
 				return true;
 			} else {
-				return super.checkEquality(stack1, stack2, inserting);
+				return super.checkEquality(stack1, stack2, dbAccessMode);
 			}
 		}
 
 		protected void checkEqualityNoReturn(
 				final List<DbPathEntry> stack1,
 				final List<DbPathEntry> stack2,
-				final boolean inserting
+				final int dbAccessMode
 				) throws SQLException, InterruptedException {
+			if (dbAccessMode == CHECKEQUALITY_NONE) { return; }
 			if (stack1 == null || stack2 == null) { return; /* orphan */ }
-			DbPathEntry entry1 = stack1.get(0);
-			DbPathEntry entry2 = stack2.get(0);
+			final DbPathEntry entry1 = stack1.get(0);
+			final DbPathEntry entry2 = stack2.get(0);
 
 			Assertion.assertAssertionError(entry1.isFile() || entry1.isCompressedFile(),
 					"wrong type " + entry1.getType() + " for checkEquality: path=" + entry1.getPath());
@@ -993,11 +994,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			Assertion.assertAssertionError(entry1.getCsum() == entry2.getCsum());
 
 			DbPathEntry p = (entry1.getRootId() == entry2.getRootId()) ? entry1 : null;
-			LazyQueue lq = inserting ? lazyqueue_insertable : lazyqueue_dontinsert;
+			LazyQueue lq = dbAccessMode == CHECKEQUALITY_INSERT ? lazyqueue_insertable : lazyqueue_dontinsert;
 			lq.execute(p, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException {
 					try {
-						Dispatcher.super.checkEquality(stack1, stack2, inserting);
+						Dispatcher.super.checkEquality(stack1, stack2, dbAccessMode);
 					} catch (OutOfMemoryError e){
 						writelog2("OutOfMemoryError caught: entry1=" + entry1.getPath() + ", entry2=" + entry2.getPath());
 						throw e;

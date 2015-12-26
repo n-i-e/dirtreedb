@@ -48,6 +48,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		if (_threadHookInterval != 0 && n - _threadHookInterval > 30*1000) {
 			long d = n - _threadHookInterval;
 			writelog("threadHookInterval too long: " + d);
+			if (n - _threadHookInterval > 15*60*1000) {
+				StackTraceElement[] st = Thread.currentThread().getStackTrace();
+				for (int c = 0; c < st.length; c++) {
+					writelog(st[c].toString());
+				}
+			}
 		}
 		_threadHookInterval = n;
 		Thread.sleep(0); // throw InterruptedException if interrupted
@@ -242,6 +248,34 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	public void updateEquality(long pathid1, long pathid2) throws InterruptedException, SQLException {
 		threadHook();
 		parent.updateEquality(pathid1, pathid2);
+	}
+
+	public void insertOrUpdateEquality(long pathid1, long pathid2, long size, int csum)
+			throws InterruptedException, SQLException {
+		threadHook();
+		PreparedStatement ps = prepareStatement("SELECT * FROM equality WHERE pathid1=? AND pathid2=?");
+		try {
+			if (pathid1>pathid2) {
+				ps.setLong(1, pathid1);
+				ps.setLong(2, pathid2);
+			} else {
+				ps.setLong(1, pathid2);
+				ps.setLong(2, pathid1);
+			}
+			ResultSet rs = ps.executeQuery();
+			try {
+				if (rs.next()) {
+					updateEquality(pathid1, pathid2);
+				} else {
+					insertEquality(pathid1, pathid2, size, csum);
+				}
+			} finally {
+				rs.close();
+			}
+		} finally {
+			ps.close();
+		}
+
 	}
 
 	@Override
@@ -986,24 +1020,29 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			update(entry, newentry);
 		}
 
-		public boolean checkEquality(final DbPathEntry entry1, final DbPathEntry entry2, final boolean inserting)
+		public boolean checkEquality(final DbPathEntry entry1, final DbPathEntry entry2, final int dbAccessMode)
 				throws SQLException, InterruptedException {
 			final List<DbPathEntry> stack1 = getCompressionStack(entry1);
 			if (stack1 == null) { return false; /* orphan */ }
 			final List<DbPathEntry> stack2 = getCompressionStack(entry2);
 			if (stack2 == null) { return false; /* orphan */ }
-			return checkEquality(stack1, stack2, inserting);
+			return checkEquality(stack1, stack2, dbAccessMode);
 		}
 
+		public final static int CHECKEQUALITY_NONE = 0;
+		public final static int CHECKEQUALITY_UPDATE = 1;
+		public final static int CHECKEQUALITY_INSERT = 2;
+		public final static int CHECKEQUALITY_AUTOSELECT = 3;
 		public boolean checkEquality(
 				final List<DbPathEntry> stack1,
 				final List<DbPathEntry> stack2,
-				final boolean inserting
+				final int dbAccessMode
 				) throws SQLException, InterruptedException {
 			if (stack1 == null || stack2 == null) { return false; /* orphan */ }
 			DbPathEntry entry1 = stack1.get(0);
 			DbPathEntry entry2 = stack2.get(0);
 
+			Assertion.assertAssertionError(dbAccessMode >=0 && dbAccessMode <= 3);
 			Assertion.assertAssertionError(entry1.isFile() || entry1.isCompressedFile(),
 					"wrong type " + entry1.getType() + " for checkEquality: path=" + entry1.getPath());
 			Assertion.assertAssertionError(entry2.isFile() || entry2.isCompressedFile(),
@@ -1048,10 +1087,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					re = null;
 				}
 				if (isEqual && count==entry1.getSize()) {
-					if (inserting) {
+					if (dbAccessMode == CHECKEQUALITY_INSERT) {
 						insertEquality(entry1.getPathId(), entry2.getPathId(), entry1.getSize(), entry1.getCsum());
-					} else {
+					} else if (dbAccessMode == CHECKEQUALITY_UPDATE) {
 						updateEquality(entry1.getPathId(), entry2.getPathId());
+					} else if (dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
+						insertOrUpdateEquality(entry1.getPathId(), entry2.getPathId(), entry1.getSize(), entry1.getCsum());
 					}
 					if (entry1.isNoAccess()) {
 						updateStatus(entry1, PathEntry.DIRTY);
@@ -1068,7 +1109,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					}
 					writelog(entry1.getPath());
 					writelog(entry2.getPath());
-					if (!inserting) {
+					if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
 						deleteEquality(entry1.getPathId(), entry2.getPathId());
 					}
 					re = entry1;
