@@ -32,11 +32,11 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	public Statement createStatement() throws SQLException, InterruptedException {
-		return new StatementWithSlowQueryLog(conn.createStatement());		
+		return new StatementWithDebugLog(conn.createStatement());		
 	}
 
 	public PreparedStatement prepareStatement(final String sql) throws SQLException, InterruptedException {
-		return new PreparedStatementWithSlowQueryLog(conn.prepareStatement(sql), sql);
+		return new PreparedStatementWithDebugLog(conn.prepareStatement(sql), sql);
 	}
 
 	public DbPathEntry rsToPathEntry(ResultSet rs, String prefix) throws SQLException, InterruptedException {
