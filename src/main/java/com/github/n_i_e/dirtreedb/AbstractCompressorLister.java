@@ -25,6 +25,16 @@ public abstract class AbstractCompressorLister implements IArchiveLister {
 	protected InputStream instream;
 
 	AbstractCompressorLister(PathEntry basepath, InputStream inf) {
+		String p = getBasename(basepath);
+
+		next_entry = new PathEntry(basepath.getPath() + "/" + p, PathEntry.COMPRESSEDFILE);
+
+		next_entry.setDateLastModified(basepath.getDateLastModified());
+		next_entry.setCompressedSize(basepath.getSize());
+		next_entry.setStatus(PathEntry.DIRTY);
+	}
+
+	public static String getBasename(PathEntry basepath) {
 		int i1 = basepath.getPath().lastIndexOf("\\")+1;
 		int i2 = basepath.getPath().lastIndexOf("/")+1;
 		if (i2>i1) {
@@ -42,12 +52,7 @@ public abstract class AbstractCompressorLister implements IArchiveLister {
 		} else {
 			p = basepath.getPath();
 		}
-
-		next_entry = new PathEntry(basepath.getPath() + "/" + p, PathEntry.COMPRESSEDFILE);
-
-		next_entry.setDateLastModified(basepath.getDateLastModified());
-		next_entry.setCompressedSize(basepath.getSize());
-		next_entry.setStatus(PathEntry.DIRTY);
+		return p;
 	}
 
 	public boolean hasNext(boolean csum) {
