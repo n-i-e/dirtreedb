@@ -229,21 +229,15 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 	}
 
-	private void crawlEqualityNew(boolean skipNoAccess, List<Long> dontListRootIds)
+	private int crawlEqualityNew(boolean skipNoAccess, List<Long> dontListRootIds)
 			throws SQLException, InterruptedException, IOException {
-		writelog2("+++ equality (new) +++");
 		int count1 = 0;
 		Statement stmt = getDb().createStatement();
 		try {
-			String sql1 = "SELECT d1.size, d1.csum FROM (SELECT size, csum, MAX(duplicate) AS duplicate "
-					+ "FROM directory WHERE csum IS NOT NULL AND duplicate>=1 "
+			String sql1 = "SELECT size, csum FROM directory WHERE csum IS NOT NULL AND duplicate>=1 "
 					+ (skipNoAccess ? "AND status<>2 " : "")
 					+ "AND EXISTS (SELECT * FROM (SELECT COUNT(*) AS c FROM equality "
-					+ "WHERE pathid1=pathid OR pathid2=pathid) WHERE c<duplicate) "
-					+ "GROUP BY size, csum) AS d1 "
-					//+ "LEFT JOIN (SELECT size, csum, count(*) AS c FROM equality GROUP BY size, csum) AS d2 "
-					//+ "ON d1.size=d2.size AND d1.csum=d2.csum WHERE c IS NULL OR c<duplicate*(duplicate+1)/2 "
-					//+ "ORDER BY d1.size DESC"
+					+ "WHERE pathid1=pathid OR pathid2=pathid) WHERE c<duplicate) GROUP BY size, csum"
 					;
 			writelog2(sql1);
 			ResultSet rs1 = stmt.executeQuery(sql1);
@@ -270,7 +264,7 @@ public class StandardCrawler extends LazyAccessorThread {
 						while (rs2.next()) {
 							DbPathEntry p1 = getDb().rsToPathEntry(rs2, "d1_");
 							DbPathEntry p2 = getDb().rsToPathEntry(rs2, "d2_");
-							disp.checkEquality(p1, p2, true);
+							disp.checkEquality(p1, p2, disp.CHECKEQUALITY_INSERT);
 							//cleanupDbAndListIfRecommended();
 							getDb().consumeSomeUpdateQueue();
 							count1++;
@@ -289,7 +283,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		} finally {
 			stmt.close();
 		}
-		writelog2("+++ equality (new) finished count=" + count1 + " +++");
+		return count1;
 	}
 
 	private static String getDontListRootIdsSubSql_D1D2(List<Long> dontListRootIds) {
@@ -322,7 +316,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			while (rs.next()) {
 				DbPathEntry p1 = getDb().getDbPathEntryByPathId(rs.getLong("pathid1"));
 				DbPathEntry p2 = getDb().getDbPathEntryByPathId(rs.getLong("pathid2"));
-				disp.checkEquality(p1, p2, false);
+				disp.checkEquality(p1, p2, disp.CHECKEQUALITY_UPDATE);
 				cleanupDbAndListIfRecommended();
 				//getDb().consumeSomeUpdateQueue();
 				count++;
@@ -432,7 +426,10 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (cleanupDb_RoundRobinState == 4) {
 				if (isReadyToList) {
 					writelog2("+++ list (1/2) +++");
-					int count = list(dontListRootIds, "type=0", "", "ORDER BY status DESC");
+					int count = list(dontListRootIds,
+							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + "))",
+							" AND (status=1 OR status=2)",
+							"");
 					writelog2("+++ list (1/2) finished count=" + count + " +++");
 				} else {
 					writelog2("+++ SKIP list (1/2) +++");
@@ -447,10 +444,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (cleanupDb_RoundRobinState == 5) {
 				if (isReadyToList) {
 					writelog2("+++ list (2/2) +++");
-					int count = list(dontListRootIds,
-							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + "))",
-							" AND (status=1 OR status=2)",
-							"");
+					int count = list(dontListRootIds, "type=0", "", "ORDER BY status DESC");
 					writelog2("+++ list (2/2) finished count=" + count + " +++");
 				} else {
 					writelog2("+++ SKIP list (2/2) +++");
@@ -472,6 +466,21 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (cleanupDb_RoundRobinState == 7) {
+				if (isReadyToList && !dontListRootIds.contains(0L)) {
+					writelog2("+++ equality (new) +++");
+					int count = crawlEqualityNew(true, dontListRootIds);
+					writelog2("+++ equality (new) finished count=" + count + " +++");
+				} else {
+					writelog2("+++ SKIP equality (new) +++");
+				}
+
+				if (doAllAtOnce) {
+					getDb().consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				}
+			}
+
+			if (cleanupDb_RoundRobinState == 8) {
 				writelog2("+++ cleanup orphans +++");
 				int c = getDb().cleanupOrphans();
 				writelog2("+++ cleanup orphans finished count=" + c + " +++");
@@ -482,18 +491,6 @@ public class StandardCrawler extends LazyAccessorThread {
 				}
 			}
 
-			if (cleanupDb_RoundRobinState == 8) {
-				if (isReadyToList && !dontListRootIds.contains(0L)) {
-					crawlEqualityNew(true, dontListRootIds);
-				} else {
-					writelog2("+++ SKIP equality (new) +++");
-				}
-
-				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				}
-			}
 /*
 			if (cleanupDb_RoundRobinState == 9) {
 				writelog2("+++ reset diretories to dirty +++");
