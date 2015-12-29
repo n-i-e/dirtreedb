@@ -101,7 +101,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				|| oldentry.isCsumNull() != newentry.isCsumNull()
 				|| (!oldentry.isCsumNull() && !newentry.isCsumNull() && oldentry.getCsum() != newentry.getCsum())
 				) {
-			deleteEquality_NoOverride(oldentry.getPathId());
+			deleteEquality(oldentry.getPathId());
 			threadHook();
 			parent.update(oldentry, newentry);
 		} else if (oldentry.getStatus() != newentry.getStatus()) {
@@ -125,20 +125,16 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		}
 	}
 
-	private void delete_NoOverride(DbPathEntry entry) throws SQLException, InterruptedException {
-		deleteEquality_NoOverride(entry.getPathId());
-		deleteUpperLower_NoOverride(entry.getPathId());
+	@Override
+	public void delete(DbPathEntry entry) throws SQLException, InterruptedException {
+		deleteEquality(entry.getPathId());
+		deleteUpperLower(entry.getPathId());
 		threadHook();
 		parent.delete(entry);
 	}
 
-	@Override
-	public void delete(DbPathEntry entry) throws SQLException, InterruptedException {
-		delete_NoOverride(entry);
-	}
-
-	protected void delete_LowPriority(DbPathEntry entry) throws SQLException, InterruptedException {
-		delete_NoOverride(entry);
+	protected void deleteLowPriority(DbPathEntry entry) throws SQLException, InterruptedException {
+		delete(entry);
 	}
 
 	public void delete(Iterator<DbPathEntry> entries) throws SQLException, InterruptedException {
@@ -162,7 +158,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		}		
 	}
 
-	private void deleteEquality_NoOverride(long pathid) throws InterruptedException, SQLException {
+	public void deleteEquality(long pathid) throws InterruptedException, SQLException {
 		threadHook();
 		String sql = "SELECT * FROM equality WHERE pathid1=? OR pathid2=?";
 		PreparedStatement ps = prepareStatement(sql);
@@ -180,11 +176,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		}
 	}
 
-	public void deleteEquality(long pathid) throws InterruptedException, SQLException {
-		deleteEquality_NoOverride(pathid);
-	}
-
-	private void deleteUpperLower_NoOverride(long pathid) throws SQLException, InterruptedException {
+	public void deleteUpperLower(long pathid) throws SQLException, InterruptedException {
 		threadHook();
 		PreparedStatement ps;
 		String sql = "SELECT * FROM upperlower WHERE upper=? OR lower=?";
@@ -201,10 +193,6 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			rs.close();
 			ps.close();
 		}
-	}
-
-	public void deleteUpperLower(long pathid) throws SQLException, InterruptedException {
-		deleteUpperLower_NoOverride(pathid);
 	}
 
 	@Override
@@ -462,9 +450,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					threadHook();
 					if (noOverride) {
 						writelog("cleanupOrphans_NoLazy: deleting " + rsToPathEntry(rs).getPath());
-						delete_NoOverride(rsToPathEntry(rs));
+						delete(rsToPathEntry(rs));
 					} else {
-						delete_LowPriority(rsToPathEntry(rs));
+						deleteLowPriority(rsToPathEntry(rs));
 					}
 					count++;
 				}

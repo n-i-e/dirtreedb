@@ -72,11 +72,15 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	public void insert(final DbPathEntry basedir, final PathEntry newentry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(newentry != null);
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.insert(basedir, newentry);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.insert(basedir, newentry);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.insert(basedir, newentry);
+				}
+			});
+		}
 	}
 
 	@Override
@@ -92,11 +96,15 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				|| (!oldentry.isCsumNull() && !newentry.isCsumNull() && oldentry.getCsum() != newentry.getCsum())
 				|| oldentry.getStatus() != newentry.getStatus()
 				) {
-			updatequeue.execute(new UpdateQueueableRunnable () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.update(oldentry, newentry);
-				}
-			});
+			if (iAmLazyAccessorThread()) {
+				LazyProxyDirTreeDb.super.update(oldentry, newentry);
+			} else {
+				updatequeue.execute(new UpdateQueueableRunnable () {
+					public void run() throws SQLException, InterruptedException {
+						LazyProxyDirTreeDb.super.update(oldentry, newentry);
+					}
+				});
+			}
 		}
 	}
 
@@ -104,66 +112,87 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	public void updateStatus(final DbPathEntry entry, final int newstatus)
 			throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.updateStatus(entry, newstatus);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.updateStatus(entry, newstatus);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.updateStatus(entry, newstatus);
+				}
+			});
+		}
 	}
 
 	@Override
-	public void delete(final DbPathEntry entry) throws SQLException,
-			InterruptedException {
+	public void delete(final DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.delete(entry);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.delete(entry);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.delete(entry);
+				}
+			});
+		}
 	}
 
 	@Override
-	protected void delete_LowPriority(final DbPathEntry entry) throws SQLException,
-	InterruptedException {
+	protected void deleteLowPriority(final DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.delete(entry);
-			}
-		}, 1);
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.delete(entry);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.delete(entry);
+				}
+			}, 1);
+		}
 	}
 
 	@Override
-	public void deleteChildren(final DbPathEntry entry)
-			throws SQLException, InterruptedException {
+	public void deleteChildren(final DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.deleteChildren(entry);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.deleteChildren(entry);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.deleteChildren(entry);
+				}
+			});
+		}
 	}
 
 	@Override
 	public void disable(final DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.disable(entry);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.disable(entry);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.disable(entry);
+				}
+			});
+		}
 	}
 
 	@Override
 	public void disable(final DbPathEntry entry, final PathEntry newentry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
 		Assertion.assertNullPointerException(newentry != null);
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.disable(entry, newentry);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.disable(entry, newentry);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.disable(entry, newentry);
+				}
+			});
+		}
 	}
 
 	public void noop() throws InterruptedException {
@@ -178,69 +207,97 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	public void insertUpperLower(final long upper, final long lower, final int distance)
 			throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.insertUpperLower(upper, lower, distance);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.insertUpperLower(upper, lower, distance);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.insertUpperLower(upper, lower, distance);
+				}
+			});
+		}
 	}
 
 	@Override
 	public void deleteUpperLower(final long upper, final long lower) throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.deleteUpperLower(upper, lower);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.deleteUpperLower(upper, lower);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.deleteUpperLower(upper, lower);
+				}
+			});
+		}
 	}
 
 	@Override
 	public void deleteUpperLower(final long pathid) throws SQLException, InterruptedException {
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.deleteUpperLower(pathid);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.deleteUpperLower(pathid);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.deleteUpperLower(pathid);
+				}
+			});
+		}
 	}
 
 	@Override
 	public void insertEquality(final long pathid1, final long pathid2, final long size, final int csum)
 			throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.insertEquality(pathid1, pathid2, size, csum);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.insertEquality(pathid1, pathid2, size, csum);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.insertEquality(pathid1, pathid2, size, csum);
+				}
+			});
+		}
 	}
 
 	@Override
 	public void deleteEquality(final long pathid1, final long pathid2) throws InterruptedException, SQLException {
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.deleteEquality(pathid1, pathid2);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.deleteEquality(pathid1, pathid2);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.deleteEquality(pathid1, pathid2);
+				}
+			});
+		}
 	}
 
 	@Override
 	public void updateEquality(final long pathid1, final long pathid2) throws InterruptedException, SQLException {
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.updateEquality(pathid1, pathid2);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.updateEquality(pathid1, pathid2);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.updateEquality(pathid1, pathid2);
+				}
+			});
+		}
 	}
 
 	@Override
 	public void updateDuplicateFields(final long pathid, final long duplicate, final long dedupablesize)
 			throws InterruptedException, SQLException {
-		updatequeue.execute(new UpdateQueueableRunnable () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.updateDuplicateFields(pathid, duplicate, dedupablesize);
-			}
-		});
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.updateDuplicateFields(pathid, duplicate, dedupablesize);
+		} else {
+			updatequeue.execute(new UpdateQueueableRunnable () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.updateDuplicateFields(pathid, duplicate, dedupablesize);
+				}
+			});
+		}
 	}
 
 	public abstract class UpdateQueueableRunnable { // not really runnable, but used like that.
