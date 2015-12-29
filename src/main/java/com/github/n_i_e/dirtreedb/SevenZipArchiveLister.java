@@ -95,6 +95,16 @@ public class SevenZipArchiveLister extends AbstractArchiveLister {
 		}
 
 		@Override
+		public int read(byte[] b) throws IOException {
+			return sevenzfile.read(b);
+		}
+
+		@Override
+		public int read(byte[] b, int off, int len) throws IOException {
+			return sevenzfile.read(b, off, len);
+		}
+
+		@Override
 		public void close() throws IOException {
 			inf.close();
 		}
