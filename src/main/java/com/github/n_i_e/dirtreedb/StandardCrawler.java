@@ -180,7 +180,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					}
 					writelog2("--- csum (2/2) finished count=" + count + " ---");
 				}
-
+/*
 				if (true) {
 					writelog2("--- checkupdate ---");
 					Dispatcher disp = getDb().getDispatcher();
@@ -209,7 +209,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					}
 					writelog2("--- checkupdate finished count=" + count + " ---");
 				}
-
+*/
 				writelog2("--- complete cleanup/list items ---");
 				cleanupDbAndList(true);
 
@@ -266,7 +266,7 @@ public class StandardCrawler extends LazyAccessorThread {
 							DbPathEntry p2 = getDb().rsToPathEntry(rs2, "d2_");
 							disp.checkEquality(p1, p2, disp.CHECKEQUALITY_INSERT);
 							//cleanupDbAndListIfRecommended();
-							getDb().consumeSomeUpdateQueue();
+							consumeSomeUpdateQueue();
 							count1++;
 							count2++;
 						}
@@ -318,7 +318,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				DbPathEntry p2 = getDb().getDbPathEntryByPathId(rs.getLong("pathid2"));
 				disp.checkEquality(p1, p2, disp.CHECKEQUALITY_UPDATE);
 				cleanupDbAndListIfRecommended();
-				//getDb().consumeSomeUpdateQueue();
+				//consumeSomeUpdateQueue();
 				count++;
 			}
 		} finally {
@@ -342,18 +342,35 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 	}
 
-	private void cleanupDbAndListIfRecommended() throws InterruptedException, SQLException, IOException {
-		if (getDb().getDontInsertQueueSize() > 100000) {
-			cleanupDbAndList(false);
-		} else {
-			getDb().consumeSomeUpdateQueue();
+	public void consumeSomeUpdateQueue() throws InterruptedException, SQLException {
+		while (getDb().getUpdateQueueSize() > 0 &&
+				(getDb().getUpdateQueueSize(0) > 0 ?
+						(getDb().getInsertableQueueSize() > 0 || getDb().getDontInsertQueueSize() > 0) :
+						(getDb().getInsertableQueueSize() > 100 || getDb().getDontInsertQueueSize() > 10000))
+				) {
+			getDb().consumeOneUpdateQueue();
 		}
 	}
 
+	private void cleanupDbAndListIfRecommended() throws InterruptedException, SQLException, IOException {
+		if (getDb().getDontInsertQueueSize() > 10000) {
+			cleanupDbAndList(false);
+		} else {
+			consumeSomeUpdateQueue();
+		}
+	}
+
+	private final RunnableWithException2<SQLException, InterruptedException> consumeSomeUpdateQueueRunner = 
+			new RunnableWithException2<SQLException, InterruptedException>() {
+		@Override
+		public void run() throws InterruptedException, SQLException {
+			consumeSomeUpdateQueue();
+		}
+	};
 	private static int cleanupDb_RoundRobinState = 0;
 	private static int cleanupDb_RefreshDirectorySizesCounter = 0;
 	private void cleanupDbAndList(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
-		getDb().consumeSomeUpdateQueue();
+		consumeSomeUpdateQueue();
 
 		boolean isReadyToCleanupDb = getDb().getUpdateQueueSize() == 0;
 		if (isReadyToCleanupDb) {
@@ -361,16 +378,16 @@ public class StandardCrawler extends LazyAccessorThread {
 			assert(cleanupDb_RoundRobinState <= 8);
 
 			List<Long> dontListRootIds = getDb().getInsertableRootIdList();
-			boolean isReadyToList = getDb().getInsertableQueueSize() < 100000 && getDb().getUpdateQueueSize() == 0;
+			boolean isReadyToList = getDb().getInsertableQueueSize() < 100 && getDb().getUpdateQueueSize() == 0;
 
 			if (cleanupDb_RoundRobinState == 0) {
 				writelog2("+++ refresh duplicate fields +++");
-				getDb().refreshDuplicateFields();
+				getDb().refreshDuplicateFields(consumeSomeUpdateQueueRunner);
 				writelog2("+++ refresh duplicate fields finished +++");
-				getDb().consumeSomeUpdateQueue();
+				consumeSomeUpdateQueue();
 
 				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
 				}
 			}
@@ -378,15 +395,15 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (cleanupDb_RoundRobinState == 1) {
 				if (isReadyToList) {
 					writelog2("+++ refresh upperlower entries (1/2) +++");
-					getDb().refreshDirectUpperLower();
+					getDb().refreshDirectUpperLower(consumeSomeUpdateQueueRunner);
 					writelog2("+++ refresh upperlower entries (1/2) finished +++");
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 				} else {
 					writelog2("+++ SKIP refresh upperlower entries (1/2) +++");
 				}
 
 				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
 				}
 				cleanupDb_RefreshDirectorySizesCounter = 0;
@@ -395,27 +412,27 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (cleanupDb_RoundRobinState == 2) {
 				if (isReadyToList) {
 					writelog2("+++ refresh upperlower entries (2/2) +++");
-					getDb().refreshIndirectUpperLower();
+					getDb().refreshIndirectUpperLower(consumeSomeUpdateQueueRunner);
 					writelog2("+++ refresh upperlower entries (2/2) finished +++");
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 				} else {
 					writelog2("+++ SKIP refresh upperlower entries (2/2) +++");
 				}
 
 				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
 				}
 			}
 
 			if (cleanupDb_RoundRobinState == 3) {
 				writelog2("+++ refresh directory sizes +++");
-				int count = getDb().refreshFolderSizes();
+				int count = getDb().refreshFolderSizes(consumeSomeUpdateQueueRunner);
 				writelog2("+++ refresh directory sizes finished count=" + count + " +++");
-				getDb().consumeSomeUpdateQueue();
+				consumeSomeUpdateQueue();
 
 				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
 				} else if (count > 0 && cleanupDb_RefreshDirectorySizesCounter < 10) {
 					cleanupDb_RoundRobinState--;
@@ -425,46 +442,64 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (cleanupDb_RoundRobinState == 4) {
 				if (isReadyToList) {
-					writelog2("+++ list (1/2) +++");
+					writelog2("+++ list (1/3) +++");
 					int count = list(dontListRootIds,
-							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + "))",
+							"(type=1 AND (" + getArchiveExtSubSql() + "))",
 							" AND (status=1 OR status=2)",
 							"");
-					writelog2("+++ list (1/2) finished count=" + count + " +++");
+					writelog2("+++ list (1/3) finished count=" + count + " +++");
 				} else {
-					writelog2("+++ SKIP list (1/2) +++");
+					writelog2("+++ SKIP list (1/3) +++");
 				}
 
 				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
 				}
 			}
 
 			if (cleanupDb_RoundRobinState == 5) {
 				if (isReadyToList) {
-					writelog2("+++ list (2/2) +++");
-					int count = list(dontListRootIds, "type=0", "", "ORDER BY status DESC");
-					writelog2("+++ list (2/2) finished count=" + count + " +++");
+					writelog2("+++ list (2/3) +++");
+					int count = list(dontListRootIds,
+							"(type=3 AND (" + getArchiveExtSubSql() + "))",
+							" AND (status=1 OR status=2)",
+							"");
+					writelog2("+++ list (2/3) finished count=" + count + " +++");
 				} else {
-					writelog2("+++ SKIP list (2/2) +++");
+					writelog2("+++ SKIP list (2/3) +++");
 				}
 
 				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
 				}
 			}
 
 			if (cleanupDb_RoundRobinState == 6) {
-				unlistDisabledExtensions();
+				if (isReadyToList) {
+					writelog2("+++ list (3/3) +++");
+					int count = list(dontListRootIds, "type=0", "", "ORDER BY status DESC");
+					writelog2("+++ list (3/3) finished count=" + count + " +++");
+				} else {
+					writelog2("+++ SKIP list (3/3) +++");
+				}
 
 				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
 				}
 			}
 
+			if (cleanupDb_RoundRobinState == 7) {
+				unlistDisabledExtensions();
+
+				if (doAllAtOnce) {
+					consumeSomeUpdateQueue();
+					cleanupDb_RoundRobinState++;
+				}
+			}
+/*
 			if (cleanupDb_RoundRobinState == 7) {
 				if (isReadyToList && !dontListRootIds.contains(0L)) {
 					writelog2("+++ equality (new) +++");
@@ -475,22 +510,25 @@ public class StandardCrawler extends LazyAccessorThread {
 				}
 
 				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
 				}
 			}
-
+*/
 			if (cleanupDb_RoundRobinState == 8) {
-				writelog2("+++ cleanup orphans +++");
-				int c = getDb().cleanupOrphans();
-				writelog2("+++ cleanup orphans finished count=" + c + " +++");
+				if (getDb().getUpdateQueueSize(1) == 0) {
+					writelog2("+++ cleanup orphans +++");
+					int c = getDb().cleanupOrphans();
+					writelog2("+++ cleanup orphans finished count=" + c + " +++");
+				} else {
+					writelog2("+++ SKIP cleanup orphans +++");
+				}
 
 				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
 				}
 			}
-
 /*
 			if (cleanupDb_RoundRobinState == 9) {
 				writelog2("+++ reset diretories to dirty +++");
@@ -503,7 +541,7 @@ public class StandardCrawler extends LazyAccessorThread {
 						while (rs.next()) {
 							DbPathEntry entry = getDb().rsToPathEntry(rs);
 							getDb().updateStatus(entry, PathEntry.DIRTY);
-							getDb().consumeSomeUpdateQueue();
+							consumeSomeUpdateQueue();
 							count++;
 						}
 					} finally {
@@ -515,18 +553,17 @@ public class StandardCrawler extends LazyAccessorThread {
 				writelog2("+++ reset diretories to dirty query finished count=" + count + " +++");
 
 				if (doAllAtOnce) {
-					getDb().consumeSomeUpdateQueue();
+					consumeSomeUpdateQueue();
 					cleanupDb_RoundRobinState++;
 				}
 			}
 */
-
 			if (!doAllAtOnce) {
 				cleanupDb_RoundRobinState++;
 			}
 			cleanupDb_RoundRobinState = cleanupDb_RoundRobinState % 9;
 		}
-		getDb().consumeSomeUpdateQueue();
+		consumeSomeUpdateQueue();
 	}
 
 	private void list(List<Long> dontListRootIds) throws SQLException, InterruptedException, IOException {
@@ -573,7 +610,15 @@ public class StandardCrawler extends LazyAccessorThread {
 						|| ((f.isFile() || f.isCompressedFile()) && ArchiveListerFactory.isArchivable(f)),
 						"!! CANNOT LIST THIS ENTRY: " + f.getType() + " at " + f.getPath());
 				disp.dispatch(f);
-				getDb().consumeSomeUpdateQueue();
+				consumeSomeUpdateQueue();
+				if (getDb().getInsertableQueueSize() > 100 && getDb().getUpdateQueueSize(1) == 0) {
+					writelog2("+++ cleanup orphans +++");
+					int c = getDb().cleanupOrphans();
+					writelog2("+++ cleanup orphans finished count=" + c + " +++");
+					if (c == 0) {
+						break;
+					}
+				}
 				count++;
 			}
 		} finally {

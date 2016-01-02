@@ -48,12 +48,6 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		if (_threadHookInterval != 0 && n - _threadHookInterval > 30*1000) {
 			long d = n - _threadHookInterval;
 			writelog("threadHookInterval too long: " + d);
-			if (n - _threadHookInterval > 15*60*1000) {
-				StackTraceElement[] st = Thread.currentThread().getStackTrace();
-				for (int c = 0; c < st.length; c++) {
-					writelog(st[c].toString());
-				}
-			}
 		}
 		_threadHookInterval = n;
 		Thread.sleep(0); // throw InterruptedException if interrupted
@@ -84,7 +78,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		try {
 			parent.insert(basedir, newentry);
 		} catch (SQLException e) {
-			cleanupOrphans_NoOverride(newentry.getPath());
+			cleanupOrphansNow(newentry.getPath());
 			parent.insert(basedir, newentry);
 		}
 	}
@@ -430,7 +424,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	/**
 	 * An orphan entry is a DIRECTORY entry with invalid PARENTID (there is no row with PATHID of that number).
 	 */
-	private int cleanupOrphans(String path, boolean noOverride) throws SQLException, InterruptedException {
+	private int cleanupOrphans(String path, boolean noLazy) throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		if (path == null) {
 			String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 "
@@ -448,8 +442,8 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				int count = 0;
 				while (rs.next()) {
 					threadHook();
-					if (noOverride) {
-						writelog("cleanupOrphans_NoLazy: deleting " + rsToPathEntry(rs).getPath());
+					if (noLazy) {
+						writelog("cleanupOrphans: deleting now " + rsToPathEntry(rs).getPath());
 						delete(rsToPathEntry(rs));
 					} else {
 						deleteLowPriority(rsToPathEntry(rs));
@@ -465,7 +459,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		}
 	}
 
-	private int cleanupOrphans_NoOverride(String path) throws SQLException, InterruptedException {
+	private int cleanupOrphansNow(String path) throws SQLException, InterruptedException {
 		return cleanupOrphans(path, true);
 	}
 
@@ -482,10 +476,21 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	public void refreshDirectUpperLower() throws SQLException, InterruptedException {
-		refreshDirectUpperLower(null);
+		refreshDirectUpperLower((RunnableWithException2<SQLException, InterruptedException>)null);
+	}
+
+	public void refreshDirectUpperLower(RunnableWithException2<SQLException, InterruptedException> r)
+			throws SQLException, InterruptedException {
+		refreshDirectUpperLower(null, r);
 	}
 
 	public void refreshDirectUpperLower(List<Long> dontListRootIds) throws SQLException, InterruptedException {
+		refreshDirectUpperLower(dontListRootIds, null);
+	}
+
+	public void refreshDirectUpperLower(List<Long> dontListRootIds,
+			RunnableWithException2<SQLException, InterruptedException> r)
+			throws SQLException, InterruptedException {
 		threadHook();
 		Statement stmt = createStatement();
 		try {
@@ -498,6 +503,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				while (rs.next()) {
 					threadHook();
 					insertUpperLower(rs.getLong("parentid"), rs.getLong("pathid"), 1);
+					if (r != null) {
+						r.run();
+					}
 				}
 			} finally {
 				rs.close();
@@ -508,10 +516,21 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	public void refreshIndirectUpperLower() throws SQLException, InterruptedException {
-		refreshIndirectUpperLower(null);
+		refreshIndirectUpperLower((RunnableWithException2<SQLException, InterruptedException>)null);
+	}
+
+	public void refreshIndirectUpperLower(RunnableWithException2<SQLException, InterruptedException> r)
+					throws SQLException, InterruptedException {
+		refreshIndirectUpperLower(null, r);
 	}
 
 	public void refreshIndirectUpperLower(List<Long> dontListRootIds) throws SQLException, InterruptedException {
+		refreshIndirectUpperLower(dontListRootIds, null);
+	}
+
+	public void refreshIndirectUpperLower(List<Long> dontListRootIds,
+			RunnableWithException2<SQLException, InterruptedException> r)
+					throws SQLException, InterruptedException {
 		Statement stmt = createStatement();
 		try {
 			threadHook();
@@ -562,8 +581,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		threadHook();
 		while (refreshFolderSizes() > 0) {}
 	}
-
 	public int refreshFolderSizes() throws SQLException, InterruptedException {
+		return refreshFolderSizes(null);
+	}
+
+	public int refreshFolderSizes(RunnableWithException2<SQLException, InterruptedException> r)
+			throws SQLException, InterruptedException {
 		Statement stmt = createStatement();
 		ResultSet rs = stmt.executeQuery("SELECT d1.*, newsize, newcompressedsize FROM "
 				+ "(SELECT * FROM directory WHERE type=0) as d1, "
@@ -582,6 +605,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				newentry.setSize(rs.getLong("newsize"));
 				newentry.setCompressedSize(rs.getLong("newcompressedsize"));
 				update(entry, newentry);
+				if (r != null) {
+					r.run();
+				}
 				count++;
 			}
 			return count;
@@ -591,50 +617,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		}
 	}
 
-	public void refreshDuplicateFields_OBSOLETE() throws InterruptedException, SQLException {
-		threadHook();
-
-		Statement stmt = createStatement();
-		try {
-			{
-				ResultSet rs = stmt.executeQuery("SELECT pathid FROM directory "
-						+ "WHERE (duplicate<>0 OR dedupablesize<>0) "
-						+ "AND NOT EXISTS (SELECT * FROM equality WHERE pathid=pathid1 OR pathid=pathid2)");
-				try {
-					while (rs.next()) {
-						threadHook();
-						updateDuplicateFields(rs.getLong("pathid"), 0, 0);
-					}
-				} finally {
-					rs.close();
-				}
-			}
-
-			threadHook();
-			{
-				ResultSet rs = stmt.executeQuery("SELECT pathid, newduplicate, newduplicate*size as newdedupablesize "
-						+ "FROM directory, "
-						+ "(SELECT newpathid, SUM(newduplicate) AS newduplicate FROM ("
-						+ "SELECT pathid1 AS newpathid, count(pathid2) AS newduplicate FROM equality GROUP BY pathid1 "
-						+ "UNION ALL "
-						+ "SELECT pathid2 AS newpathid, count(pathid1) AS newduplicate FROM equality GROUP BY pathid2"
-						+ ") GROUP BY newpathid) "
-						+ "WHERE pathid=newpathid AND (duplicate<>newduplicate OR dedupablesize<>newduplicate*size)");
-				try {
-					while (rs.next()) {
-						threadHook();
-						updateDuplicateFields(rs.getLong("pathid"), rs.getLong("newduplicate"), rs.getLong("newdedupablesize"));
-					}
-				} finally {
-					rs.close();
-				}
-			}
-		} finally {
-			stmt.close();
-		}
+	public void refreshDuplicateFields() throws InterruptedException, SQLException {
+		refreshDuplicateFields(null);
 	}
 
-	public void refreshDuplicateFields() throws InterruptedException, SQLException {
+	public void refreshDuplicateFields(RunnableWithException2<SQLException, InterruptedException> r)
+			throws InterruptedException, SQLException {
 		threadHook();
 
 		Statement stmt1 = createStatement();
@@ -651,6 +639,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				while (rs.next()) {
 					threadHook();
 					updateDuplicateFields(rs.getLong("pathid"), rs.getLong("newduplicate"), rs.getLong("newdedupablesize"));
+					if (r != null) {
+						r.run();
+					}
 				}
 			} finally {
 				rs.close();

@@ -59,8 +59,9 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	}
 
 	@Override
-	public void refreshDirectUpperLower() throws SQLException, InterruptedException {
-		refreshDirectUpperLower(getInsertableRootIdList());
+	public void refreshIndirectUpperLower(RunnableWithException2<SQLException, InterruptedException> r)
+			throws SQLException, InterruptedException {
+		refreshIndirectUpperLower(getInsertableRootIdList(), r);
 	}
 
 	@Override
@@ -75,7 +76,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.insert(basedir, newentry);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.insert(basedir, newentry);
 				}
@@ -99,7 +100,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			if (iAmLazyAccessorThread()) {
 				LazyProxyDirTreeDb.super.update(oldentry, newentry);
 			} else {
-				updatequeue.execute(new UpdateQueueableRunnable () {
+				updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 					public void run() throws SQLException, InterruptedException {
 						LazyProxyDirTreeDb.super.update(oldentry, newentry);
 					}
@@ -115,7 +116,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.updateStatus(entry, newstatus);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.updateStatus(entry, newstatus);
 				}
@@ -129,7 +130,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.delete(entry);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.delete(entry);
 				}
@@ -137,18 +138,18 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 	}
 
+	/**
+	 * always pushes request on low priority updatequeue (i.e. lazy).
+	 * iAmLazyAccessorThread() or not is not considered.
+	 */
 	@Override
 	protected void deleteLowPriority(final DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		if (iAmLazyAccessorThread()) {
-			LazyProxyDirTreeDb.super.delete(entry);
-		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.delete(entry);
-				}
-			}, 1);
-		}
+		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
+			public void run() throws SQLException, InterruptedException {
+				LazyProxyDirTreeDb.super.delete(entry);
+			}
+		}, 1);
 	}
 
 	@Override
@@ -158,7 +159,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.deleteChildren(entry);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.deleteChildren(entry);
 				}
@@ -172,7 +173,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.disable(entry);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.disable(entry);
 				}
@@ -187,7 +188,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.disable(entry, newentry);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.disable(entry, newentry);
 				}
@@ -196,7 +197,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	}
 
 	public void noop() throws InterruptedException {
-		updatequeue.execute(new UpdateQueueableRunnable () {
+		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 			public void run() throws SQLException, InterruptedException {
 				// noop
 			}
@@ -210,7 +211,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.insertUpperLower(upper, lower, distance);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.insertUpperLower(upper, lower, distance);
 				}
@@ -224,7 +225,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.deleteUpperLower(upper, lower);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.deleteUpperLower(upper, lower);
 				}
@@ -237,7 +238,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.deleteUpperLower(pathid);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.deleteUpperLower(pathid);
 				}
@@ -252,7 +253,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.insertEquality(pathid1, pathid2, size, csum);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.insertEquality(pathid1, pathid2, size, csum);
 				}
@@ -265,7 +266,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.deleteEquality(pathid1, pathid2);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.deleteEquality(pathid1, pathid2);
 				}
@@ -278,7 +279,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.updateEquality(pathid1, pathid2);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.updateEquality(pathid1, pathid2);
 				}
@@ -292,7 +293,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.updateDuplicateFields(pathid, duplicate, dedupablesize);
 		} else {
-			updatequeue.execute(new UpdateQueueableRunnable () {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.updateDuplicateFields(pathid, duplicate, dedupablesize);
 				}
@@ -300,20 +301,16 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 	}
 
-	public abstract class UpdateQueueableRunnable { // not really runnable, but used like that.
-		abstract void run() throws SQLException, InterruptedException;
-	}
-
-	public class UpdateQueue extends AsynchronousProducerConsumerIteratorWithPriority<UpdateQueueableRunnable> {
+	public class UpdateQueue extends AsynchronousProducerConsumerIteratorWithPriority<RunnableWithException2<SQLException, InterruptedException>> {
 		public UpdateQueue() {
 			super(2);
 		}
 
-		public void execute(UpdateQueueableRunnable newtodo) throws InterruptedException {
+		public void execute(RunnableWithException2<SQLException, InterruptedException> newtodo) throws InterruptedException {
 			add(newtodo);
 		}
 
-		public void execute(UpdateQueueableRunnable newtodo, int priority) throws InterruptedException {
+		public void execute(RunnableWithException2<SQLException, InterruptedException> newtodo, int priority) throws InterruptedException {
 			add(newtodo, priority);
 		}
 	}
@@ -322,7 +319,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	private LazyQueue lazyqueue_dontinsert = new LazyQueue();
 	private LazyQueueRunnerThreadPool lazyqueue_thread = new LazyQueueRunnerThreadPool();
 	private UpdateQueue updatequeue = new UpdateQueue();
-	
+
 	public int getInsertableQueueSize() {
 		return lazyqueue_insertable.size();
 	}
@@ -333,6 +330,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 	public int getUpdateQueueSize() {
 		return updatequeue.size();
+	}
+
+	public int getUpdateQueueSize(int priority) {
+		return updatequeue.size(priority);
 	}
 
 	public List<Long> getInsertableRootIdList() {
@@ -364,7 +365,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		Assertion.assertAssertionError(iAmLazyAccessorThread());
 		threadHook();
 		if (updatequeue.hasNext()) {
-			UpdateQueueableRunnable o = updatequeue.previewNext();
+			RunnableWithException2<SQLException, InterruptedException> o = updatequeue.previewNext();
 			try {
 				o.run();
 			} finally {
