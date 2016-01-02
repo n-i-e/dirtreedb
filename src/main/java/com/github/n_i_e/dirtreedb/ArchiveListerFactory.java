@@ -43,7 +43,7 @@ public class ArchiveListerFactory {
 		};
 
 		final ArchiveListerReturner svnzR = new ArchiveListerReturner () {
-			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new SevenZipArchiveLister(base, inf); }
+			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new SevenZipLister(base, inf); }
 		};
 
 		final ArchiveListerReturner gzR = new ArchiveListerReturner () {

@@ -25,15 +25,14 @@ import java.nio.file.StandardCopyOption;
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
 
-public class SevenZipArchiveLister extends AbstractArchiveLister {
+public class SevenZipLister extends AbstractArchiveLister {
 	SevenZFile sevenzfile;
-	InputStream inf;
 
-	public SevenZipArchiveLister(PathEntry basepath, InputStream inf) throws IOException {
+	public SevenZipLister(PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
-		this.inf = inf;
 		Assertion.assertIOException(basepath.isFile() || basepath.isCompressedFile());
 		if (basepath.isFile()) {
+			inf.close();
 			sevenzfile = new SevenZFile(new File(basepath.getPath()));
 		} else {
 			File toFile = File.createTempFile("DTDB", "temp.7z");
@@ -41,6 +40,7 @@ public class SevenZipArchiveLister extends AbstractArchiveLister {
 			Assertion.assertAssertionError(toFile.canWrite());
 			toFile.deleteOnExit();
 			Files.copy(inf, toFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			inf.close();
 			sevenzfile = new SevenZFile(toFile);
 		}
 	}
@@ -84,7 +84,7 @@ public class SevenZipArchiveLister extends AbstractArchiveLister {
 
 	@Override
 	public void close() throws IOException {
-		inf.close();
+		sevenzfile.close();
 	}
 
 	public class SevenZipInputStream extends InputStream {
@@ -106,7 +106,7 @@ public class SevenZipArchiveLister extends AbstractArchiveLister {
 
 		@Override
 		public void close() throws IOException {
-			inf.close();
+			sevenzfile.close();
 		}
 	}
 }
