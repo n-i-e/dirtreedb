@@ -360,7 +360,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 	}
 
-	private final RunnableWithException2<SQLException, InterruptedException> consumeSomeUpdateQueueRunner = 
+	private final RunnableWithException2<SQLException, InterruptedException> consumeSomeUpdateQueueRunner =
 			new RunnableWithException2<SQLException, InterruptedException>() {
 		@Override
 		public void run() throws InterruptedException, SQLException {
@@ -382,8 +382,8 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (cleanupDb_RoundRobinState == 0) {
 				writelog2("+++ refresh duplicate fields +++");
-				getDb().refreshDuplicateFields(consumeSomeUpdateQueueRunner);
-				writelog2("+++ refresh duplicate fields finished +++");
+				int count = getDb().refreshDuplicateFields(consumeSomeUpdateQueueRunner);
+				writelog2("+++ refresh duplicate fields finished count=" + count + " +++");
 				consumeSomeUpdateQueue();
 
 				if (doAllAtOnce) {
@@ -395,8 +395,8 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (cleanupDb_RoundRobinState == 1) {
 				if (isReadyToList) {
 					writelog2("+++ refresh upperlower entries (1/2) +++");
-					getDb().refreshDirectUpperLower(consumeSomeUpdateQueueRunner);
-					writelog2("+++ refresh upperlower entries (1/2) finished +++");
+					int count = getDb().refreshDirectUpperLower(consumeSomeUpdateQueueRunner);
+					writelog2("+++ refresh upperlower entries (1/2) finished count=" + count + " +++");
 					consumeSomeUpdateQueue();
 				} else {
 					writelog2("+++ SKIP refresh upperlower entries (1/2) +++");
@@ -412,8 +412,8 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (cleanupDb_RoundRobinState == 2) {
 				if (isReadyToList) {
 					writelog2("+++ refresh upperlower entries (2/2) +++");
-					getDb().refreshIndirectUpperLower(consumeSomeUpdateQueueRunner);
-					writelog2("+++ refresh upperlower entries (2/2) finished +++");
+					int count = getDb().refreshIndirectUpperLower(consumeSomeUpdateQueueRunner);
+					writelog2("+++ refresh upperlower entries (2/2) finished count=" + count + " +++");
 					consumeSomeUpdateQueue();
 				} else {
 					writelog2("+++ SKIP refresh upperlower entries (2/2) +++");
@@ -568,7 +568,7 @@ public class StandardCrawler extends LazyAccessorThread {
 
 	private void list(List<Long> dontListRootIds) throws SQLException, InterruptedException, IOException {
 		writelog2("+++ list +++");
-		int count = list(dontListRootIds, 
+		int count = list(dontListRootIds,
 				"(type=0 OR ((type=1 OR type=3) AND (" + getArchiveExtSubSql() + "))) ",
 				" AND (status=1 OR status=2 OR parentid=0))",
 				"");

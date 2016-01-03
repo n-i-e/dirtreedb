@@ -59,14 +59,14 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	}
 
 	@Override
-	public void refreshIndirectUpperLower(RunnableWithException2<SQLException, InterruptedException> r)
+	public int refreshIndirectUpperLower(RunnableWithException2<SQLException, InterruptedException> r)
 			throws SQLException, InterruptedException {
-		refreshIndirectUpperLower(getInsertableRootIdList(), r);
+		return refreshIndirectUpperLower(getInsertableRootIdList(), r);
 	}
 
 	@Override
-	public void refreshIndirectUpperLower() throws SQLException, InterruptedException {
-		refreshIndirectUpperLower(getInsertableRootIdList());
+	public int refreshIndirectUpperLower() throws SQLException, InterruptedException {
+		return refreshIndirectUpperLower(getInsertableRootIdList());
 	}
 
 	@Override

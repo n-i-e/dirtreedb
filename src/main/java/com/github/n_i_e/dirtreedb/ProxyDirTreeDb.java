@@ -90,7 +90,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		Assertion.assertAssertionError(oldentry.getPath().equals(newentry.getPath()),
 				"!! old and new entry paths do not match:\nold=" + oldentry.getPath() + "\nnew=" + newentry.getPath());
 		assert(oldentry.getType() == newentry.getType());
-		
+
 		if (! dscMatch(oldentry, newentry)
 				|| oldentry.isCsumNull() != newentry.isCsumNull()
 				|| (!oldentry.isCsumNull() && !newentry.isCsumNull() && oldentry.getCsum() != newentry.getCsum())
@@ -149,7 +149,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		} finally {
 			rs.close();
 			ps.close();
-		}		
+		}
 	}
 
 	public void deleteEquality(long pathid) throws InterruptedException, SQLException {
@@ -475,24 +475,25 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		while (cleanupOrphans() > 0) {}
 	}
 
-	public void refreshDirectUpperLower() throws SQLException, InterruptedException {
-		refreshDirectUpperLower((RunnableWithException2<SQLException, InterruptedException>)null);
+	public int refreshDirectUpperLower() throws SQLException, InterruptedException {
+		return refreshDirectUpperLower((RunnableWithException2<SQLException, InterruptedException>)null);
 	}
 
-	public void refreshDirectUpperLower(RunnableWithException2<SQLException, InterruptedException> r)
+	public int refreshDirectUpperLower(RunnableWithException2<SQLException, InterruptedException> r)
 			throws SQLException, InterruptedException {
-		refreshDirectUpperLower(null, r);
+		return refreshDirectUpperLower(null, r);
 	}
 
-	public void refreshDirectUpperLower(List<Long> dontListRootIds) throws SQLException, InterruptedException {
-		refreshDirectUpperLower(dontListRootIds, null);
+	public int refreshDirectUpperLower(List<Long> dontListRootIds) throws SQLException, InterruptedException {
+		return refreshDirectUpperLower(dontListRootIds, null);
 	}
 
-	public void refreshDirectUpperLower(List<Long> dontListRootIds,
+	public int refreshDirectUpperLower(List<Long> dontListRootIds,
 			RunnableWithException2<SQLException, InterruptedException> r)
 			throws SQLException, InterruptedException {
 		threadHook();
 		Statement stmt = createStatement();
+		int count = 0;
 		try {
 			threadHook();
 			ResultSet rs = stmt.executeQuery("SELECT parentid, pathid FROM directory AS d1 WHERE parentid>0 "
@@ -506,6 +507,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					if (r != null) {
 						r.run();
 					}
+					count++;
 				}
 			} finally {
 				rs.close();
@@ -513,25 +515,27 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		} finally {
 			stmt.close();
 		}
+		return count;
 	}
 
-	public void refreshIndirectUpperLower() throws SQLException, InterruptedException {
-		refreshIndirectUpperLower((RunnableWithException2<SQLException, InterruptedException>)null);
+	public int refreshIndirectUpperLower() throws SQLException, InterruptedException {
+		return refreshIndirectUpperLower((RunnableWithException2<SQLException, InterruptedException>)null);
 	}
 
-	public void refreshIndirectUpperLower(RunnableWithException2<SQLException, InterruptedException> r)
+	public int refreshIndirectUpperLower(RunnableWithException2<SQLException, InterruptedException> r)
 					throws SQLException, InterruptedException {
-		refreshIndirectUpperLower(null, r);
+		return refreshIndirectUpperLower(null, r);
 	}
 
-	public void refreshIndirectUpperLower(List<Long> dontListRootIds) throws SQLException, InterruptedException {
-		refreshIndirectUpperLower(dontListRootIds, null);
+	public int refreshIndirectUpperLower(List<Long> dontListRootIds) throws SQLException, InterruptedException {
+		return refreshIndirectUpperLower(dontListRootIds, null);
 	}
 
-	public void refreshIndirectUpperLower(List<Long> dontListRootIds,
+	public int refreshIndirectUpperLower(List<Long> dontListRootIds,
 			RunnableWithException2<SQLException, InterruptedException> r)
 					throws SQLException, InterruptedException {
 		Statement stmt = createStatement();
+		int count = 0;
 		try {
 			threadHook();
 			ResultSet rs = stmt.executeQuery("SELECT u1.upper, pathid AS lower, u1.distance+1 AS distance "
@@ -552,6 +556,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 						threadHook();
 						insertUpperLower(u, l, rs.getInt("distance"));
 					}
+					if (r != null) {
+						r.run();
+					}
+					count++;
 				}
 			} finally {
 				rs.close();
@@ -559,6 +567,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		} finally {
 			stmt.close();
 		}
+		return count;
 	}
 
 	private static String getDontListRootIdsSubSql(List<Long> dontListRootIds) {
@@ -621,11 +630,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		refreshDuplicateFields(null);
 	}
 
-	public void refreshDuplicateFields(RunnableWithException2<SQLException, InterruptedException> r)
+	public int refreshDuplicateFields(RunnableWithException2<SQLException, InterruptedException> r)
 			throws InterruptedException, SQLException {
 		threadHook();
 
 		Statement stmt1 = createStatement();
+		int count = 0;
 		try {
 			ResultSet rs = stmt1.executeQuery("SELECT pathid, newduplicate, newdedupablesize "
 					+ "FROM directory AS d1, "
@@ -642,6 +652,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					if (r != null) {
 						r.run();
 					}
+					count++;
 				}
 			} finally {
 				rs.close();
@@ -658,6 +669,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				while (rs.next()) {
 					threadHook();
 					updateDuplicateFields(rs.getLong("pathid"), 0, 0);
+					if (r != null) {
+						r.run();
+					}
+					count++;
 				}
 			} finally {
 				rs.close();
@@ -665,6 +680,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		} finally {
 			stmt2.close();
 		}
+		return count;
 	}
 
 	public static File getFileIfExists(final PathEntry entry) throws SQLException {
@@ -698,7 +714,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				if (dMatch(entry, result)) {
 					result.setStatus(entry.getStatus());
 				}
-				
+
 			} else { // isFile
 				if (dscMatch(entry, result)) {
 					if (!entry.isCsumNull()) {
