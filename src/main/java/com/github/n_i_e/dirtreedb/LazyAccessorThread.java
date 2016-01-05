@@ -57,7 +57,7 @@ public abstract class LazyAccessorThread {
 				try {
 					getConf().unregist();
 				} catch (SQLException e) {
-					writeError("SQLException", "Failed closeing DB file. This is may be a fatal trouble. Exiting.\n" + e.toString());
+					writeError("SQLException", "Failed closing DB file. This may be a fatal trouble. Exiting.\n" + e.toString());
 					e.printStackTrace();
 					System.exit(1);
 				}
@@ -115,7 +115,7 @@ public abstract class LazyAccessorThread {
 
 	protected AbstractDirTreeDb getSingleThreadDB() throws SQLException {
 		Assertion.assertAssertionError((LazyAccessorThread.RunnerThread)Thread.currentThread() != null);
-		return getConf().getSingleThreadDirTreeDb();	
+		return getConf().getSingleThreadDirTreeDb();
 	}
 
 	protected StackingLock getLock() {
