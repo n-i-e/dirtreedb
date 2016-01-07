@@ -23,13 +23,15 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 
 public class DirLister implements IDirArchiveLister {
 	DbPathEntry basepath;
 	Iterator<String> file_iter;
 	PathEntry next_entry;
-	
+
 	DirLister(DbPathEntry entry, File fileobj) throws FileNotFoundException {
 		basepath = entry;
 		String[] s = fileobj.list();
@@ -55,8 +57,23 @@ public class DirLister implements IDirArchiveLister {
 		}
 	}
 
+	private Set<String> pathnameUniquenessChecker = new HashSet<String> ();
+	private void getNextWithIntegrityCheck() throws IOException {
+		if (next_entry != null) {
+			getNext();
+		} else {
+			getNext();
+			if (next_entry != null) {
+				Assertion.assertIOException(!pathnameUniquenessChecker.contains(next_entry.getPath()),
+						"!! duplicate pathname: " + next_entry.getPath()
+						);
+				pathnameUniquenessChecker.add(next_entry.getPath());
+			}
+		}
+	}
+
 	public boolean hasNext() throws IOException {
-		getNext();
+		getNextWithIntegrityCheck();
 		if (next_entry == null) {
 			return false;
 		} else {
@@ -65,7 +82,7 @@ public class DirLister implements IDirArchiveLister {
 	}
 
 	public PathEntry next() throws IOException {
-		getNext();
+		getNextWithIntegrityCheck();
 
 		PathEntry result = next_entry;
 		next_entry = null;

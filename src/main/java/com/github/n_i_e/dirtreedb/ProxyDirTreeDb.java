@@ -929,7 +929,6 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			long new_compressedsize = 0;
 
 			final List<DbPathEntry> updatedfolders = new ArrayList<DbPathEntry>();
-			ArrayList<String> uniqueChecker = new ArrayList<String>();
 			while (newfolderIter.hasNext()) {
 				PathEntry newchild = newfolderIter.next();
 				Assertion.assertAssertionError(newchild.isFolder() || newchild.isFile());
@@ -963,11 +962,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 							newchild.setStatus(PathEntry.NOACCESS);
 						}
 					}
-					if (uniqueChecker.contains(newchild.getPath())) {
-						writelog("!! warning !! dispatchFileListCore found duplicate: " + newchild.getPath());
-					} else {
-						insert(entry, newchild);
-					}
+					insert(entry, newchild);
 					if (newchild.isFile()) {
 						new_size += newchild.getSize();
 						new_compressedsize += newchild.getCompressedSize();
@@ -991,7 +986,6 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				PathEntry newentry,
 				IArchiveLister newfolderIter
 				) throws InterruptedException, SQLException, IOException {
-			ArrayList<String> uniqueChecker = new ArrayList<String>();
 			while (newfolderIter.hasNext(true)) {
 				PathEntry newchild = newfolderIter.next(true);
 				Assertion.assertAssertionError(newchild.isCompressedFolder() || newchild.isCompressedFile());
@@ -1001,11 +995,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 						update(oldchild, newchild);
 					}
 				} else {
-					if (uniqueChecker.contains(newchild.getPath())) {
-						writelog("!! warning !! dispatchFileListCore found duplicate: " + newchild.getPath());
-					} else {
-						insert(entry, newchild);
-					}
+					insert(entry, newchild);
 				}
 				oldfolder.remove(newchild.getPath());
 			}
