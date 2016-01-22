@@ -424,17 +424,22 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	/**
 	 * An orphan entry is a DIRECTORY entry with invalid PARENTID (there is no row with PATHID of that number).
 	 */
-	private int cleanupOrphans(String path, boolean noLazy) throws SQLException, InterruptedException {
+	private int cleanupOrphans(String path, int type, boolean noLazy) throws SQLException, InterruptedException {
 		PreparedStatement ps;
-		if (path == null) {
-			String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 "
-					+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
-			ps = prepareStatement(sql);
-		} else {
+		if (path != null) {
 			String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 AND path=? "
 					+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
 			ps = prepareStatement(sql);
 			ps.setString(1, path);
+		} else if (type >= 0 && type <= 3) {
+			String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 AND type=? "
+					+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
+			ps = prepareStatement(sql);
+			ps.setInt(1, type);
+		} else {
+			String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 "
+					+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
+			ps = prepareStatement(sql);
 		}
 		try {
 			ResultSet rs = ps.executeQuery();
@@ -460,11 +465,15 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	private int cleanupOrphansNow(String path) throws SQLException, InterruptedException {
-		return cleanupOrphans(path, true);
+		return cleanupOrphans(path, -1, true);
 	}
 
 	public int cleanupOrphans(String path) throws SQLException, InterruptedException {
-		return cleanupOrphans(path, false);
+		return cleanupOrphans(path, -1, false);
+	}
+
+	public int cleanupOrphans(int type) throws SQLException, InterruptedException {
+		return cleanupOrphans(null, type, false);
 	}
 
 	public int cleanupOrphans() throws SQLException, InterruptedException {

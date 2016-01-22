@@ -26,6 +26,8 @@ import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+import com.sun.jna.WString;
+
 class GetCompressedFileSizeException extends Exception {
 	GetCompressedFileSizeException(String s) {
 		super(s);
@@ -84,7 +86,7 @@ public class PathEntry {
 			try {
 				this.compressedsize = win32_GetCompressedSize(path);
 			} catch (GetCompressedFileSizeException e) {
-				this.compressedsize = size;
+				this.compressedsize = 0;
 			}
 			type = FILE;
 		}
@@ -279,7 +281,7 @@ public class PathEntry {
 	{
 		Kernel32 kernel32 = Kernel32.INSTANCE;
 		int size_high[] = {0};
-		int size_low = kernel32.GetCompressedFileSizeA(path, size_high);
+		int size_low = kernel32.GetCompressedFileSizeW(new WString(path), size_high);
 		int error = kernel32.GetLastError();
 		if (error != 0) {
 			throw new GetCompressedFileSizeException(String.format("!! GetCompressedFileSize Error; code %d, path %s", error, path));
@@ -290,7 +292,7 @@ public class PathEntry {
 		buff.putInt(size_low);
 		buff.flip();
 		long result = buff.getLong();
-		
+
 		return result;
 	}
 

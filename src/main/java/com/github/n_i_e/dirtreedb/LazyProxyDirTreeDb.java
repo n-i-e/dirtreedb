@@ -376,8 +376,14 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 	public void consumeUpdateQueue() throws InterruptedException, SQLException {
 		threadHook();
-		noop();
 		while (updatequeue.size() > 0) {
+			consumeOneUpdateQueue();
+		}
+	}
+
+	public void consumeUpdateQueue(int priority) throws InterruptedException, SQLException {
+		threadHook();
+		while (updatequeue.size(priority) > 0) {
 			consumeOneUpdateQueue();
 		}
 	}

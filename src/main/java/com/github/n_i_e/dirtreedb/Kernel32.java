@@ -18,10 +18,12 @@ package com.github.n_i_e.dirtreedb;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;
+import com.sun.jna.WString;
 
 interface Kernel32 extends Library {
 	Kernel32 INSTANCE = (Kernel32) Native.loadLibrary("kernel32", Kernel32.class);
 	int GetCompressedFileSizeA(String lpFileName, int[] lpFileSizeHigh);
+	int GetCompressedFileSizeW(WString lpFileName, int[] lpFileSizeHigh);
 	int GetLastError();
 	int GetTickCount();
 }
