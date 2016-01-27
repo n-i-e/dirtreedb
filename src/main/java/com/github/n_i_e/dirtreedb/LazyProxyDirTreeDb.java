@@ -1017,10 +1017,19 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			if (entry1 == null || entry2 == null) { return; }
 
 			final List<DbPathEntry> stack1 = getCompressionStack(entry1);
-			if (stack1 == null) { return; /* orphan */ }
+			if (stack1 == null) { // orphan
+				if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
+					deleteEquality(entry1.getPathId(), entry2.getPathId());
+				}
+				return;
+			}
 			final List<DbPathEntry> stack2 = getCompressionStack(entry2);
-			if (stack2 == null) { return; /* orphan */ }
-
+			if (stack2 == null) { // orphan
+				if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
+					deleteEquality(entry1.getPathId(), entry2.getPathId());
+				}
+				return;
+			}
 			checkEqualityNoReturn(stack1, stack2, dbAccessMode);
 		}
 

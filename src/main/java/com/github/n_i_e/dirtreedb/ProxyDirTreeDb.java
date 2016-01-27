@@ -1017,9 +1017,19 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		public boolean checkEquality(final DbPathEntry entry1, final DbPathEntry entry2, final int dbAccessMode)
 				throws SQLException, InterruptedException {
 			final List<DbPathEntry> stack1 = getCompressionStack(entry1);
-			if (stack1 == null) { return false; /* orphan */ }
+			if (stack1 == null) { // orphan
+				if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
+					deleteEquality(entry1.getPathId(), entry2.getPathId());
+				}
+				return false;
+			}
 			final List<DbPathEntry> stack2 = getCompressionStack(entry2);
-			if (stack2 == null) { return false; /* orphan */ }
+			if (stack2 == null) { // orphan
+				if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
+					deleteEquality(entry1.getPathId(), entry2.getPathId());
+				}
+				return false;
+			}
 			return checkEquality(stack1, stack2, dbAccessMode);
 		}
 
@@ -1129,6 +1139,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			} catch (IOException e) {
 				if (re != null) {
 					disable(re);
+				}
+				if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
+					deleteEquality(entry1.getPathId(), entry2.getPathId());
 				}
 				return false;
 			} catch (OutOfMemoryError e) {

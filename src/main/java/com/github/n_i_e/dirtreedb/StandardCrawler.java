@@ -355,7 +355,14 @@ public class StandardCrawler extends LazyAccessorThread {
 	}
 
 	private void cleanupDbAndListIfRecommended() throws InterruptedException, SQLException, IOException {
-		if (getDb().getDontInsertQueueSize() > 10000) {
+		int queueSizeLimit;
+		if (cleanupDb_RoundRobinState <= 3) {
+			queueSizeLimit = 1000; // 'refresh directory sizes' or former
+		} else {
+			queueSizeLimit = 10000;
+		}
+
+		if (getDb().getDontInsertQueueSize() > queueSizeLimit) {
 			cleanupDbAndList(false);
 		} else {
 			consumeSomeUpdateQueue();
