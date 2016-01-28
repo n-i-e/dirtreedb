@@ -347,8 +347,11 @@ public class StandardCrawler extends LazyAccessorThread {
 	public void consumeSomeUpdateQueue() throws InterruptedException, SQLException {
 		while (getDb().getUpdateQueueSize() > 0 &&
 				(getDb().getUpdateQueueSize(0) > 0 ?
-						(getDb().getInsertableQueueSize() > 0 || getDb().getDontInsertQueueSize() > 0) :
-						(getDb().getInsertableQueueSize() > 100 || getDb().getDontInsertQueueSize() > 10000))
+						(getDb().getInsertableQueueSize() > 0
+								|| getDb().getDontInsertQueueSize() > 0
+								|| getDb().getUpdateQueueSize(0) > 10000) :
+						(getDb().getInsertableQueueSize() > 100
+								|| getDb().getDontInsertQueueSize() > 10000))
 				) {
 			getDb().consumeOneUpdateQueue();
 		}
