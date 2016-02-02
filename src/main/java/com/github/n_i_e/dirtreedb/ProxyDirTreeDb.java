@@ -306,31 +306,6 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return result;
 	}
 
-	public File getFileIfExists(final DbPathEntry entry) throws SQLException, InterruptedException {
-		assert(entry.getType() == PathEntry.FOLDER || entry.getType() == PathEntry.FILE);
-		threadHook();
-
-		File result = new File(entry.getPath());
-		if (!result.exists()
-				|| (entry.getType() == PathEntry.FOLDER && !result.isDirectory())
-				|| (entry.getType() == PathEntry.FILE && !result.isFile())
-				) {
-			if (!entry.isRoot()) {
-				// basedir does not exist
-				final DbPathEntry parent;
-				parent = getParent(entry);
-				if (parent == null) {
-					return null; // orphan
-				} else if (!parent.isDirty()) {
-					updateStatus(parent, PathEntry.DIRTY);
-				}
-			}
-			updateStatus(entry, PathEntry.NOACCESS);
-			return null;
-		}
-		return result;
-	}
-
 	public HashMap<String, DbPathEntry> childrenList(DbPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 
@@ -693,12 +668,13 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	public static File getFileIfExists(final PathEntry entry) throws SQLException {
-		assert(entry.getType() == PathEntry.FOLDER || entry.getType() == PathEntry.FILE);
+		Assertion.assertAssertionError(entry.getType() == PathEntry.FOLDER || entry.getType() == PathEntry.FILE);
 
 		File result = new File(entry.getPath());
 		if (!result.exists()
 				|| (entry.getType() == PathEntry.FOLDER && !result.isDirectory())
 				|| (entry.getType() == PathEntry.FILE && !result.isFile())
+				|| (!result.toString().equals(entry.getPath()))
 				) {
 			// basedir does not exist
 			return null;
@@ -723,7 +699,6 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				if (dMatch(entry, result)) {
 					result.setStatus(entry.getStatus());
 				}
-
 			} else { // isFile
 				if (dscMatch(entry, result)) {
 					if (!entry.isCsumNull()) {
