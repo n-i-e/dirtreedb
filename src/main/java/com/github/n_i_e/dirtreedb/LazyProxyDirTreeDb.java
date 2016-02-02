@@ -671,7 +671,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 						if (!entry.isDirty() && !dMatch(entry, newentry)) {
 							updateStatus(entry, PathEntry.DIRTY);
 						}
-					} else { // not isList()
+					} else { // isList()
 						final File fileobj = getFileIfExists((PathEntry)entry);
 						if (fileobj == null) {
 							disable(entry, newentry);

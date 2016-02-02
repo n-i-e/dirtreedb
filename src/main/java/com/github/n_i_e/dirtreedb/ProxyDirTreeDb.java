@@ -402,15 +402,15 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return null;
 	}
 
-	public DbPathEntry getDbPathEntryByPath(String pathid) throws SQLException, InterruptedException {
+	public DbPathEntry getDbPathEntryByPath(String path) throws SQLException, InterruptedException {
 		String sql = "SELECT * from DIRECTORY where PATH=?";
 		PreparedStatement ps = prepareStatement(sql);
-		ps.setString(1, pathid);
+		ps.setString(1, path);
 		ResultSet rs = ps.executeQuery();
 		try {
 			while (rs.next()) {
 				DbPathEntry p = rsToPathEntry(rs);
-				if (p.getPath().equals(pathid)) {
+				if (p.getPath().equals(path)) {
 					return p;
 				}
 			}

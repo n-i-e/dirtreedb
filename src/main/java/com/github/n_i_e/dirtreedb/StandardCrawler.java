@@ -599,7 +599,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				+ ") AS d1 "
 				+ "LEFT JOIN "
 				+ "(SELECT DISTINCT parentid AS childhint FROM directory) AS d2 ON pathid=childhint "
-				+ " WHERE d1.parentid=0 OR EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND status<2)"
+				+ "WHERE d1.parentid=0 OR EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND status=0)"
 				+ orderSubSql
 				;
 		writelog2(sql);
