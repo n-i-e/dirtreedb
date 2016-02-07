@@ -160,7 +160,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					writelog2("--- csum (2/2) ---");
 					String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND (csum IS NULL OR status=2) "
 							+ dontCheckUpdateRootIdsSubSql
-							+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND status<2)"
+							+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND status=0)"
 							;
 					ResultSet rs = stmt.executeQuery(sql);
 					writelog2("--- csum (2/2) query finished ---");
@@ -212,12 +212,16 @@ public class StandardCrawler extends LazyAccessorThread {
 					writelog2("--- checkupdate finished count=" + count + " ---");
 				}
 */
+				writelog2("--- consume all update queue (1/2) ---");
+				getDb().consumeUpdateQueue(0);
+				writelog2("--- consume all update queue (1/2) finished ---");
+
 				writelog2("--- complete cleanup/list items ---");
 				cleanupDbAndList(true);
 
-				writelog2("--- consume all update queue ---");
+				writelog2("--- consume all update queue (2/2) ---");
 				getDb().consumeUpdateQueue(0);
-				writelog2("--- consume all update queue finished ---");
+				writelog2("--- consume all update queue (2/2) finished ---");
 			}
 		} catch (SQLException e) {
 			writeWarning("Warning", "Caught SQLException, trying to recover (this is usually OK)");
@@ -384,7 +388,7 @@ public class StandardCrawler extends LazyAccessorThread {
 	private void cleanupDbAndList(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
 		consumeSomeUpdateQueue();
 
-		boolean isReadyToCleanupDb = getDb().getUpdateQueueSize(0) == 0;
+		boolean isReadyToCleanupDb = (doAllAtOnce || getDb().getUpdateQueueSize(0) == 0);
 		if (isReadyToCleanupDb) {
 			assert(cleanupDb_RoundRobinState >= 0);
 			assert(cleanupDb_RoundRobinState <= 8);
@@ -659,14 +663,7 @@ public class StandardCrawler extends LazyAccessorThread {
 	}
 
 	private int cleanupOrphans() throws SQLException, InterruptedException {
-		final int[] types = {0, 1, 3, 2};
-		for (int type: types) {
-			int count = getDb().cleanupOrphans(type);
-			if (count > 0) {
-				return count;
-			}
-		}
-		return 0;
+		return getDb().cleanupOrphans();
 	}
 
 	private String getArchiveExtSubSql() {
