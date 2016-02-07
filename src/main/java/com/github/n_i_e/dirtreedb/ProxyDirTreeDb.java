@@ -674,9 +674,15 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		if (!result.exists()
 				|| (entry.getType() == PathEntry.FOLDER && !result.isDirectory())
 				|| (entry.getType() == PathEntry.FILE && !result.isFile())
-				|| (!result.toString().equals(entry.getPath()))
 				) {
 			// basedir does not exist
+			return null;
+		}
+		String s = result.getPath();
+		if (entry.getType() == PathEntry.FOLDER && !s.endsWith("\\")) {
+			s += "\\";
+		}
+		if (!s.equals(entry.getPath())) {
 			return null;
 		}
 		return result;
