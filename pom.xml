@@ -57,14 +57,9 @@
 		<version>2.3.1</version>
 	</dependency>
 	<dependency>
-		<groupId>localdomain.jackcess</groupId>
-		<artifactId>jackcess</artifactId>
-		<version>2.1.2</version>
-	</dependency>
-	<dependency>
-		<groupId>localdomain.ucanaccess</groupId>
+		<groupId>net.sf.ucanaccess</groupId>
 		<artifactId>ucanaccess</artifactId>
-		<version>3.0.0</version>
+		<version>3.0.3.1</version>
 	</dependency>
 	<dependency>
 		<groupId>com.h2database</groupId>
@@ -77,7 +72,7 @@
 		<version>1.5</version>
 	</dependency>
 	<dependency>
-		<groupId>localdomain</groupId>
+		<groupId>com.github.n-i-e</groupId>
 		<artifactId>lhalibraryforjava</artifactId>
 		<version>0.0.20050504</version>
 	</dependency>
@@ -100,4 +95,14 @@
 			</plugin>
 		</plugins>
 	</build>
+	<repositories>
+		<repository>
+			<id>lhalibraryforjava-mvn-repo</id>
+			<url>https://raw.githubusercontent.com/n-i-e/lhalibraryforjava/mvn-repo/</url>
+			<snapshots>
+				<enabled>true</enabled>
+				<updatePolicy>always</updatePolicy>
+			</snapshots>
+		</repository>
+	</repositories>
 </project>
