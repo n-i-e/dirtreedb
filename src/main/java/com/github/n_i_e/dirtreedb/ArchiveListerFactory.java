@@ -66,6 +66,10 @@ public class ArchiveListerFactory {
 			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new EmlLister(base, inf); }
 		};
 
+		final ArchiveListerReturner msgR = new ArchiveListerReturner () {
+			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new MsgLister(base, inf); }
+		};
+
 		result.put("zip", zipR);
 		result.put("lzh", lzhR);
 		result.put("gz", gzR);
@@ -84,6 +88,7 @@ public class ArchiveListerFactory {
 		result.put("sz", apacheCR);
 		result.put("eml", emlR);
 		result.put("wdseml", emlR);
+		result.put("msg", msgR);
 
 		result.put("jar", uzipR);
 
