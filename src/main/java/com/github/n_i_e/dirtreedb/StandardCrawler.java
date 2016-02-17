@@ -663,7 +663,7 @@ public class StandardCrawler extends LazyAccessorThread {
 	}
 
 	private int cleanupOrphans() throws SQLException, InterruptedException {
-		return getDb().cleanupOrphans();
+		return getDb().cleanupOrphans(consumeSomeUpdateQueueRunner);
 	}
 
 	private String getArchiveExtSubSql() {
