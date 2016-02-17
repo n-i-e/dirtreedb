@@ -20,6 +20,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.text.ParseException;
@@ -89,6 +90,12 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 		if (rs == null) {
 			return null;
 		}
+		try {
+			if (rs.rowDeleted()) {
+				return null;
+			}
+		} catch (SQLFeatureNotSupportedException e) {}
+
 		long newpathid = rs.getLong(prefix + "pathid");
 		long newparentid = rs.getLong(prefix + "parentid");
 		long newrootid = rs.getLong(prefix + "rootid");
@@ -206,7 +213,7 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 	}
 
 	@Override
-	public void insertEquality(long pathid1, long pathid2, long size, int csum) 
+	public void insertEquality(long pathid1, long pathid2, long size, int csum)
 			throws SQLException, InterruptedException {
 		PreparedStatement ps = prepareStatement("INSERT INTO equality (pathid1, pathid2, size, csum, datelasttested) VALUES (?, ?, ?, ?, ?)");
 		try {

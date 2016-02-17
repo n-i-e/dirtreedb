@@ -20,6 +20,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.Date;
@@ -32,7 +33,7 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	public Statement createStatement() throws SQLException, InterruptedException {
-		return new StatementWithDebugLog(conn.createStatement());		
+		return new StatementWithDebugLog(conn.createStatement());
 	}
 
 	public PreparedStatement prepareStatement(final String sql) throws SQLException, InterruptedException {
@@ -43,6 +44,12 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 		if (rs == null) {
 			return null;
 		}
+		try {
+			if (rs.rowDeleted()) {
+				return null;
+			}
+		} catch (SQLFeatureNotSupportedException e) {}
+
 		long newpathid = rs.getLong(prefix + "pathid");
 		long newparentid = rs.getLong(prefix + "parentid");
 		long newrootid = rs.getLong(prefix + "rootid");
@@ -182,7 +189,7 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 		} finally {
 			ps.close();
 		}
-		
+
 		ps = prepareStatement("UPDATE directory SET status=2 WHERE pathid=?");
 		try {
 			ps.setLong(1, entry.getPathId());
@@ -239,7 +246,7 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	@Override
-	public void insertEquality(long pathid1, long pathid2, long size, int csum) 
+	public void insertEquality(long pathid1, long pathid2, long size, int csum)
 			throws SQLException, InterruptedException {
 		PreparedStatement ps = prepareStatement("INSERT INTO equality (pathid1, pathid2, size, csum, datelasttested) VALUES (?, ?, ?, ?, ?)");
 		try {
