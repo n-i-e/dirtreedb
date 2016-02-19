@@ -80,6 +80,9 @@ public class MsgLister extends AbstractArchiveLister {
 
 			AttachmentChunks part = content[count];
 			String filename = part.attachFileName.getValue();
+			if (filename == null) {
+				filename = String.valueOf(count);
+			}
 			filename = filename.replace("\\", "/");
 			next_entry = new PathEntry(basepath.getPath() + "/" + filename, PathEntry.COMPRESSEDFILE);
 			next_entry.setDateLastModified(date);
