@@ -16,6 +16,7 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.io.File;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -32,6 +33,10 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 
 	SqliteDirTreeDb(String filename) throws SQLException, ClassNotFoundException {
 		Class.forName("org.sqlite.JDBC");
+
+		File fileobj = new File(filename);
+		boolean fileExists = fileobj.exists();
+
 		conn = DriverManager.getConnection("jdbc:sqlite:" + filename);
 		conn.setAutoCommit(true);
 		Statement stmt = conn.createStatement();
@@ -41,43 +46,43 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 			stmt.execute("PRAGMA foreign_keys=ON;");
 			//stmt.execute("PRAGMA case_sensitive_like=ON;");
 
-			stmt.executeUpdate("CREATE TABLE IF NOT EXISTS directory (pathid INTEGER PRIMARY KEY AUTOINCREMENT, "
-					+ "parentid INTEGER NOT NULL, rootid INTEGER, datelastmodified TEXT NOT NULL, "
-					+ "size INTEGER NOT NULL, compressedsize INTEGER NOT NULL, csum INTEGER, "
-					+ "path TEXT UNIQUE NOT NULL, type INTEGER NOT NULL, status INTEGER NOT NULL, "
-					+ "duplicate INTEGER NOT NULL, dedupablesize INTEGER NOT NULL, "
-					+ "CONSTRAINT pathid_size_csum UNIQUE (pathid, size, csum))");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_parentid ON directory (parentid)");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_rootid ON directory (rootid)");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_datelastmodified ON directory (datelastmodified)");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_size ON directory (size)");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_compressedsize ON directory (compressedsize)");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_csum ON directory (csum)");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_size_csum ON directory (size, csum)");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_type ON directory (type)");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_status ON directory (status)");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_duplicate ON directory (duplicate)");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_dedupablesize ON directory (dedupablesize)");
+			if (!fileExists) {
+				stmt.executeUpdate("CREATE TABLE IF NOT EXISTS directory (pathid INTEGER PRIMARY KEY AUTOINCREMENT, "
+						+ "parentid INTEGER NOT NULL, rootid INTEGER, datelastmodified TEXT NOT NULL, "
+						+ "size INTEGER NOT NULL, compressedsize INTEGER NOT NULL, csum INTEGER, "
+						+ "path TEXT UNIQUE NOT NULL, type INTEGER NOT NULL, status INTEGER NOT NULL, "
+						+ "duplicate INTEGER NOT NULL, dedupablesize INTEGER NOT NULL, "
+						+ "CONSTRAINT pathid_size_csum UNIQUE (pathid, size, csum))");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_parentid ON directory (parentid)");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_rootid ON directory (rootid)");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_datelastmodified ON directory (datelastmodified)");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_size ON directory (size)");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_compressedsize ON directory (compressedsize)");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_csum ON directory (csum)");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_size_csum ON directory (size, csum)");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_type ON directory (type)");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_status ON directory (status)");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_duplicate ON directory (duplicate)");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS directory_dedupablesize ON directory (dedupablesize)");
 
-			stmt.executeUpdate("INSERT OR IGNORE INTO directory (path, parentid, datelastmodified, size, "
-					+ "compressedsize, type, status, duplicate, dedupablesize) "
-					+ "VALUES ('C:\\', 0, '2000-01-01 00:00:00', 0, 0, 0, 1, 0, 0)");
+				stmt.executeUpdate("INSERT OR IGNORE INTO directory (path, parentid, datelastmodified, size, "
+						+ "compressedsize, type, status, duplicate, dedupablesize) "
+						+ "VALUES ('C:\\', 0, '2000-01-01 00:00:00', 0, 0, 0, 1, 0, 0)");
 
-			stmt.executeUpdate("CREATE TABLE IF NOT EXISTS upperlower (upper INTEGER NOT NULL, "
-					+ "lower INTEGER NOT NULL, distance INTEGER NOT NULL, PRIMARY KEY (upper, lower), "
-					+ "FOREIGN KEY (upper) REFERENCES directory (pathid), "
-					+ "FOREIGN KEY (lower) REFERENCES directory (pathid))");
-			stmt.executeUpdate("CREATE INDEX IF NOT EXISTS upperlower_distance ON upperlower (distance)");
+				stmt.executeUpdate("CREATE TABLE IF NOT EXISTS upperlower (upper INTEGER NOT NULL, "
+						+ "lower INTEGER NOT NULL, distance INTEGER NOT NULL, PRIMARY KEY (upper, lower), "
+						+ "FOREIGN KEY (upper) REFERENCES directory (pathid), "
+						+ "FOREIGN KEY (lower) REFERENCES directory (pathid))");
+				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS upperlower_distance ON upperlower (distance)");
 
-			stmt.executeUpdate("CREATE TABLE IF NOT EXISTS equality ("
-					+ "pathid1 INTEGER NOT NULL, pathid2 INTEGER NOT NULL, "
-					+ "size INTEGER NOT NULL, csum INTEGER NOT NULL, "
-					+ "datelasttested TEXT NOT NULL, PRIMARY KEY (pathid1, pathid2), "
-					+ "FOREIGN KEY (pathid1, size, csum) REFERENCES directory (pathid, size, csum), "
-					+ "FOREIGN KEY (pathid2, size, csum) REFERENCES directory (pathid, size, csum))");
-
+				stmt.executeUpdate("CREATE TABLE IF NOT EXISTS equality ("
+						+ "pathid1 INTEGER NOT NULL, pathid2 INTEGER NOT NULL, "
+						+ "size INTEGER NOT NULL, csum INTEGER NOT NULL, "
+						+ "datelasttested TEXT NOT NULL, PRIMARY KEY (pathid1, pathid2), "
+						+ "FOREIGN KEY (pathid1, size, csum) REFERENCES directory (pathid, size, csum), "
+						+ "FOREIGN KEY (pathid2, size, csum) REFERENCES directory (pathid, size, csum))");
+			}
 			stmt.executeUpdate("UPDATE directory SET rootid=pathid WHERE rootid IS NULL AND pathid IS NOT NULL");
-			stmt.executeUpdate("UPDATE directory SET parentid=0 WHERE parentid IS NULL");
 		} finally {
 			//stmt.executeUpdate("VACUUM");
 			stmt.close();
