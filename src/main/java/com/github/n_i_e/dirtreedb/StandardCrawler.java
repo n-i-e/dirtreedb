@@ -126,8 +126,8 @@ public class StandardCrawler extends LazyAccessorThread {
 					String sql = "SELECT * FROM directory AS d1 WHERE ((type=1 AND status<>2) OR type=3) "
 							+ "AND csum IS NULL "
 							+ dontCheckUpdateRootIdsSubSql
-							+ " AND EXISTS (SELECT * FROM directory "
-							+ "WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid) "
+							+ " AND (size<0 OR EXISTS (SELECT * FROM directory "
+							+ "WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid)) "
 							+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND status<2)"
 							//+ "ORDER BY size DESC"
 							;
@@ -491,7 +491,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (cleanupDb_RoundRobinState == 6) {
 				if (isReadyToList) {
 					writelog2("+++ list (3/3) +++");
-					int count = list(dontListRootIds, "type=0", "", "ORDER BY status DESC");
+					int count = list(dontListRootIds, "type=0", "", " ORDER BY status DESC");
 					writelog2("+++ list (3/3) finished count=" + count + " +++");
 				} else {
 					writelog2("+++ SKIP list (3/3) +++");
@@ -627,26 +627,31 @@ public class StandardCrawler extends LazyAccessorThread {
 				if (getDb().getInsertableQueueSize() > 100 && getDb().getUpdateQueueSize(1) == 0) {
 					writelog2("+++ cleanup orphans +++");
 					int c = cleanupOrphans();
+					consumeSomeUpdateQueue();
 					writelog2("+++ cleanup orphans finished count=" + c + " +++");
 					if (c == 0) {
-						if (true) {
+						if (getDb().getInsertableQueueSize() > 90) {
 							writelog2("+++ refresh duplicate fields +++");
 							int c2 = getDb().refreshDuplicateFields(consumeSomeUpdateQueueRunner);
+							consumeSomeUpdateQueue();
 							writelog2("+++ refresh duplicate fields finished count=" + c2 + " +++");
 						}
 						if (getDb().getInsertableQueueSize() > 90) {
 							writelog2("+++ refresh upperlower entries (1/2) +++");
 							int c2 = getDb().refreshDirectUpperLower(consumeSomeUpdateQueueRunner);
+							consumeSomeUpdateQueue();
 							writelog2("+++ refresh upperlower entries (1/2) finished count=" + c2 + " +++");
 						}
 						if (getDb().getInsertableQueueSize() > 90) {
 							writelog2("+++ refresh upperlower entries (2/2) +++");
 							int c2 = getDb().refreshIndirectUpperLower(consumeSomeUpdateQueueRunner);
+							consumeSomeUpdateQueue();
 							writelog2("+++ refresh upperlower entries (2/2) finished count=" + c2 + " +++");
 						}
 						while (getDb().getInsertableQueueSize() > 90) {
 							writelog2("+++ refresh directory sizes +++");
 							int c2 = getDb().refreshFolderSizes(consumeSomeUpdateQueueRunner);
+							consumeSomeUpdateQueue();
 							writelog2("+++ refresh directory sizes finished count=" + c2 + " +++");
 							if (c2 == 0) {
 								break;
