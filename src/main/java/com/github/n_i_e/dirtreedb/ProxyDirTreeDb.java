@@ -699,8 +699,11 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	public static PathEntry getNewPathEntry(final PathEntry entry) throws SQLException, IOException {
+		return getNewPathEntry(entry, getFileIfExists(entry));
+	}
+
+	public static PathEntry getNewPathEntry(final PathEntry entry, final File fileobj) throws SQLException, IOException {
 		if (entry.isFolder() || entry.isFile()) {
-			final File fileobj = getFileIfExists(entry);
 			if (fileobj == null) {
 				throw new FileNotFoundException("!! File Not Found: " + entry.getPath());
 			}
@@ -765,7 +768,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 
 			final PathEntry newentry;
 			try {
-				newentry = new PathEntry(fileobj);
+				newentry = getNewPathEntry(entry, fileobj);
 			} catch (IOException e) {
 				disable(entry);
 				return null;
@@ -954,6 +957,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 						new_size += newchild.getSize();
 						new_compressedsize += newchild.getCompressedSize();
 					}
+					oldfolder.remove(newchild.getPath());
 				} else { // not in oldfolder - insert
 					if (isListCsum() && newchild.isFile()) {
 						try {
@@ -968,7 +972,6 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 						new_compressedsize += newchild.getCompressedSize();
 					}
 				}
-				oldfolder.remove(newchild.getPath());
 			}
 
 			updateStatuses(updatedfolders.iterator(), PathEntry.DIRTY);
@@ -994,10 +997,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					if (!dscMatch(oldchild, newchild)) {
 						update(oldchild, newchild);
 					}
+					oldfolder.remove(newchild.getPath());
 				} else {
 					insert(entry, newchild);
 				}
-				oldfolder.remove(newchild.getPath());
 			}
 			newfolderIter.close();
 			delete(oldfolder.values().iterator());

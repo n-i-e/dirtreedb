@@ -812,7 +812,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 			final PathEntry newentry;
 			try {
-				newentry = new PathEntry(fileobj);
+				newentry = getNewPathEntry(entry, fileobj);
 			} catch (IOException e) {
 				disable(entry);
 				return null;
