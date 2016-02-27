@@ -79,8 +79,10 @@ public class MsgLister extends AbstractArchiveLister {
 			}
 
 			AttachmentChunks part = content[count];
-			String filename = part.attachFileName.getValue();
-			if (filename == null) {
+			String filename;
+			try {
+				filename = part.attachFileName.getValue();
+			} catch (NullPointerException e) {
 				filename = String.valueOf(count);
 			}
 			filename = filename.replace("\\", "/");
