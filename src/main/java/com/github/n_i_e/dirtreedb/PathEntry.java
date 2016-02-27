@@ -292,7 +292,7 @@ public class PathEntry {
 		buff.putInt(size_low);
 		buff.flip();
 		long result = buff.getLong();
-
+		Assertion.assertAssertionError(result >= 0);
 		return result;
 	}
 
