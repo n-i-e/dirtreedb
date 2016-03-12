@@ -54,6 +54,9 @@ public class DirLister implements IDirArchiveLister {
 			Assertion.assertAssertionError(! "..".equals(n));
 			String p = basepath.getPath() + n;
 			next_entry = new PathEntry(new File(p));
+			if (next_entry.getSize() < 0) { // size is sometimes <0; JavaVM bug?
+				next_entry.setCsumAndClose(next_entry.getInputStream());
+			}
 		}
 	}
 
