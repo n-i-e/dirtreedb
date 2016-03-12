@@ -399,25 +399,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	/**
 	 * An orphan entry is a DIRECTORY entry with invalid PARENTID (there is no row with PATHID of that number).
 	 */
-	private int cleanupOrphans(String path, int type,
+	private int cleanupOrphans(PreparedStatement ps,
 			RunnableWithException2<SQLException, InterruptedException> runnable, boolean noLazy)
 					throws SQLException, InterruptedException {
-		PreparedStatement ps;
-		if (path != null) {
-			String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 AND path=? "
-					+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
-			ps = prepareStatement(sql);
-			ps.setString(1, path);
-		} else if (type >= 0 && type <= 3) {
-			String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 AND type=? "
-					+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
-			ps = prepareStatement(sql);
-			ps.setInt(1, type);
-		} else {
-			String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 "
-					+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
-			ps = prepareStatement(sql);
-		}
 		try {
 			ResultSet rs = ps.executeQuery();
 			try {
@@ -444,25 +428,72 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		}
 	}
 
-	private int cleanupOrphansNow(String path) throws SQLException, InterruptedException {
-		return cleanupOrphans(path, -1, null, true);
+	private int cleanupOrphans(String path,
+			RunnableWithException2<SQLException, InterruptedException> runnable, boolean noLazy)
+					throws SQLException, InterruptedException {
+		PreparedStatement ps;
+		Assertion.assertNullPointerException(path != null);
+		String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 AND path=? "
+				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
+		ps = prepareStatement(sql);
+		ps.setString(1, path);
+		return cleanupOrphans(ps, runnable, noLazy);
+	}
+
+	public int cleanupOrphansNow(String path) throws SQLException, InterruptedException {
+		return cleanupOrphans(path, null, true);
 	}
 
 	public int cleanupOrphans(String path) throws SQLException, InterruptedException {
-		return cleanupOrphans(path, -1, null, false);
+		return cleanupOrphans(path, null, false);
+	}
+
+	private int cleanupOrphans(int type, boolean hasChildren,
+			RunnableWithException2<SQLException, InterruptedException> runnable, boolean noLazy)
+					throws SQLException, InterruptedException {
+		PreparedStatement ps;
+		Assertion.assertAssertionError(type >= 0 && type <= 3);
+		String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 AND type=? "
+				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)"
+				+ (hasChildren ? " AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)" : "");
+		ps = prepareStatement(sql);
+		ps.setInt(1, type);
+		return cleanupOrphans(ps, runnable, noLazy);
+	}
+
+	public int cleanupOrphansWithChildren(int type,
+			RunnableWithException2<SQLException, InterruptedException> runnable)
+					throws SQLException, InterruptedException {
+		return cleanupOrphans(type, true, runnable, false);
 	}
 
 	public int cleanupOrphans(int type) throws SQLException, InterruptedException {
-		return cleanupOrphans(null, type, null, false);
+		return cleanupOrphans(type, false, null, false);
+	}
+
+	private int cleanupOrphans(boolean hasChildren,
+			RunnableWithException2<SQLException, InterruptedException> runnable, boolean noLazy)
+					throws SQLException, InterruptedException {
+		PreparedStatement ps;
+		String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 "
+				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)"
+				+ (hasChildren ? " AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)" : "");
+		ps = prepareStatement(sql);
+		return cleanupOrphans(ps, runnable, noLazy);
+	}
+
+	public int cleanupOrphansWithChildren(RunnableWithException2<SQLException, InterruptedException> runnable)
+			throws SQLException, InterruptedException {
+		return cleanupOrphans(true, runnable, false);
 	}
 
 	public int cleanupOrphans(RunnableWithException2<SQLException, InterruptedException> runnable)
 			throws SQLException, InterruptedException {
-		return cleanupOrphans(null, -1, runnable, false);
+		return cleanupOrphans(false, runnable, false);
 	}
 
 	public int cleanupOrphans() throws SQLException, InterruptedException {
-		return cleanupOrphans(null, -1, null, false);
+		return cleanupOrphans(false, null, false);
 	}
 
 	public void cleanupOrphansAll() throws SQLException, InterruptedException {
@@ -508,6 +539,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			}
 		} finally {
 			stmt.close();
+		}
+		if (count == 0 && runnable != null) {
+			runnable.run();
 		}
 		return count;
 	}
@@ -561,6 +595,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		} finally {
 			stmt.close();
 		}
+		if (count == 0 && runnable != null) {
+			runnable.run();
+		}
 		return count;
 	}
 
@@ -612,6 +649,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					runnable.run();
 				}
 				count++;
+			}
+			if (count == 0 && runnable != null) {
+				runnable.run();
 			}
 			return count;
 		} finally {
@@ -674,6 +714,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		} finally {
 			stmt2.close();
 		}
+		if (count == 0 && runnable != null) {
+			runnable.run();
+		}
 		return count;
 	}
 
@@ -719,6 +762,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					result.setStatus(entry.getStatus());
 				}
 			} else { // isFile
+				if (entry.getSize() < 0) { // size is sometimes <0; JavaVM bug?
+					entry.setCsumAndClose(entry.getInputStream());
+				}
 				if (dscMatch(entry, result)) {
 					if (!entry.isCsumNull()) {
 						result.setCsum(entry.getCsum());
