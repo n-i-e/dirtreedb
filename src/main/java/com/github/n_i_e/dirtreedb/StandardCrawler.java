@@ -128,7 +128,7 @@ public class StandardCrawler extends LazyAccessorThread {
 							+ dontCheckUpdateRootIdsSubSql
 							+ " AND (size<0 OR EXISTS (SELECT * FROM directory "
 							+ "WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid)) "
-							+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND status<2)"
+							+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid)"
 							//+ "ORDER BY size DESC"
 							;
 					ResultSet rs = stmt.executeQuery(sql);
@@ -350,12 +350,9 @@ public class StandardCrawler extends LazyAccessorThread {
 
 	public void consumeSomeUpdateQueue() throws InterruptedException, SQLException {
 		while (getDb().getUpdateQueueSize() > 0 &&
-				(getDb().getUpdateQueueSize(0) > 0 ?
-						(getDb().getInsertableQueueSize() > 0
-								|| getDb().getDontInsertQueueSize() > 0
-								|| getDb().getUpdateQueueSize(0) > 10000) :
-						(getDb().getInsertableQueueSize() > 100
-								|| getDb().getDontInsertQueueSize() > 10000))
+				(getDb().getUpdateQueueSize(0) > 0 ||
+						getDb().getInsertableQueueSize() > 100 ||
+						getDb().getDontInsertQueueSize() > 10000)
 				) {
 			getDb().consumeOneUpdateQueue();
 		}
@@ -603,7 +600,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				+ ") AS d1 "
 				+ "LEFT JOIN "
 				+ "(SELECT DISTINCT parentid AS childhint FROM directory) AS d2 ON pathid=childhint "
-				+ "WHERE d1.parentid=0 OR EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND status=0)"
+				+ "WHERE d1.parentid=0 OR EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid)"
 				+ orderSubSql
 				;
 		writelog2(sql);
@@ -633,25 +630,21 @@ public class StandardCrawler extends LazyAccessorThread {
 						if (getDb().getInsertableQueueSize() > 90) {
 							writelog2("+++ refresh duplicate fields +++");
 							int c2 = getDb().refreshDuplicateFields(consumeSomeUpdateQueueRunner);
-							consumeSomeUpdateQueue();
 							writelog2("+++ refresh duplicate fields finished count=" + c2 + " +++");
 						}
 						if (getDb().getInsertableQueueSize() > 90) {
 							writelog2("+++ refresh upperlower entries (1/2) +++");
 							int c2 = getDb().refreshDirectUpperLower(consumeSomeUpdateQueueRunner);
-							consumeSomeUpdateQueue();
 							writelog2("+++ refresh upperlower entries (1/2) finished count=" + c2 + " +++");
 						}
 						if (getDb().getInsertableQueueSize() > 90) {
 							writelog2("+++ refresh upperlower entries (2/2) +++");
 							int c2 = getDb().refreshIndirectUpperLower(consumeSomeUpdateQueueRunner);
-							consumeSomeUpdateQueue();
 							writelog2("+++ refresh upperlower entries (2/2) finished count=" + c2 + " +++");
 						}
 						while (getDb().getInsertableQueueSize() > 90) {
 							writelog2("+++ refresh directory sizes +++");
 							int c2 = getDb().refreshFolderSizes(consumeSomeUpdateQueueRunner);
-							consumeSomeUpdateQueue();
 							writelog2("+++ refresh directory sizes finished count=" + c2 + " +++");
 							if (c2 == 0) {
 								break;
@@ -664,10 +657,31 @@ public class StandardCrawler extends LazyAccessorThread {
 		} finally {
 			rs.close();
 		}
+		if (count == 0) {
+			consumeSomeUpdateQueue();
+		}
 		return count;
 	}
 
+	private int cleanupOrphansPhase = 0;
 	private int cleanupOrphans() throws SQLException, InterruptedException {
+		int result;
+		if (cleanupOrphansPhase == 0) {
+			result = getDb().cleanupOrphansWithChildren(0, consumeSomeUpdateQueueRunner);
+			if (result > 0) {
+				return result;
+			} else {
+				cleanupOrphansPhase ++;
+			}
+		}
+		if (cleanupOrphansPhase == 1) {
+			result = getDb().cleanupOrphansWithChildren(consumeSomeUpdateQueueRunner);
+			if (result > 0) {
+				return result;
+			} else {
+				cleanupOrphansPhase ++;
+			}
+		}
 		return getDb().cleanupOrphans(consumeSomeUpdateQueueRunner);
 	}
 
