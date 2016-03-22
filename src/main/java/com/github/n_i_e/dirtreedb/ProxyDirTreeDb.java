@@ -671,14 +671,16 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		Statement stmt1 = createStatement();
 		int count = 0;
 		try {
-			ResultSet rs = stmt1.executeQuery("SELECT pathid, newduplicate, newdedupablesize "
-					+ "FROM directory AS d1, "
-					+ "(SELECT size, csum, count(size)-1 AS newduplicate, (count(size)-1)*size AS newdedupablesize "
-					+ "FROM directory WHERE (type=1 OR type=3) AND CSUM IS NOT NULL GROUP BY size, csum "
-					+ "HAVING (COUNT(size)>=2 AND COUNT(size)-1<>MAX(duplicate)) "
-					+ "OR (COUNT(size)>=2 AND COUNT(size)-1<>MAX(duplicate)) "
-					+ "OR MAX(duplicate)>MIN(duplicate)) AS d2 "
-					+ "WHERE (d1.type=1 OR d1.type=3) AND d1.size=d2.size AND d1.csum=d2.csum");
+			ResultSet rs = stmt1.executeQuery("SELECT pathid, newduplicate, newdedupablesize FROM directory AS d1,"
+					+ " (SELECT size, csum, count(size)-1 AS newduplicate, (count(size)-1)*size AS newdedupablesize"
+					+ " FROM directory AS d2 WHERE (type=1 OR type=3) AND csum IS NOT NULL"
+					+ " AND EXISTS (SELECT * FROM directory AS d3 WHERE d2.parentid=d3.pathid)"
+					+ " GROUP BY size, csum"
+					+ " HAVING (COUNT(size)>=2 AND COUNT(size)-1<>MAX(duplicate))"
+					+ " OR (COUNT(size)>=2 AND COUNT(size)-1<>MAX(duplicate))"
+					+ " OR MAX(duplicate)>MIN(duplicate)) AS d4"
+					+ " WHERE (d1.type=1 OR d1.type=3) AND d1.size=d4.size AND d1.csum=d4.csum"
+					+ " AND EXISTS (SELECT * FROM directory AS d5 WHERE d1.parentid=d5.pathid)");
 			try {
 				while (rs.next()) {
 					threadHook();
@@ -999,6 +1001,8 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 							update(oldchild, newchild);
 						} else if (!dscMatch(oldchild, newchild)) {
 							update(oldchild, newchild);
+						} else if (oldchild.isNoAccess() != newchild.isNoAccess()) {
+							updateStatus(oldchild, newchild.getStatus());
 						}
 						new_size += newchild.getSize();
 						new_compressedsize += newchild.getCompressedSize();
@@ -1042,6 +1046,8 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					DbPathEntry oldchild = oldfolder.get(newchild.getPath());
 					if (!dscMatch(oldchild, newchild)) {
 						update(oldchild, newchild);
+					} else if (oldchild.isNoAccess() != newchild.isNoAccess()) {
+						updateStatus(oldchild, newchild.getStatus());
 					}
 					oldfolder.remove(newchild.getPath());
 				} else {
