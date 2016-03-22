@@ -99,129 +99,11 @@ public class StandardCrawler extends LazyAccessorThread {
 
 	@Override
 	public void run() throws Exception {
-		cleanupDb_RoundRobinState = 0;
-		Statement stmt = getDb().createStatement();
+		scheduleLayer2RoundRobinState = 0;
+		scheduleLayer3RoundRobinState = 0;
 		try {
 			while (true) {
-				writelog2("--- starting main loop ---");
-				getDb().consumeUpdateQueue();
-
-				boolean dontCrawlEquality = false;
-				ArrayList<String> s = new ArrayList<String>();
-				for (Long i: getDb().getDontInsertRootIdList()) {
-					s.add("rootid<>" + i);
-					if (i == 0) {
-						dontCrawlEquality = true;
-					}
-				}
-				String dontCheckUpdateRootIdsSubSql;
-				if (s.size() > 0) {
-					dontCheckUpdateRootIdsSubSql = " AND (" + String.join(" AND ", s) + ") ";
-				} else {
-					dontCheckUpdateRootIdsSubSql = "";
-				}
-
-				if (true) {
-					writelog2("--- csum (1/2) ---");
-					String sql = "SELECT * FROM directory AS d1 WHERE ((type=1 AND status<>2) OR type=3) "
-							+ "AND csum IS NULL "
-							+ dontCheckUpdateRootIdsSubSql
-							+ " AND (size<0 OR EXISTS (SELECT * FROM directory "
-							+ "WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid)) "
-							+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid)"
-							//+ "ORDER BY size DESC"
-							;
-					ResultSet rs = stmt.executeQuery(sql);
-					writelog2("--- csum (1/2) query finished ---");
-					int count = 0;
-					try {
-						Dispatcher disp = getDb().getDispatcher();
-						disp.setList(Dispatcher.NONE);
-						disp.setCsum(Dispatcher.CSUM);
-						disp.setNoReturn(true);
-						while (rs.next()) {
-							DbPathEntry f = getDb().rsToPathEntry(rs);
-							assert(f.isFile() || f.isCompressedFile());
-							disp.dispatch(f);
-							cleanupDbAndListIfRecommended();
-							count++;
-						}
-					} finally {
-						rs.close();
-					}
-					writelog2("--- csum (1/2) finished count=" + count + " ---");
-				}
-
-				if (!dontCrawlEquality) {
-					crawlEqualityUpdate();
-				}
-
-				if (true) {
-					writelog2("--- csum (2/2) ---");
-					String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND (csum IS NULL OR status=2) "
-							+ dontCheckUpdateRootIdsSubSql
-							+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND status=0)"
-							;
-					ResultSet rs = stmt.executeQuery(sql);
-					writelog2("--- csum (2/2) query finished ---");
-					int count = 0;
-					try {
-						Dispatcher disp = getDb().getDispatcher();
-						disp.setList(Dispatcher.NONE);
-						disp.setCsum(Dispatcher.CSUM_FORCE);
-						disp.setNoReturn(true);
-						while (rs.next()) {
-							DbPathEntry f = getDb().rsToPathEntry(rs);
-							assert(f.isFile() || f.isCompressedFile());
-							disp.dispatch(f);
-							cleanupDbAndListIfRecommended();
-							count++;
-						}
-					} finally {
-						rs.close();
-					}
-					writelog2("--- csum (2/2) finished count=" + count + " ---");
-				}
-/*
-				if (true) {
-					writelog2("--- checkupdate ---");
-					Dispatcher disp = getDb().getDispatcher();
-					disp.setList(Dispatcher.NONE);
-					disp.setCsum(Dispatcher.NONE);
-					disp.setNoReturn(true);
-
-					String sql = "SELECT * FROM directory AS d1 WHERE ((type=0 AND status=0) OR type=1) "
-							+ dontCheckUpdateRootIdsSubSql
-							+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND type=0 AND status<2)"
-							//+ " ORDER BY datelastmodified DESC"
-							;
-					ResultSet rs = stmt.executeQuery(sql);
-					writelog2("--- checkupdate query finished ---");
-					int count = 0;
-					try {
-						while (rs.next()) {
-							DbPathEntry f = getDb().rsToPathEntry(rs);
-							assert (f.isFolder() || f.isFile());
-							disp.dispatch(f);
-							cleanupDbAndListIfRecommended();
-							count++;
-						}
-					} finally {
-						rs.close();
-					}
-					writelog2("--- checkupdate finished count=" + count + " ---");
-				}
-*/
-				writelog2("--- consume all update queue (1/2) ---");
-				getDb().consumeUpdateQueue(0);
-				writelog2("--- consume all update queue (1/2) finished ---");
-
-				writelog2("--- complete cleanup/list items ---");
-				cleanupDbAndList(true);
-
-				writelog2("--- consume all update queue (2/2) ---");
-				getDb().consumeUpdateQueue(0);
-				writelog2("--- consume all update queue (2/2) finished ---");
+				scheduleLayer1();
 			}
 		} catch (SQLException e) {
 			writeWarning("Warning", "Caught SQLException, trying to recover (this is usually OK)");
@@ -230,9 +112,107 @@ public class StandardCrawler extends LazyAccessorThread {
 			getDb().discardAllQueueItems();
 			getDb().cleanupOrphans();
 			getDb().consumeUpdateQueue();
-		} finally {
-			stmt.close();
 		}
+	}
+
+	private void scheduleLayer1() throws InterruptedException, SQLException, IOException {
+		writelog2("--- starting main loop ---");
+		getDb().consumeUpdateQueue();
+
+		boolean dontCrawlEquality = false;
+		ArrayList<String> s = new ArrayList<String>();
+		for (Long i: getDb().getDontInsertRootIdList()) {
+			s.add("rootid<>" + i);
+			if (i == 0) {
+				dontCrawlEquality = true;
+			}
+		}
+		String dontCheckUpdateRootIdsSubSql;
+		if (s.size() > 0) {
+			dontCheckUpdateRootIdsSubSql = " AND (" + String.join(" AND ", s) + ") ";
+		} else {
+			dontCheckUpdateRootIdsSubSql = "";
+		}
+
+		if (true) {
+			writelog2("--- csum (1/2) ---");
+			String sql = "SELECT * FROM directory AS d1 WHERE ((type=1 AND status<>2) OR type=3)"
+					+ " AND csum IS NULL "
+					+ dontCheckUpdateRootIdsSubSql
+					+ " AND (size<0 OR EXISTS (SELECT * FROM directory AS d2"
+					+ " WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid)) "
+					+ " AND EXISTS (SELECT * FROM directory AS d3 WHERE d3.pathid=d1.parentid)"
+					//+ "ORDER BY size DESC"
+					;
+			Statement stmt = getDb().createStatement();
+			ResultSet rs = stmt.executeQuery(sql);
+			writelog2("--- csum (1/2) query finished ---");
+			int count = 0;
+			try {
+				Dispatcher disp = getDb().getDispatcher();
+				disp.setList(Dispatcher.NONE);
+				disp.setCsum(Dispatcher.CSUM);
+				disp.setNoReturn(true);
+				while (rs.next()) {
+					DbPathEntry f = getDb().rsToPathEntry(rs);
+					assert(f.isFile() || f.isCompressedFile());
+					disp.dispatch(f);
+					scheduleLayer2IfRecommended();
+					count++;
+				}
+			} finally {
+				rs.close();
+				stmt.close();
+			}
+			writelog2("--- csum (1/2) finished count=" + count + " ---");
+		}
+
+		if (!dontCrawlEquality) {
+			crawlEqualityUpdate();
+		}
+
+		if (true) {
+			writelog2("--- csum (2/2) ---");
+			String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND (csum IS NULL OR status=2) "
+					+ dontCheckUpdateRootIdsSubSql
+					+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND status=0)"
+					;
+			Statement stmt = getDb().createStatement();
+			ResultSet rs = stmt.executeQuery(sql);
+			writelog2("--- csum (2/2) query finished ---");
+			int count = 0;
+			try {
+				Dispatcher disp = getDb().getDispatcher();
+				disp.setList(Dispatcher.NONE);
+				disp.setCsum(Dispatcher.CSUM_FORCE);
+				disp.setNoReturn(true);
+				while (rs.next()) {
+					DbPathEntry f = getDb().rsToPathEntry(rs);
+					assert(f.isFile() || f.isCompressedFile());
+					disp.dispatch(f);
+					scheduleLayer2IfRecommended();
+					count++;
+				}
+			} finally {
+				rs.close();
+				stmt.close();
+			}
+			writelog2("--- csum (2/2) finished count=" + count + " ---");
+		}
+
+		writelog2("--- consume all update queue (1/2) ---");
+		getDb().consumeUpdateQueue(0);
+		writelog2("--- consume all update queue (1/2) finished ---");
+
+		writelog2("--- complete scuedule layer 2 items ---");
+		scheduleLayer2(true);
+
+		writelog2("--- complete scuedule layer 3 items ---");
+		scheduleLayer3(true);
+
+		writelog2("--- consume all update queue (2/2) ---");
+		getDb().consumeUpdateQueue(0);
+		writelog2("--- consume all update queue (2/2) finished ---");
 	}
 
 	private int crawlEqualityNew(boolean skipNoAccess, List<Long> dontListRootIds)
@@ -323,7 +303,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				DbPathEntry p1 = getDb().getDbPathEntryByPathId(rs.getLong("pathid1"));
 				DbPathEntry p2 = getDb().getDbPathEntryByPathId(rs.getLong("pathid2"));
 				disp.checkEquality(p1, p2, disp.CHECKEQUALITY_UPDATE);
-				cleanupDbAndListIfRecommended();
+				scheduleLayer2IfRecommended();
 				//consumeSomeUpdateQueue();
 				count++;
 			}
@@ -358,16 +338,17 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 	}
 
-	private void cleanupDbAndListIfRecommended() throws InterruptedException, SQLException, IOException {
+	private void scheduleLayer2IfRecommended() throws InterruptedException, SQLException, IOException {
 		int queueSizeLimit;
-		if (cleanupDb_RoundRobinState <= 3) {
-			queueSizeLimit = 1000; // 'refresh directory sizes' or former
+		if (scheduleLayer2RoundRobinState <= 1) {
+			queueSizeLimit = 100; // ''list (2/3)' or former
 		} else {
 			queueSizeLimit = 10000;
 		}
 
-		if (getDb().getDontInsertQueueSize() > queueSizeLimit) {
-			cleanupDbAndList(false);
+		if (getDb().getDontInsertQueueSize() > queueSizeLimit &&
+				getDb().getUpdateQueueSize(0) == 0) {
+			scheduleLayer2(false);
 		} else {
 			consumeSomeUpdateQueue();
 		}
@@ -380,211 +361,82 @@ public class StandardCrawler extends LazyAccessorThread {
 			consumeSomeUpdateQueue();
 		}
 	};
-	private static int cleanupDb_RoundRobinState = 0;
-	private static int cleanupDb_RefreshDirectorySizesCounter = 0;
-	private void cleanupDbAndList(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
+
+	private static int scheduleLayer2RoundRobinState = 0;
+	private void scheduleLayer2(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
 		consumeSomeUpdateQueue();
 
-		boolean isReadyToCleanupDb = (doAllAtOnce || getDb().getUpdateQueueSize(0) == 0);
-		if (isReadyToCleanupDb) {
-			assert(cleanupDb_RoundRobinState >= 0);
-			assert(cleanupDb_RoundRobinState <= 8);
+		assert(scheduleLayer2RoundRobinState >= 0);
+		assert(scheduleLayer2RoundRobinState <= 3);
 
-			List<Long> dontListRootIds = getDb().getInsertableRootIdList();
-			boolean isReadyToList = getDb().getInsertableQueueSize() < 100 && getDb().getUpdateQueueSize(0) == 0;
+		List<Long> dontListRootIds = getDb().getInsertableRootIdList();
 
-			if (cleanupDb_RoundRobinState == 0) {
-				writelog2("+++ refresh duplicate fields +++");
-				int count = getDb().refreshDuplicateFields(consumeSomeUpdateQueueRunner);
-				writelog2("+++ refresh duplicate fields finished count=" + count + " +++");
-
-				if (doAllAtOnce) {
-					consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				}
-			}
-
-			if (cleanupDb_RoundRobinState == 1) {
-				if (isReadyToList) {
-					writelog2("+++ refresh upperlower entries (1/2) +++");
-					int count = getDb().refreshDirectUpperLower(consumeSomeUpdateQueueRunner);
-					writelog2("+++ refresh upperlower entries (1/2) finished count=" + count + " +++");
-				} else {
-					writelog2("+++ SKIP refresh upperlower entries (1/2) +++");
-				}
-
-				if (doAllAtOnce) {
-					consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				}
-				cleanupDb_RefreshDirectorySizesCounter = 0;
-			}
-
-			if (cleanupDb_RoundRobinState == 2) {
-				if (isReadyToList) {
-					writelog2("+++ refresh upperlower entries (2/2) +++");
-					int count = getDb().refreshIndirectUpperLower(consumeSomeUpdateQueueRunner);
-					writelog2("+++ refresh upperlower entries (2/2) finished count=" + count + " +++");
-				} else {
-					writelog2("+++ SKIP refresh upperlower entries (2/2) +++");
-				}
-
-				if (doAllAtOnce) {
-					consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				}
-			}
-
-			if (cleanupDb_RoundRobinState == 3) {
-				writelog2("+++ refresh directory sizes +++");
-				int count = getDb().refreshFolderSizes(consumeSomeUpdateQueueRunner);
-				writelog2("+++ refresh directory sizes finished count=" + count + " +++");
-
-				if (doAllAtOnce) {
-					consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				} else if (count > 0 && cleanupDb_RefreshDirectorySizesCounter < 10) {
-					cleanupDb_RoundRobinState--;
-					cleanupDb_RefreshDirectorySizesCounter++;
-				}
-			}
-
-			if (cleanupDb_RoundRobinState == 4) {
-				if (isReadyToList) {
-					writelog2("+++ list (1/3) +++");
-					int count = list(dontListRootIds,
-							"(type=1 AND (" + getArchiveExtSubSql() + "))",
-							" AND (status=1 OR status=2)",
-							"");
-					writelog2("+++ list (1/3) finished count=" + count + " +++");
-				} else {
-					writelog2("+++ SKIP list (1/3) +++");
-				}
-
-				if (doAllAtOnce) {
-					consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				}
-			}
-
-			if (cleanupDb_RoundRobinState == 5) {
-				if (isReadyToList) {
-					writelog2("+++ list (2/3) +++");
-					int count = list(dontListRootIds,
-							"(type=3 AND (" + getArchiveExtSubSql() + "))",
-							" AND (status=1 OR status=2)",
-							"");
-					writelog2("+++ list (2/3) finished count=" + count + " +++");
-				} else {
-					writelog2("+++ SKIP list (2/3) +++");
-				}
-
-				if (doAllAtOnce) {
-					consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				}
-			}
-
-			if (cleanupDb_RoundRobinState == 6) {
-				if (isReadyToList) {
-					writelog2("+++ list (3/3) +++");
-					int count = list(dontListRootIds, "type=0", "", " ORDER BY status DESC");
-					writelog2("+++ list (3/3) finished count=" + count + " +++");
-				} else {
-					writelog2("+++ SKIP list (3/3) +++");
-				}
-
-				if (doAllAtOnce) {
-					consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				}
-			}
-
-			if (cleanupDb_RoundRobinState == 7) {
-				unlistDisabledExtensions();
-
-				if (doAllAtOnce) {
-					consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				}
-			}
-/*
-			if (cleanupDb_RoundRobinState == 7) {
-				if (isReadyToList && !dontListRootIds.contains(0L)) {
-					writelog2("+++ equality (new) +++");
-					int count = crawlEqualityNew(true, dontListRootIds);
-					writelog2("+++ equality (new) finished count=" + count + " +++");
-				} else {
-					writelog2("+++ SKIP equality (new) +++");
-				}
-
-				if (doAllAtOnce) {
-					consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				}
-			}
-*/
-			if (cleanupDb_RoundRobinState == 8) {
-				if (getDb().getUpdateQueueSize(1) == 0) {
-					writelog2("+++ cleanup orphans +++");
-					int c = cleanupOrphans();
-					writelog2("+++ cleanup orphans finished count=" + c + " +++");
-				} else {
-					writelog2("+++ SKIP cleanup orphans +++");
-				}
-
-				if (doAllAtOnce) {
-					consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				}
-			}
-/*
-			if (cleanupDb_RoundRobinState == 9) {
-				writelog2("+++ reset diretories to dirty +++");
-				int count = 0;
-				Statement stmt = getDb().createStatement();
-				try {
-					ResultSet rs = stmt.executeQuery("SELECT * FROM directory WHERE type=0 AND status=0");
-					writelog2("+++ reset diretories to dirty query finished +++");
-					try {
-						while (rs.next()) {
-							DbPathEntry entry = getDb().rsToPathEntry(rs);
-							getDb().updateStatus(entry, PathEntry.DIRTY);
-							consumeSomeUpdateQueue();
-							count++;
-						}
-					} finally {
-						rs.close();
+		if (scheduleLayer2RoundRobinState == 0) {
+			if (getDb().getInsertableQueueSize() > 0) {
+				writelog2("+++ pre-list +++");
+				while (getDb().getInsertableQueueSize() > 0) {
+					if (getDb().getUpdateQueueSize() > 0) {
+						getDb().consumeOneUpdateQueue();
+					} else {
+						scheduleLayer3(false);
 					}
-				} finally {
-					stmt.close();
 				}
-				writelog2("+++ reset diretories to dirty query finished count=" + count + " +++");
+			}
+			writelog2("+++ list (1/3) +++");
+			int count = list(dontListRootIds,
+					"(type=1 AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)",
+					"",
+					"");
+			writelog2("+++ list (1/3) finished count=" + count + " +++");
 
-				if (doAllAtOnce) {
-					consumeSomeUpdateQueue();
-					cleanupDb_RoundRobinState++;
-				}
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
 			}
-*/
-			if (!doAllAtOnce) {
-				cleanupDb_RoundRobinState++;
-			}
-			cleanupDb_RoundRobinState = cleanupDb_RoundRobinState % 9;
 		}
-		consumeSomeUpdateQueue();
+
+		if (scheduleLayer2RoundRobinState == 1) {
+			writelog2("+++ list (2/3) +++");
+			int count = list(dontListRootIds,
+					"(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1",
+					"",
+					"");
+			writelog2("+++ list (2/3) finished count=" + count + " +++");
+
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
+			}
+		}
+
+		if (scheduleLayer2RoundRobinState == 2) {
+			writelog2("+++ list (3/3) +++");
+			int count = list(dontListRootIds, "type=0", "", " ORDER BY status DESC");
+			writelog2("+++ list (3/3) finished count=" + count + " +++");
+
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
+			}
+		}
+
+		if (scheduleLayer2RoundRobinState == 3) {
+			unlistDisabledExtensions();
+
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
+			}
+		}
+
+		if (!doAllAtOnce) {
+			scheduleLayer2RoundRobinState++;
+		}
+		scheduleLayer2RoundRobinState = scheduleLayer2RoundRobinState % 4;
 	}
 
-	private void list(List<Long> dontListRootIds) throws SQLException, InterruptedException, IOException {
-		writelog2("+++ list +++");
-		int count = list(dontListRootIds,
-				"(type=0 OR ((type=1 OR type=3) AND (" + getArchiveExtSubSql() + "))) ",
-				" AND (status=1 OR status=2 OR parentid=0))",
-				"");
-		writelog2("+++ list finished count=" + count + " +++");
-	}
-
-	private int list(List<Long> dontListRootIds, String typeSubSql, String statusSubSql, String orderSubSql)
+	private int list(List<Long> dontListRootIds,
+			String typeStatusSubSql, String parentTypeSubSql, String orderSubSql)
 			throws SQLException, InterruptedException, IOException {
 		Statement stmt = getDb().createStatement();
 
@@ -594,13 +446,14 @@ public class StandardCrawler extends LazyAccessorThread {
 		disp.setNoReturn(true);
 
 		String sql = "SELECT d1.*, childhint FROM (SELECT * FROM directory WHERE "
-				+ typeSubSql
+				+ typeStatusSubSql
 				+ getDontListRootIdsSubSql(dontListRootIds)
-				+ statusSubSql
 				+ ") AS d1 "
 				+ "LEFT JOIN "
 				+ "(SELECT DISTINCT parentid AS childhint FROM directory) AS d2 ON pathid=childhint "
-				+ "WHERE d1.parentid=0 OR EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid)"
+				+ "WHERE d1.parentid=0 OR EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid "
+				+ parentTypeSubSql
+				+ ")"
 				+ orderSubSql
 				;
 		writelog2(sql);
@@ -621,38 +474,11 @@ public class StandardCrawler extends LazyAccessorThread {
 						"!! CANNOT LIST THIS ENTRY: " + f.getType() + " at " + f.getPath());
 				disp.dispatch(f);
 				consumeSomeUpdateQueue();
-				if (getDb().getInsertableQueueSize() > 100 && getDb().getUpdateQueueSize(1) == 0) {
-					writelog2("+++ cleanup orphans +++");
-					int c = cleanupOrphans();
-					consumeSomeUpdateQueue();
-					writelog2("+++ cleanup orphans finished count=" + c + " +++");
-					if (c == 0) {
-						if (getDb().getInsertableQueueSize() > 90) {
-							writelog2("+++ refresh duplicate fields +++");
-							int c2 = getDb().refreshDuplicateFields(consumeSomeUpdateQueueRunner);
-							writelog2("+++ refresh duplicate fields finished count=" + c2 + " +++");
-						}
-						if (getDb().getInsertableQueueSize() > 90) {
-							writelog2("+++ refresh upperlower entries (1/2) +++");
-							int c2 = getDb().refreshDirectUpperLower(consumeSomeUpdateQueueRunner);
-							writelog2("+++ refresh upperlower entries (1/2) finished count=" + c2 + " +++");
-						}
-						if (getDb().getInsertableQueueSize() > 90) {
-							writelog2("+++ refresh upperlower entries (2/2) +++");
-							int c2 = getDb().refreshIndirectUpperLower(consumeSomeUpdateQueueRunner);
-							writelog2("+++ refresh upperlower entries (2/2) finished count=" + c2 + " +++");
-						}
-						while (getDb().getInsertableQueueSize() > 90) {
-							writelog2("+++ refresh directory sizes +++");
-							int c2 = getDb().refreshFolderSizes(consumeSomeUpdateQueueRunner);
-							writelog2("+++ refresh directory sizes finished count=" + c2 + " +++");
-							if (c2 == 0) {
-								break;
-							}
-						}
-					}
-				}
 				count++;
+				if ((getDb().getInsertableQueueSize() > 100 || count % 1000 == 0) &&
+						getDb().getUpdateQueueSize(1) == 0) {
+					scheduleLayer3(false);
+				}
 			}
 		} finally {
 			rs.close();
@@ -663,26 +489,92 @@ public class StandardCrawler extends LazyAccessorThread {
 		return count;
 	}
 
-	private int cleanupOrphansPhase = 0;
+	private static int scheduleLayer3RoundRobinState = 0;
+	private static int scheduleLayer3RefreshDirectorySizesCounter = 0;
+	private void scheduleLayer3(boolean doAllAtOnce) throws SQLException, InterruptedException {
+		assert(scheduleLayer3RoundRobinState >= 0);
+		assert(scheduleLayer3RoundRobinState <= 4);
+
+		if (scheduleLayer3RoundRobinState == 0) {
+			writelog2("*** refresh upperlower entries (1/2) ***");
+			int c = getDb().refreshDirectUpperLower(consumeSomeUpdateQueueRunner);
+			writelog2("*** refresh upperlower entries (1/2) finished count=" + c + " ***");
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer3RoundRobinState++;
+			}
+		}
+
+		if (scheduleLayer3RoundRobinState == 1) {
+			writelog2("*** refresh upperlower entries (2/2) ***");
+			int c = getDb().refreshIndirectUpperLower(consumeSomeUpdateQueueRunner);
+			writelog2("*** refresh upperlower entries (2/2) finished count=" + c + " ***");
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer3RoundRobinState++;
+			}
+			scheduleLayer3RefreshDirectorySizesCounter = 0;
+		}
+
+		if (scheduleLayer3RoundRobinState == 2) {
+			writelog2("*** refresh duplicate fields ***");
+			int c = getDb().refreshDuplicateFields(consumeSomeUpdateQueueRunner);
+			writelog2("*** refresh duplicate fields finished count=" + c + " ***");
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer3RoundRobinState++;
+			}
+		}
+
+		if (scheduleLayer3RoundRobinState == 3) {
+			writelog2("*** refresh directory sizes ***");
+			int c = getDb().refreshFolderSizes(consumeSomeUpdateQueueRunner);
+			writelog2("*** refresh directory sizes finished count=" + c + " ***");
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer3RoundRobinState++;
+			} else if (c>0  && scheduleLayer3RefreshDirectorySizesCounter < 10) {
+				scheduleLayer3RoundRobinState--;
+				scheduleLayer3RefreshDirectorySizesCounter++;
+			}
+		}
+
+		if (scheduleLayer3RoundRobinState == 4) {
+			if (getDb().getUpdateQueueSize(1) == 0) {
+				writelog2("*** cleanup orphans ***");
+				int c = cleanupOrphans();
+				writelog2("*** cleanup orphans finished count=" + c + " ***");
+			} else {
+				writelog2("*** SKIP cleanup orphans ***");
+			}
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer3RoundRobinState++;
+			}
+		}
+		if (!doAllAtOnce) {
+			scheduleLayer3RoundRobinState++;
+		}
+		scheduleLayer3RoundRobinState = scheduleLayer3RoundRobinState % 5;
+	}
+
+	private final RunnableWithException2<SQLException, InterruptedException> cleanupOrphansCallbackRunner =
+			new RunnableWithException2<SQLException, InterruptedException>() {
+		@Override
+		public void run() throws InterruptedException, SQLException {
+			if (getDb().getUpdateQueueSize(1) > 10000) {
+				throw new InterruptedException();
+			}
+			consumeSomeUpdateQueue();
+		}
+	};
+
 	private int cleanupOrphans() throws SQLException, InterruptedException {
-		int result;
-		if (cleanupOrphansPhase == 0) {
-			result = getDb().cleanupOrphansWithChildren(0, consumeSomeUpdateQueueRunner);
-			if (result > 0) {
-				return result;
-			} else {
-				cleanupOrphansPhase ++;
-			}
+		int result = getDb().cleanupOrphansWithChildren(cleanupOrphansCallbackRunner);
+		if (result > 0) {
+			return result;
 		}
-		if (cleanupOrphansPhase == 1) {
-			result = getDb().cleanupOrphansWithChildren(consumeSomeUpdateQueueRunner);
-			if (result > 0) {
-				return result;
-			} else {
-				cleanupOrphansPhase ++;
-			}
-		}
-		return getDb().cleanupOrphans(consumeSomeUpdateQueueRunner);
+		return getDb().cleanupOrphans(cleanupOrphansCallbackRunner);
 	}
 
 	private String getArchiveExtSubSql() {
