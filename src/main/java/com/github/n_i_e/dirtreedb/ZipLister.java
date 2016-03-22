@@ -65,7 +65,11 @@ public class ZipLister extends AbstractArchiveLister {
 		next_entry.setSize(z.getSize());
 		next_entry.setCompressedSize(z.getCompressedSize());
 		if (csum && newtype == PathEntry.COMPRESSEDFILE) {
-			next_entry.setCsum(instream);
+			try {
+				next_entry.setCsum(instream);
+			} catch (IOException e) { // possibly encrypted zip
+				next_entry.setStatus(PathEntry.NOACCESS);
+			}
 		}
 		if (next_entry.getSize() < 0) {
 			next_entry.setSize(0);

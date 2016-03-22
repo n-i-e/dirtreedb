@@ -52,7 +52,13 @@ public class MsgLister extends AbstractArchiveLister {
 		}
 		try {
 			if (content == null) {
-				MAPIMessage msg = new MAPIMessage(inf);
+				MAPIMessage msg;
+				try {
+					msg = new MAPIMessage(inf);
+				} catch (IOException e) {
+					eof = true;
+					return;
+				}
 
 				date = msg.getMessageDate() == null ? 0L : msg.getMessageDate().getTimeInMillis();
 				subject = msg.getSubject();
@@ -78,7 +84,21 @@ public class MsgLister extends AbstractArchiveLister {
 				return;
 			}
 
-			AttachmentChunks part = content[count];
+			AttachmentChunks part = null;
+			byte[] data = null;
+			while (data == null) {
+				part = content[count];
+				try {
+					data = part.attachData.getValue();
+				} catch (NullPointerException e) {
+					data = null;
+					if (++count >= content.length) {
+						eof = true;
+						return;
+					}
+				}
+			}
+
 			String filename;
 			try {
 				filename = part.attachFileName.getValue();
@@ -86,10 +106,10 @@ public class MsgLister extends AbstractArchiveLister {
 				filename = String.valueOf(count);
 			}
 			filename = filename.replace("\\", "/");
+
 			next_entry = new PathEntry(basepath.getPath() + "/" + filename, PathEntry.COMPRESSEDFILE);
 			next_entry.setDateLastModified(date);
 			next_entry.setStatus(PathEntry.DIRTY);
-			byte[] data = part.attachData.getValue();
 			next_entry.setCompressedSize(data.length);
 			next_entry.setSize(data.length);
 
@@ -97,14 +117,12 @@ public class MsgLister extends AbstractArchiveLister {
 			if (csum) {
 				next_entry.setCsum(instream);
 			}
-
 			if (++count >= content.length) {
 				eof = true;
 			}
 		} catch (ChunkNotFoundException e) {
 			eof = true;
 		}
-		return;
 	}
 
 	@Override
