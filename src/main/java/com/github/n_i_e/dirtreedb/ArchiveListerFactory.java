@@ -91,6 +91,7 @@ public class ArchiveListerFactory {
 		result.put("msg", msgR);
 
 		result.put("jar", uzipR);
+		result.put("kmz", uzipR);
 
 		return result;
 	}
