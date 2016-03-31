@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map.Entry;
 
 import com.github.n_i_e.dirtreedb.LazyProxyDirTreeDb.Dispatcher;
+import com.github.n_i_e.dirtreedb.ProxyDirTreeDb.CleanupOrphansCallback;
 
 public class StandardCrawler extends LazyAccessorThread {
 
@@ -99,11 +100,40 @@ public class StandardCrawler extends LazyAccessorThread {
 
 	@Override
 	public void run() throws Exception {
+		scheduleLayer1RoundRobinState = 0;
 		scheduleLayer2RoundRobinState = 0;
 		scheduleLayer3RoundRobinState = 0;
 		try {
 			while (true) {
-				scheduleLayer1();
+				if (getDb().getDontInsertQueueSize() < DONT_INSERT_QUEUE_SIZE_LIMIT) {
+					writelog2("--- scuedule layer 1 ---");
+					scheduleLayer1(false);
+				} else {
+					writelog2("--- SKIP scuedule layer 1 ---");
+				}
+
+				if (getDb().getInsertableQueueSize() < INSERTABLE_QUEUE_SIZE_LIMIT) {
+					writelog2("--- scuedule layer 2 ---");
+					scheduleLayer2(false);
+				} else {
+					writelog2("--- SKIP scuedule layer 2 ---");
+				}
+
+				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
+						&& getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT) {
+					writelog2("--- scuedule layer 3 ---");
+					scheduleLayer3(false,
+							new ProxyDirTreeDb.CleanupOrphansCallback() {
+						public boolean isEol() throws SQLException, InterruptedException {
+							if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
+									&& getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT) {
+								return false;
+							} else {
+								return true;
+							}
+						}
+					});
+				}
 			}
 		} catch (SQLException e) {
 			writeWarning("Warning", "Caught SQLException, trying to recover (this is usually OK)");
@@ -115,28 +145,19 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 	}
 
-	private void scheduleLayer1() throws InterruptedException, SQLException, IOException {
-		writelog2("--- starting main loop ---");
-		getDb().consumeUpdateQueue();
+	private static int scheduleLayer1RoundRobinState = 0;
+	private void scheduleLayer1(boolean doAllAtOnce) throws InterruptedException, SQLException, IOException {
+		consumeSomeUpdateQueue();
 
 		boolean dontCrawlEquality = false;
-		ArrayList<String> s = new ArrayList<String>();
-		for (Long i: getDb().getDontInsertRootIdList()) {
-			s.add("rootid<>" + i);
-			if (i == 0) {
-				dontCrawlEquality = true;
-			}
-		}
-		String dontCheckUpdateRootIdsSubSql;
-		if (s.size() > 0) {
-			dontCheckUpdateRootIdsSubSql = " AND (" + String.join(" AND ", s) + ") ";
-		} else {
-			dontCheckUpdateRootIdsSubSql = "";
-		}
+		String dontCheckUpdateRootIdsSubSql = "";
 
-		if (true) {
+		assert(scheduleLayer1RoundRobinState >= 0);
+		assert(scheduleLayer1RoundRobinState <= 2);
+
+		if (scheduleLayer1RoundRobinState == 0) {
 			writelog2("--- csum (1/2) ---");
-			String sql = "SELECT * FROM directory AS d1 WHERE ((type=1 AND status<>2) OR type=3)"
+			String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR (type=3 AND status<>2))"
 					+ " AND csum IS NULL "
 					+ dontCheckUpdateRootIdsSubSql
 					+ " AND (size<0 OR EXISTS (SELECT * FROM directory AS d2"
@@ -157,21 +178,36 @@ public class StandardCrawler extends LazyAccessorThread {
 					DbPathEntry f = getDb().rsToPathEntry(rs);
 					assert(f.isFile() || f.isCompressedFile());
 					disp.dispatch(f);
-					scheduleLayer2IfRecommended();
 					count++;
+					if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
+							|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
+							) {
+						break;
+					}
 				}
 			} finally {
 				rs.close();
 				stmt.close();
 			}
 			writelog2("--- csum (1/2) finished count=" + count + " ---");
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer1RoundRobinState++;
+			}
 		}
 
-		if (!dontCrawlEquality) {
-			crawlEqualityUpdate();
+		if (scheduleLayer1RoundRobinState == 1) {
+			if (!dontCrawlEquality) {
+				crawlEqualityUpdate();
+			}
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer1RoundRobinState++;
+			}
 		}
 
-		if (true) {
+		if (scheduleLayer1RoundRobinState == 2) {
+			consumeDontInsertQueue();
 			writelog2("--- csum (2/2) ---");
 			String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND (csum IS NULL OR status=2) "
 					+ dontCheckUpdateRootIdsSubSql
@@ -190,29 +226,28 @@ public class StandardCrawler extends LazyAccessorThread {
 					DbPathEntry f = getDb().rsToPathEntry(rs);
 					assert(f.isFile() || f.isCompressedFile());
 					disp.dispatch(f);
-					scheduleLayer2IfRecommended();
 					count++;
+					if (getDb().getDontInsertQueueSize() > DONT_INSERT_QUEUE_SIZE_LIMIT
+							|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
+							) {
+						break;
+					}
 				}
 			} finally {
 				rs.close();
 				stmt.close();
 			}
 			writelog2("--- csum (2/2) finished count=" + count + " ---");
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer1RoundRobinState++;
+			}
 		}
 
-		writelog2("--- consume all update queue (1/2) ---");
-		getDb().consumeUpdateQueue(0);
-		writelog2("--- consume all update queue (1/2) finished ---");
-
-		writelog2("--- complete scuedule layer 2 items ---");
-		scheduleLayer2(true);
-
-		writelog2("--- complete scuedule layer 3 items ---");
-		scheduleLayer3(true);
-
-		writelog2("--- consume all update queue (2/2) ---");
-		getDb().consumeUpdateQueue(0);
-		writelog2("--- consume all update queue (2/2) finished ---");
+		if (!doAllAtOnce) {
+			scheduleLayer1RoundRobinState++;
+		}
+		scheduleLayer1RoundRobinState = scheduleLayer1RoundRobinState % 3;
 	}
 
 	private int crawlEqualityNew(boolean skipNoAccess, List<Long> dontListRootIds)
@@ -289,7 +324,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		return dontListRootIdsSubSql;
 	}
 
-	private void crawlEqualityUpdate() throws SQLException, InterruptedException, IOException {
+	private int crawlEqualityUpdate() throws SQLException, InterruptedException, IOException {
 		writelog2("--- equality ---");
 		Dispatcher disp = getDb().getDispatcher();
 		disp.setNoReturn(true);
@@ -303,14 +338,18 @@ public class StandardCrawler extends LazyAccessorThread {
 				DbPathEntry p1 = getDb().getDbPathEntryByPathId(rs.getLong("pathid1"));
 				DbPathEntry p2 = getDb().getDbPathEntryByPathId(rs.getLong("pathid2"));
 				disp.checkEquality(p1, p2, disp.CHECKEQUALITY_UPDATE);
-				scheduleLayer2IfRecommended();
-				//consumeSomeUpdateQueue();
 				count++;
+				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
+						|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
+						) {
+					break;
+				}
 			}
 		} finally {
 			rs.close();
 		}
 		writelog2("--- equality finished count=" + count + " ---");
+		return count;
 	}
 
 	long debugBeaconMessageTimer = 0L;
@@ -331,36 +370,54 @@ public class StandardCrawler extends LazyAccessorThread {
 	public void consumeSomeUpdateQueue() throws InterruptedException, SQLException {
 		while (getDb().getUpdateQueueSize() > 0 &&
 				(getDb().getUpdateQueueSize(0) > 0 ||
-						getDb().getInsertableQueueSize() > 100 ||
-						getDb().getDontInsertQueueSize() > 10000)
+						getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT ||
+						getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT)
 				) {
 			getDb().consumeOneUpdateQueue();
 		}
 	}
 
-	private void scheduleLayer2IfRecommended() throws InterruptedException, SQLException, IOException {
-		int queueSizeLimit;
-		if (scheduleLayer2RoundRobinState <= 1) {
-			queueSizeLimit = 100; // ''list (2/3)' or former
-		} else {
-			queueSizeLimit = 10000;
-		}
-
-		if (getDb().getDontInsertQueueSize() > queueSizeLimit &&
-				getDb().getUpdateQueueSize(0) == 0) {
-			scheduleLayer2(false);
-		} else {
-			consumeSomeUpdateQueue();
-		}
+	private void consumeInsertableQueue() throws SQLException, InterruptedException {
+		writelog2("+++ consume insertable queue +++");
+		do {
+			if (getDb().getUpdateQueueSize() > 0) {
+				getDb().consumeOneUpdateQueue();
+			} else {
+				scheduleLayer3(false,
+						new ProxyDirTreeDb.CleanupOrphansCallback() {
+					public boolean isEol() throws SQLException, InterruptedException {
+						if (getDb().getInsertableQueueSize() > 0) {
+							return false;
+						} else {
+							return true;
+						}
+					}
+				});
+			}
+		} while (getDb().getInsertableQueueSize() > 0);
+		getDb().consumeUpdateQueue(0);
 	}
 
-	private final RunnableWithException2<SQLException, InterruptedException> consumeSomeUpdateQueueRunner =
-			new RunnableWithException2<SQLException, InterruptedException>() {
-		@Override
-		public void run() throws InterruptedException, SQLException {
-			consumeSomeUpdateQueue();
-		}
-	};
+	private void consumeDontInsertQueue() throws SQLException, InterruptedException {
+		writelog2("--- consume don't-insert queue ---");
+		do {
+			if (getDb().getUpdateQueueSize() > 0) {
+				getDb().consumeOneUpdateQueue();
+			} else {
+				scheduleLayer3(false,
+						new ProxyDirTreeDb.CleanupOrphansCallback() {
+					public boolean isEol() throws SQLException, InterruptedException {
+						if (getDb().getDontInsertQueueSize() > 0) {
+							return false;
+						} else {
+							return true;
+						}
+					}
+				});
+			}
+		} while (getDb().getDontInsertQueueSize() > 0);
+		getDb().consumeUpdateQueue(0);
+	}
 
 	private static int scheduleLayer2RoundRobinState = 0;
 	private void scheduleLayer2(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
@@ -369,25 +426,10 @@ public class StandardCrawler extends LazyAccessorThread {
 		assert(scheduleLayer2RoundRobinState >= 0);
 		assert(scheduleLayer2RoundRobinState <= 3);
 
-		List<Long> dontListRootIds = getDb().getInsertableRootIdList();
-
 		if (scheduleLayer2RoundRobinState == 0) {
-			if (getDb().getInsertableQueueSize() > 0) {
-				writelog2("+++ pre-list +++");
-				while (getDb().getInsertableQueueSize() > 0) {
-					if (getDb().getUpdateQueueSize() > 0) {
-						getDb().consumeOneUpdateQueue();
-					} else {
-						scheduleLayer3(false);
-					}
-				}
-			}
-			writelog2("+++ list (1/3) +++");
-			int count = list(dontListRootIds,
-					"(type=1 AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)",
-					"",
-					"");
-			writelog2("+++ list (1/3) finished count=" + count + " +++");
+			writelog2("+++ list (1/4) +++");
+			int count = list(null, "(type=1 AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)", "", "");
+			writelog2("+++ list (1/4) finished count=" + count + " +++");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -396,12 +438,10 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleLayer2RoundRobinState == 1) {
-			writelog2("+++ list (2/3) +++");
-			int count = list(dontListRootIds,
-					"(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1",
-					"",
-					"");
-			writelog2("+++ list (2/3) finished count=" + count + " +++");
+			consumeInsertableQueue();
+			writelog2("+++ list (2/4) +++");
+			int count = list(null, "type=0 AND status=2", "", "");
+			writelog2("+++ list (2/4) finished count=" + count + " +++");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -410,9 +450,9 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleLayer2RoundRobinState == 2) {
-			writelog2("+++ list (3/3) +++");
-			int count = list(dontListRootIds, "type=0", "", " ORDER BY status DESC");
-			writelog2("+++ list (3/3) finished count=" + count + " +++");
+			writelog2("+++ list (3/4) +++");
+			int count = list(null, "(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1", "", "");
+			writelog2("+++ list (3/4) finished count=" + count + " +++");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -421,7 +461,27 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleLayer2RoundRobinState == 3) {
-			unlistDisabledExtensions();
+			consumeInsertableQueue();
+			writelog2("+++ list (4/4) +++");
+			int count = list(null, "type=0 AND status=1", "", "");
+			writelog2("+++ list (4/4) finished count=" + count + " +++");
+			if (count == 0) {
+				writelog2("+++ reset all clean folders to dirty +++");
+				String sql = "SELECT * FROM directory WHERE type=0 AND status=0";
+				PreparedStatement ps = getDb().prepareStatement(sql);
+				ResultSet rs = ps.executeQuery();
+				int c2 = 0;
+				try {
+					while (rs.next()) {
+						getDb().updateStatus(getDb().rsToPathEntry(rs), PathEntry.DIRTY);
+						c2++;
+					}
+				} finally {
+					rs.close();
+					ps.close();
+				}
+				writelog2("+++ reset all clean folders to dirty finished count=" + c2 + " +++");
+			}
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -473,27 +533,34 @@ public class StandardCrawler extends LazyAccessorThread {
 						|| ((f.isFile() || f.isCompressedFile()) && ArchiveListerFactory.isArchivable(f)),
 						"!! CANNOT LIST THIS ENTRY: " + f.getType() + " at " + f.getPath());
 				disp.dispatch(f);
-				consumeSomeUpdateQueue();
 				count++;
-				if ((getDb().getInsertableQueueSize() > 100 || count % 1000 == 0) &&
-						getDb().getUpdateQueueSize(1) == 0) {
-					scheduleLayer3(false);
+				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
+						|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
+						) {
+					return count;
 				}
 			}
 		} finally {
 			rs.close();
 		}
-		if (count == 0) {
-			consumeSomeUpdateQueue();
-		}
 		return count;
 	}
 
+	private final RunnableWithException2<SQLException, InterruptedException> consumeSomeUpdateQueueRunner =
+			new RunnableWithException2<SQLException, InterruptedException>() {
+		@Override
+		public void run() throws InterruptedException, SQLException {
+			consumeSomeUpdateQueue();
+		}
+	};
+
 	private static int scheduleLayer3RoundRobinState = 0;
 	private static int scheduleLayer3RefreshDirectorySizesCounter = 0;
-	private void scheduleLayer3(boolean doAllAtOnce) throws SQLException, InterruptedException {
+	private void scheduleLayer3(boolean doAllAtOnce, CleanupOrphansCallback callback) throws SQLException, InterruptedException {
+		consumeSomeUpdateQueue();
+
 		assert(scheduleLayer3RoundRobinState >= 0);
-		assert(scheduleLayer3RoundRobinState <= 4);
+		assert(scheduleLayer3RoundRobinState <= 5);
 
 		if (scheduleLayer3RoundRobinState == 0) {
 			writelog2("*** refresh upperlower entries (1/2) ***");
@@ -540,6 +607,14 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleLayer3RoundRobinState == 4) {
+			unlistDisabledExtensions(callback);
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer3RoundRobinState++;
+			}
+		}
+
+		if (scheduleLayer3RoundRobinState == 5) {
 			if (getDb().getUpdateQueueSize(1) == 0) {
 				writelog2("*** cleanup orphans ***");
 				int c = cleanupOrphans();
@@ -552,24 +627,30 @@ public class StandardCrawler extends LazyAccessorThread {
 				scheduleLayer3RoundRobinState++;
 			}
 		}
+
 		if (!doAllAtOnce) {
 			scheduleLayer3RoundRobinState++;
 		}
-		scheduleLayer3RoundRobinState = scheduleLayer3RoundRobinState % 5;
+		scheduleLayer3RoundRobinState = scheduleLayer3RoundRobinState % 6;
 	}
 
-	private final RunnableWithException2<SQLException, InterruptedException> cleanupOrphansCallbackRunner =
-			new RunnableWithException2<SQLException, InterruptedException>() {
-		@Override
-		public void run() throws InterruptedException, SQLException {
-			if (getDb().getUpdateQueueSize(1) > 10000) {
-				throw new InterruptedException();
-			}
-			consumeSomeUpdateQueue();
-		}
-	};
+	private static final int UPDATE_QUEUE_SIZE_LIMIT = 10000;
+	private static final int INSERTABLE_QUEUE_SIZE_LIMIT = 100;
+	private static final int DONT_INSERT_QUEUE_SIZE_LIMIT = 10000;
 
 	private int cleanupOrphans() throws SQLException, InterruptedException {
+		ProxyDirTreeDb.CleanupOrphansCallback cleanupOrphansCallbackRunner =
+				new ProxyDirTreeDb.CleanupOrphansCallback() {
+			@Override
+			public boolean isEol() throws SQLException, InterruptedException {
+				if (getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_LIMIT) {
+					return true;
+				}
+				consumeSomeUpdateQueue();
+				return false;
+			}
+		};
+
 		int result = getDb().cleanupOrphansWithChildren(cleanupOrphansCallbackRunner);
 		if (result > 0) {
 			return result;
@@ -612,7 +693,12 @@ public class StandardCrawler extends LazyAccessorThread {
 	}
 
 	private void unlistDisabledExtensions() throws SQLException, InterruptedException {
-		writelog2("+++ unlist disabled extensions +++");
+		unlistDisabledExtensions(null);
+	}
+
+	private void unlistDisabledExtensions(ProxyDirTreeDb.CleanupOrphansCallback callback)
+			throws SQLException, InterruptedException {
+		writelog2("*** unlist disabled extensions ***");
 		Statement stmt = getDb().createStatement();
 		ArrayList<String> ext = new ArrayList<String>();
 		HashMap<String, Boolean> eal = getConf().getExtensionAvailabilityMap();
@@ -623,11 +709,12 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 		String dontArchiveExtSubSql;
 		if (ext.size() == 0) {
-			writelog2("+++ SKIP unlist disabled extensions (nothing to unlist) +++");
+			writelog2("*** SKIP unlist disabled extensions (nothing to unlist) ***");
 		} else {
 			dontArchiveExtSubSql = "AND (" + String.join(" OR ", ext) + ")";
 			String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) " + dontArchiveExtSubSql
-					+ " AND EXISTS (SELECT * FROM directory AS d2 WHERE d1.pathid=d2.parentid)";
+					+ " AND EXISTS (SELECT * FROM directory AS d2 WHERE d2.parentid=d1.pathid)"
+					+ " AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.parentid=d3.pathid)";
 			ResultSet rs = stmt.executeQuery(sql);
 			int count = 0;
 			try {
@@ -637,11 +724,16 @@ public class StandardCrawler extends LazyAccessorThread {
 					getDb().updateStatus(f, PathEntry.DIRTY);
 					getDb().deleteChildren(f);
 					count++;
+					if (callback != null) {
+						if (callback.isEol()) {
+							break;
+						}
+					}
 				}
 			} finally {
 				rs.close();
 			}
-			writelog2("+++ unlist disabled extensions finished count=" + count + " +++");
+			writelog2("*** unlist disabled extensions finished count=" + count + " ***");
 		}
 	}
 

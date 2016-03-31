@@ -396,11 +396,15 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return null;
 	}
 
-	/**
+	/*
 	 * An orphan entry is a DIRECTORY entry with invalid PARENTID (there is no row with PATHID of that number).
 	 */
+	public static interface CleanupOrphansCallback {
+		public boolean isEol() throws SQLException, InterruptedException;
+	}
+
 	private int cleanupOrphans(PreparedStatement ps,
-			RunnableWithException2<SQLException, InterruptedException> runnable, boolean noLazy)
+			CleanupOrphansCallback runnable, boolean noLazy)
 					throws SQLException, InterruptedException {
 		try {
 			ResultSet rs = ps.executeQuery();
@@ -414,10 +418,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					} else {
 						deleteLowPriority(rsToPathEntry(rs));
 					}
-					if (runnable != null) {
-						runnable.run();
-					}
 					count++;
+					if (runnable != null) {
+						if (runnable.isEol()) {
+							return count;
+						}
+					}
 				}
 				return count;
 			} finally {
@@ -429,7 +435,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	private int cleanupOrphans(String path,
-			RunnableWithException2<SQLException, InterruptedException> runnable, boolean noLazy)
+			CleanupOrphansCallback runnable, boolean noLazy)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		Assertion.assertNullPointerException(path != null);
@@ -448,8 +454,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return cleanupOrphans(path, null, false);
 	}
 
-	private int cleanupOrphans(int type, boolean hasChildren,
-			RunnableWithException2<SQLException, InterruptedException> runnable, boolean noLazy)
+	private int cleanupOrphans(int type, boolean hasChildren, CleanupOrphansCallback runnable, boolean noLazy)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		Assertion.assertAssertionError(type >= 0 && type <= 3);
@@ -461,8 +466,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return cleanupOrphans(ps, runnable, noLazy);
 	}
 
-	public int cleanupOrphansWithChildren(int type,
-			RunnableWithException2<SQLException, InterruptedException> runnable)
+	public int cleanupOrphansWithChildren(int type, CleanupOrphansCallback runnable)
 					throws SQLException, InterruptedException {
 		return cleanupOrphans(type, true, runnable, false);
 	}
@@ -471,8 +475,22 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return cleanupOrphans(type, false, null, false);
 	}
 
-	private int cleanupOrphans(boolean hasChildren,
-			RunnableWithException2<SQLException, InterruptedException> runnable, boolean noLazy)
+	private int cleanupOrphansWithoutChildren(CleanupOrphansCallback runnable, boolean noLazy)
+					throws SQLException, InterruptedException {
+		PreparedStatement ps;
+		String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 "
+				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid) "
+				+ "AND NOT EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)";
+		ps = prepareStatement(sql);
+		return cleanupOrphans(ps, runnable, noLazy);
+	}
+
+	public int cleanupOrphansWithoutChildren(CleanupOrphansCallback runnable)
+			throws SQLException, InterruptedException {
+		return cleanupOrphansWithoutChildren(runnable, false);
+	}
+
+	private int cleanupOrphans(boolean hasChildren, CleanupOrphansCallback runnable, boolean noLazy)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 "
@@ -482,12 +500,17 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return cleanupOrphans(ps, runnable, noLazy);
 	}
 
-	public int cleanupOrphansWithChildren(RunnableWithException2<SQLException, InterruptedException> runnable)
+	public int cleanupOrphansWithChildren(CleanupOrphansCallback runnable)
 			throws SQLException, InterruptedException {
 		return cleanupOrphans(true, runnable, false);
 	}
 
-	public int cleanupOrphans(RunnableWithException2<SQLException, InterruptedException> runnable)
+	public int cleanupOrphansWithChildrenNow(CleanupOrphansCallback runnable)
+			throws SQLException, InterruptedException {
+		return cleanupOrphans(true, runnable, true);
+	}
+
+	public int cleanupOrphans(CleanupOrphansCallback runnable)
 			throws SQLException, InterruptedException {
 		return cleanupOrphans(false, runnable, false);
 	}
@@ -499,7 +522,6 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	public void cleanupOrphansAll() throws SQLException, InterruptedException {
 		while (cleanupOrphans() > 0) {}
 	}
-
 	public int refreshDirectUpperLower() throws SQLException, InterruptedException {
 		return refreshDirectUpperLower((RunnableWithException2<SQLException, InterruptedException>)null);
 	}
