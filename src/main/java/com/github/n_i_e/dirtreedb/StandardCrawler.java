@@ -227,7 +227,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					assert(f.isFile() || f.isCompressedFile());
 					disp.dispatch(f);
 					count++;
-					if (getDb().getDontInsertQueueSize() > DONT_INSERT_QUEUE_SIZE_LIMIT
+					if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
 							|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
 							) {
 						break;
@@ -420,6 +420,7 @@ public class StandardCrawler extends LazyAccessorThread {
 	}
 
 	private static int scheduleLayer2RoundRobinState = 0;
+	private static int scheduleLayer2ListDirtiesCounter = 0;
 	private void scheduleLayer2(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
 		consumeSomeUpdateQueue();
 
@@ -458,6 +459,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				consumeSomeUpdateQueue();
 				scheduleLayer2RoundRobinState++;
 			}
+			scheduleLayer2ListDirtiesCounter = 0;
 		}
 
 		if (scheduleLayer2RoundRobinState == 3) {
@@ -465,34 +467,41 @@ public class StandardCrawler extends LazyAccessorThread {
 			writelog2("+++ list (4/4) +++");
 			int count = list(null, "type=0 AND status=1", "", "");
 			writelog2("+++ list (4/4) finished count=" + count + " +++");
-			if (count == 0) {
-				writelog2("+++ reset all clean folders to dirty +++");
-				String sql = "SELECT * FROM directory WHERE type=0 AND status=0";
-				PreparedStatement ps = getDb().prepareStatement(sql);
-				ResultSet rs = ps.executeQuery();
-				int c2 = 0;
-				try {
-					while (rs.next()) {
-						getDb().updateStatus(getDb().rsToPathEntry(rs), PathEntry.DIRTY);
-						c2++;
-					}
-				} finally {
-					rs.close();
-					ps.close();
-				}
-				writelog2("+++ reset all clean folders to dirty finished count=" + c2 + " +++");
-			}
-
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
 				scheduleLayer2RoundRobinState++;
+			} else if (count>0  && scheduleLayer2ListDirtiesCounter < 3) {
+				scheduleLayer2RoundRobinState--;
+				scheduleLayer2ListDirtiesCounter ++;
+			} else if (count==0) {
+				setAllCleanFoldersDirty();
 			}
+
 		}
 
 		if (!doAllAtOnce) {
 			scheduleLayer2RoundRobinState++;
 		}
 		scheduleLayer2RoundRobinState = scheduleLayer2RoundRobinState % 4;
+	}
+
+	private int setAllCleanFoldersDirty() throws SQLException, InterruptedException {
+		writelog2("+++ set all clean folders dirty +++");
+		String sql = "SELECT * FROM directory WHERE type=0 AND status=0";
+		PreparedStatement ps = getDb().prepareStatement(sql);
+		ResultSet rs = ps.executeQuery();
+		int c2 = 0;
+		try {
+			while (rs.next()) {
+				getDb().updateStatus(getDb().rsToPathEntry(rs), PathEntry.DIRTY);
+				c2++;
+			}
+		} finally {
+			rs.close();
+			ps.close();
+		}
+		writelog2("+++ set all clean folders dirty finished count=" + c2 + " +++");
+		return c2;
 	}
 
 	private int list(List<Long> dontListRootIds,

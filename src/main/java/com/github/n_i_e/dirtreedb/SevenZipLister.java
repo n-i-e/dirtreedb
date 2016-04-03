@@ -30,7 +30,7 @@ public class SevenZipLister extends AbstractArchiveLister {
 
 	public SevenZipLister(PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
-		Assertion.assertIOException(basepath.isFile() || basepath.isCompressedFile());
+		Assertion.assertNullPointerException(inf != null);
 		if (basepath.isFile()) {
 			inf.close();
 			sevenzfile = new SevenZFile(new File(basepath.getPath()));

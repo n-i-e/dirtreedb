@@ -39,8 +39,9 @@ public class EmlLister extends AbstractArchiveLister {
 	String subject = null;
 	InputStream inf, instream = null;
 
-	public EmlLister (PathEntry basepath, InputStream inf) {
+	public EmlLister (PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
+		Assertion.assertNullPointerException(inf != null);
 		this.inf = inf;
 	}
 

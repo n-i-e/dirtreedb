@@ -26,8 +26,9 @@ public class LzhLister extends AbstractArchiveLister
 {
 	LhaInputStream instream;
 
-	LzhLister (PathEntry basepath, InputStream inf) {
+	LzhLister (PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
+		Assertion.assertNullPointerException(inf != null);
 		instream = new LhaInputStream(inf);
 	}
 
@@ -60,5 +61,10 @@ public class LzhLister extends AbstractArchiveLister
 		if (next_entry.getCompressedSize() < 0) {
 			next_entry.setCompressedSize(next_entry.getSize());
 		}
+	}
+
+	@Override
+	public void close() throws IOException {
+		instream.close();
 	}
 }

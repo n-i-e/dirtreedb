@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public interface IArchiveLister extends IDirArchiveLister {
-	public abstract InputStream getInputStream();
+	public abstract InputStream getInputStream() throws IOException;
 	public boolean hasNext(boolean csum) throws IOException;
 	public PathEntry next(boolean csum) throws IOException;
 }

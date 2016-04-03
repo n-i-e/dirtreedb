@@ -25,6 +25,8 @@ public abstract class AbstractCompressorLister implements IArchiveLister {
 	protected InputStream instream;
 
 	AbstractCompressorLister(PathEntry basepath, InputStream inf) {
+		Assertion.assertNullPointerException(basepath != null);
+		Assertion.assertNullPointerException(inf != null);
 		String p = getBasename(basepath);
 
 		next_entry = new PathEntry(basepath.getPath() + "/" + p, PathEntry.COMPRESSEDFILE);
@@ -97,6 +99,8 @@ public abstract class AbstractCompressorLister implements IArchiveLister {
 	}
 
 	public void close() throws IOException {
-		instream.close();
+		if (instream != null) {
+			instream.close();
+		}
 	}
 }

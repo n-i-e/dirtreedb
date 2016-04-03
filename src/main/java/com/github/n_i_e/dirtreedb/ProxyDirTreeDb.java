@@ -338,20 +338,28 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		Assertion.assertAssertionError(stack.size()>0);
 		DbPathEntry entry = stack.get(stack.size()-1);
 		try {
-			Assertion.assertAssertionError(entry.isFile());
-			InputStream result = new PathEntry(entry).getInputStream();
-
-			for (int i=stack.size()-2; i>=0; i--) {
-				DbPathEntry parent = entry;
-				InputStream parentStream = result;
-				entry = stack.get(i);
-				Assertion.assertAssertionError(entry.isCompressedFile(),
-						"wrong element " + stack.get(i).getPath() + ", type=" + entry.getType());
-				IDirArchiveLister z = ArchiveListerFactory.getArchiveLister(parent, parentStream);
-				result = z.getInputStream(entry);
-				Assertion.assertAssertionError(result != null);
+			if (stack.size() == 1) {
+				return entry.getInputStream();
+			} else {
+				Assertion.assertAssertionError(entry.isFile());
+				InputStream result = null;
+				for (int i=stack.size()-2; i>=0; i--) {
+					DbPathEntry parent = entry;
+					InputStream parentStream = result;
+					entry = stack.get(i);
+					Assertion.assertAssertionError(entry.isCompressedFile(),
+							"wrong element " + stack.get(i).getPath() + ", type=" + entry.getType());
+					IDirArchiveLister z;
+					if (parent.isFile()) {
+						z = ArchiveListerFactory.getArchiveListerForFile(parent);
+					} else {
+						z = ArchiveListerFactory.getArchiveLister(parent, parentStream);
+					}
+					result = z.getInputStream(entry);
+					Assertion.assertAssertionError(result != null);
+				}
+				return result;
 			}
-			return result;
 		} catch (IOException e) {
 			disable(entry);
 			throw e;
@@ -904,7 +912,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			try {
 				final IArchiveLister newfolderIter;
 				if (isList() && (!entry.isClean() || !dscMatch(entry, newentry))) {
-					newfolderIter = ArchiveListerFactory.getArchiveLister(entry, newentry.getInputStream());
+					newfolderIter = ArchiveListerFactory.getArchiveListerForFile(entry);
 				} else {
 					newfolderIter = null;
 				}
@@ -1061,7 +1069,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				PathEntry newentry,
 				IArchiveLister newfolderIter
 				) throws InterruptedException, SQLException, IOException {
-			while (newfolderIter.hasNext(true)) {
+			while (newfolderIter.hasNext(ArchiveListerFactory.isCsumRecommended(entry))) {
 				PathEntry newchild = newfolderIter.next(true);
 				Assertion.assertAssertionError(newchild.isCompressedFolder() || newchild.isCompressedFile());
 				if (oldfolder.containsKey(newchild.getPath())) {

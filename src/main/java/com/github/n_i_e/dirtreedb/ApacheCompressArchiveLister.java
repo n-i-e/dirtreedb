@@ -29,6 +29,7 @@ public class ApacheCompressArchiveLister extends AbstractArchiveLister {
 
 	public ApacheCompressArchiveLister(PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
+		Assertion.assertNullPointerException(inf != null);
 		Assertion.assertAssertionError(inf.markSupported());
 		try {
 			instream = new ArchiveStreamFactory().createArchiveInputStream(inf);
@@ -66,5 +67,10 @@ public class ApacheCompressArchiveLister extends AbstractArchiveLister {
 		if (next_entry.getCompressedSize() < 0) {
 			next_entry.setCompressedSize(next_entry.getSize());
 		}
+	}
+
+	@Override
+	public void close() throws IOException {
+		instream.close();
 	}
 }

@@ -24,50 +24,56 @@ import java.util.Set;
 
 public class ArchiveListerFactory {
 
-	private interface ArchiveListerReturner {
-		public IArchiveLister get(PathEntry entry, InputStream instream)  throws IOException;
+	private static abstract class ArchiveListerReturner {
+		public abstract IArchiveLister get(PathEntry entry, InputStream instream)  throws IOException;
+		public IArchiveLister getForFile(PathEntry entry) throws IOException {
+			return get(entry, entry.getInputStream());
+		}
 	}
 	private static HashMap<String, ArchiveListerReturner> getExtensionBindList() {
 		HashMap<String, ArchiveListerReturner> result = new HashMap<String, ArchiveListerReturner> ();
 
 		final ArchiveListerReturner zipR = new ArchiveListerReturner () {
-			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new ZipLister(base, inf); }
+			@Override public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new ZipLister(base, inf); }
+			@Override public IArchiveLister getForFile(PathEntry base) throws IOException { return new ZipListerForFile(base); }
 		};
 
 		final ArchiveListerReturner uzipR = new ArchiveListerReturner () {
-			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new ZipLister(base, inf, "utf-8"); }
+			@Override public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new ZipLister(base, inf, "utf-8"); }
+			@Override public IArchiveLister getForFile(PathEntry base) throws IOException { return new ZipListerForFile(base, "utf-8"); }
 		};
 
 		final ArchiveListerReturner lzhR = new ArchiveListerReturner () {
-			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new LzhLister(base, inf); }
+			@Override public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new LzhLister(base, inf); }
 		};
 
 		final ArchiveListerReturner svnzR = new ArchiveListerReturner () {
-			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new SevenZipLister(base, inf); }
+			@Override public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new TemporaryFileArchiveLister(base, inf); }
+			@Override public IArchiveLister getForFile(PathEntry base) throws IOException { return new SevenZipListerForFile(base); }
 		};
 
 		final ArchiveListerReturner gzR = new ArchiveListerReturner () {
-			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new GzLister(base, inf); }
+			@Override public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new GzLister(base, inf); }
 		};
 
 		final ArchiveListerReturner apacheAR = new ArchiveListerReturner () {
-			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new ApacheCompressArchiveLister(base, inf); }
+			@Override public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new ApacheCompressArchiveLister(base, inf); }
 		};
 
 		final ArchiveListerReturner apacheCR = new ArchiveListerReturner () {
-			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new ApacheCompressCompressorLister(base, inf); }
+			@Override public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new ApacheCompressCompressorLister(base, inf); }
 		};
 
 		final ArchiveListerReturner apacheCAR = new ArchiveListerReturner () {
-			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new ApacheCompressCompressingArchiveLister(base, inf); }
+			@Override public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new ApacheCompressCompressingArchiveLister(base, inf); }
 		};
 
 		final ArchiveListerReturner emlR = new ArchiveListerReturner () {
-			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new EmlLister(base, inf); }
+			@Override public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new EmlLister(base, inf); }
 		};
 
 		final ArchiveListerReturner msgR = new ArchiveListerReturner () {
-			public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new MsgLister(base, inf); }
+			@Override public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new MsgLister(base, inf); }
 		};
 
 		result.put("zip", zipR);
@@ -135,5 +141,28 @@ public class ArchiveListerFactory {
 
 		instream.close();
 		return new NullArchiveLister();
+	}
+
+	public static IArchiveLister getArchiveListerForFile(PathEntry entry) throws IOException {
+		Assertion.assertNullPointerException(entry != null);
+
+		for (Entry<String, ArchiveListerReturner> kv: getExtensionBindList().entrySet()) {
+			String ext = kv.getKey();
+			if (fileExtensionMatches(entry.getPath(), ext)) {
+				return kv.getValue().getForFile(entry);
+			}
+		}
+		return new NullArchiveLister();
+	}
+
+	public static boolean isCsumRecommended(PathEntry entry) {
+		if (entry.isFile()) {
+			if (fileExtensionMatches(entry.getPath(), "zip")
+					|| fileExtensionMatches(entry.getPath(), "7z")
+					) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

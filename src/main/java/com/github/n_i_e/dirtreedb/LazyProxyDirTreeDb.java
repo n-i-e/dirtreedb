@@ -721,7 +721,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							}
 						} else { // isList()
 							final IArchiveLister newfolderIter;
-							newfolderIter = ArchiveListerFactory.getArchiveLister(entry, newentry.getInputStream());
+							newfolderIter = ArchiveListerFactory.getArchiveListerForFile(entry);
 							dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 						}
 						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
@@ -888,7 +888,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							}
 						} else {
 							final IArchiveLister newfolderIter;
-							newfolderIter = ArchiveListerFactory.getArchiveLister(entry, newentry.getInputStream());
+							newfolderIter = ArchiveListerFactory.getArchiveListerForFile(entry);
 							dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 						}
 						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {

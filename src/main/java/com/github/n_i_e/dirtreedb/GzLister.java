@@ -19,12 +19,19 @@ package com.github.n_i_e.dirtreedb;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipException;
 
 public class GzLister extends AbstractCompressorLister {
 	GzLister (PathEntry basepath, InputStream inf) throws IOException
 	{
 		super(basepath, inf);
 
-		instream = new GZIPInputStream(inf);
+		try {
+			instream = new GZIPInputStream(inf);
+		} catch (ZipException e) {
+			inf.close();
+			instream = null;
+			next_entry = null;
+		}
 	}
 }

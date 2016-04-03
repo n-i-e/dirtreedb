@@ -26,8 +26,10 @@ import java.util.Set;
 public abstract class AbstractArchiveLister implements IArchiveLister {
 	protected PathEntry basepath;
 	protected PathEntry next_entry;
-	
+
 	AbstractArchiveLister(PathEntry basepath) {
+		Assertion.assertNullPointerException(basepath != null);
+		Assertion.assertAssertionError(basepath.isFile() || basepath.isCompressedFile());
 		this.basepath = basepath;
 		next_entry = null;
 	}
@@ -86,8 +88,6 @@ public abstract class AbstractArchiveLister implements IArchiveLister {
 				entry.getPath(), basepath.getPath()));
 	}
 
-	public void close() throws IOException {
-		getInputStream().close();
-	}
+	public abstract void close() throws IOException;
 
 }

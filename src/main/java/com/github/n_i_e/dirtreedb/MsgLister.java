@@ -27,15 +27,15 @@ import org.apache.poi.hsmf.exceptions.ChunkNotFoundException;
 
 public class MsgLister extends AbstractArchiveLister {
 	int count = 0;
-	boolean eof = false;
 	int subjectFilenameCount = 1;
 	AttachmentChunks[] content = null;
 	long date = 0;
 	String subject = null;
 	InputStream inf, instream = null;
 
-	public MsgLister (PathEntry basepath, InputStream inf) {
+	public MsgLister (PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
+		Assertion.assertNullPointerException(inf != null);
 		this.inf = inf;
 	}
 
@@ -47,8 +47,6 @@ public class MsgLister extends AbstractArchiveLister {
 	protected void getNext(boolean csum) throws IOException {
 		if (next_entry != null) {
 			return;
-		} else if (eof) {
-			return;
 		}
 		try {
 			if (content == null) {
@@ -56,7 +54,6 @@ public class MsgLister extends AbstractArchiveLister {
 				try {
 					msg = new MAPIMessage(inf);
 				} catch (IOException e) {
-					eof = true;
 					return;
 				}
 
@@ -65,6 +62,7 @@ public class MsgLister extends AbstractArchiveLister {
 
 				String s = subjectToFilename(subject, "text/plain", 1);
 				s = s.replace("\\", "/");
+				Assertion.assertAssertionError(!s.equals(""));
 				next_entry = new PathEntry(basepath.getPath() + "/" + s, PathEntry.COMPRESSEDFILE);
 				next_entry.setDateLastModified(date);
 				next_entry.setStatus(PathEntry.DIRTY);
@@ -74,54 +72,52 @@ public class MsgLister extends AbstractArchiveLister {
 
 				instream = new ByteArrayInputStreamWithCascadingClose(body);
 				if (csum) {
-					next_entry.setCsum(instream);
+					next_entry.setCsumAndClose(instream);
 				}
-
 				content = msg.getAttachmentFiles();
-				if (content.length == 0) {
-					eof = true;
-				}
 				return;
-			}
-
-			AttachmentChunks part = null;
-			byte[] data = null;
-			while (data == null) {
-				part = content[count];
-				try {
-					data = part.attachData.getValue();
-				} catch (NullPointerException e) {
-					data = null;
-					if (++count >= content.length) {
-						eof = true;
+			} else {
+				AttachmentChunks part = null;
+				byte[] data = null;
+				while (data == null) {
+					if (count >= content.length) {
 						return;
 					}
+					part = content[count];
+					try {
+						data = part.attachData.getValue();
+					} catch (NullPointerException e) {
+						data = null;
+						count++;
+					}
 				}
-			}
 
-			String filename;
-			try {
-				filename = part.attachFileName.getValue();
-			} catch (NullPointerException e) {
-				filename = String.valueOf(count);
-			}
-			filename = filename.replace("\\", "/");
+				String filename;
+				try {
+					filename = part.attachFileName.getValue();
+				} catch (NullPointerException e) {
+					filename = String.valueOf(count);
+				}
+				filename = filename.replace("\\", "/");
+				if (filename.equals("")) {
+					filename = String.valueOf(count);
+				}
 
-			next_entry = new PathEntry(basepath.getPath() + "/" + filename, PathEntry.COMPRESSEDFILE);
-			next_entry.setDateLastModified(date);
-			next_entry.setStatus(PathEntry.DIRTY);
-			next_entry.setCompressedSize(data.length);
-			next_entry.setSize(data.length);
+				next_entry = new PathEntry(basepath.getPath() + "/" + filename, PathEntry.COMPRESSEDFILE);
+				next_entry.setDateLastModified(date);
+				next_entry.setStatus(PathEntry.DIRTY);
+				next_entry.setCompressedSize(data.length);
+				next_entry.setSize(data.length);
 
-			instream = new ByteArrayInputStreamWithCascadingClose(data);
-			if (csum) {
-				next_entry.setCsum(instream);
-			}
-			if (++count >= content.length) {
-				eof = true;
+				instream = new ByteArrayInputStreamWithCascadingClose(data);
+				if (csum) {
+					next_entry.setCsumAndClose(instream);
+				}
+				count++;
+				return;
 			}
 		} catch (ChunkNotFoundException e) {
-			eof = true;
+			next_entry = null;
 		}
 	}
 

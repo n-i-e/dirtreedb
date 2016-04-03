@@ -19,24 +19,26 @@ package com.github.n_i_e.dirtreedb;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.util.Enumeration;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipException;
-import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
 
-public class ZipLister extends AbstractArchiveLister {
+public class ZipListerForFile extends AbstractArchiveLister {
 
-	private ZipInputStream instream;
+	private ZipFile zipfile;
+	private Enumeration<? extends ZipEntry> zipentries;
 	private static String charset = "windows-31j";
 
-	public ZipLister (PathEntry basepath, InputStream inf, String charset) throws IOException {
+	public ZipListerForFile (PathEntry basepath, String charset) throws IOException {
 		super(basepath);
+		Assertion.assertAssertionError(basepath.isFile());
 		Assertion.assertNullPointerException(charset != null);
-		Assertion.assertNullPointerException(inf != null);
-		instream = new ZipInputStream(inf, Charset.forName(charset));
+		zipfile = new ZipFile(basepath.getPath(), Charset.forName(charset));
+		zipentries = zipfile.entries();
 	}
 
-	public ZipLister (PathEntry basepath, InputStream inf) throws IOException {
-		this(basepath, inf, charset);
+	public ZipListerForFile (PathEntry basepath) throws IOException {
+		this(basepath, charset);
 	}
 
 	public static String getCharset() {
@@ -44,37 +46,35 @@ public class ZipLister extends AbstractArchiveLister {
 	}
 
 	public static void setCharset(String charset) {
-		ZipLister.charset = charset;
+		ZipListerForFile.charset = charset;
 	}
 
-	public InputStream getInputStream() {
-		return instream;
+	private ZipEntry next_zip_entry = null;
+	public InputStream getInputStream() throws IOException {
+		Assertion.assertNullPointerException(next_zip_entry != null);
+		return zipfile.getInputStream(next_zip_entry);
 	}
 
 	protected void getNext(boolean csum) throws IOException {
 		if (next_entry != null) {
+			Assertion.assertNullPointerException(next_zip_entry != null);
 			return;
 		}
-		ZipEntry z;
-		try {
-			z = instream.getNextEntry();
-		} catch (ZipException e) {
+		if (! zipentries.hasMoreElements()) {
 			return;
 		}
-		if (z == null) {
-			return;
-		}
-		int newtype = z.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;
-		String s = z.getName();
+		next_zip_entry = zipentries.nextElement();
+		int newtype = next_zip_entry.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;
+		String s = next_zip_entry.getName();
 		s = s.replace("\\", "/");
 		next_entry = new PathEntry(basepath.getPath() + "/" + s, newtype);
-		next_entry.setDateLastModified(z.getTime());
+		next_entry.setDateLastModified(next_zip_entry.getTime());
 		next_entry.setStatus(PathEntry.DIRTY);
-		next_entry.setSize(z.getSize());
-		next_entry.setCompressedSize(z.getCompressedSize());
+		next_entry.setSize(next_zip_entry.getSize());
+		next_entry.setCompressedSize(next_zip_entry.getCompressedSize());
 		if (csum && newtype == PathEntry.COMPRESSEDFILE) {
 			try {
-				next_entry.setCsum(instream);
+				next_entry.setCsumAndClose(zipfile.getInputStream(next_zip_entry));
 			} catch (IOException e) { // possibly encrypted zip
 				next_entry.setStatus(PathEntry.NOACCESS);
 			}
@@ -89,6 +89,7 @@ public class ZipLister extends AbstractArchiveLister {
 
 	@Override
 	public void close() throws IOException {
-		instream.close();
+		zipfile.close();
 	}
+
 }

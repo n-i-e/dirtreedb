@@ -32,6 +32,7 @@ public class ApacheCompressCompressingArchiveLister extends AbstractArchiveListe
 
 	public ApacheCompressCompressingArchiveLister(PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
+		Assertion.assertNullPointerException(inf != null);
 		try {
 			InputStream inf2 = new CompressorStreamFactory().createCompressorInputStream(inf);
 			InputStream inf3 = new BufferedInputStream(inf2);
@@ -74,5 +75,10 @@ public class ApacheCompressCompressingArchiveLister extends AbstractArchiveListe
 		if (next_entry.getCompressedSize() < 0) {
 			next_entry.setCompressedSize(next_entry.getSize());
 		}
+	}
+
+	@Override
+	public void close() throws IOException {
+		instream.close();
 	}
 }

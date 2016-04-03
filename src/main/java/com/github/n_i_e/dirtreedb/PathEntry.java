@@ -250,9 +250,15 @@ public class PathEntry {
 			File f1 = new File(getPath().substring(0, n1));
 			Assertion.assertFileNotFoundException(f1.exists(), "!! File not found: " + f1.getPath());
 			PathEntry parent = new PathEntry(f1);
-			InputStream parentStream = parent.getInputStream();
+			assert(parent.isFile());
+			InputStream parentStream = null;
 			while (true) {
-				IArchiveLister lister = ArchiveListerFactory.getArchiveLister(parent, parentStream);
+				IArchiveLister lister;
+				if (parent.isFile()) {
+					lister = ArchiveListerFactory.getArchiveListerForFile(parent);
+				} else {
+					lister = ArchiveListerFactory.getArchiveLister(parent, parentStream);
+				}
 				while (lister.hasNext()) {
 					PathEntry p = lister.next();
 					if (p.getPath().equals(getPath())) {
@@ -297,18 +303,18 @@ public class PathEntry {
 	}
 
 	private void assertInvariantConditions() {
-		assert(!isFolder()           ||  getPath().endsWith("\\")) : "Folder path is " + getPath();
-		assert(!isFolder()           || !getPath().contains("/"))  : "Folder path is " + getPath();
-		assert(!isFolder()           ||  isCsumNull())             : "Folder path is " + getPath();
+		Assertion.assertAssertionError(!isFolder()           ||  getPath().endsWith("\\") , "Folder path is " + getPath());
+		Assertion.assertAssertionError(!isFolder()           || !getPath().contains("/")  , "Folder path is " + getPath());
+		Assertion.assertAssertionError(!isFolder()           ||  isCsumNull()             , "Folder path is " + getPath());
 
-		assert(!isFile()             || !getPath().endsWith("\\")) : "File path is " + getPath();
-		assert(!isFile()             || !getPath().contains("/"))  : "File path is " + getPath();
+		Assertion.assertAssertionError(!isFile()             || !getPath().endsWith("\\") , "File path is " + getPath());
+		Assertion.assertAssertionError(!isFile()             || !getPath().contains("/")  , "File path is " + getPath());
 
-		assert(!isCompressedFolder() ||  getPath().endsWith("/"))  : "CompressedFolder path is " + getPath();
-		assert(!isCompressedFolder() ||  isCsumNull())             : "CompressedFolder path is " + getPath();
+		Assertion.assertAssertionError(!isCompressedFolder() ||  getPath().endsWith("/")  , "CompressedFolder path is " + getPath());
+		Assertion.assertAssertionError(!isCompressedFolder() ||  isCsumNull()             , "CompressedFolder path is " + getPath());
 
-		assert(!isCompressedFile()   || !getPath().endsWith("/"))  : "CompressedFile path is " + getPath();
-		assert(!isCompressedFile()   ||  getPath().contains("/"))  : "CompressedFile path is " + getPath();
+		Assertion.assertAssertionError(!isCompressedFile()   || !getPath().endsWith("/")  , "CompressedFile path is " + getPath());
+		Assertion.assertAssertionError(!isCompressedFile()   ||  getPath().contains("/")  , "CompressedFile path is " + getPath());
 	}
 
 }
