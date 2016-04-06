@@ -158,10 +158,9 @@ public class StandardCrawler extends LazyAccessorThread {
 		if (scheduleLayer1RoundRobinState == 0) {
 			writelog2("--- csum (1/2) ---");
 			String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR (type=3 AND status<>2))"
-					+ " AND csum IS NULL "
 					+ dontCheckUpdateRootIdsSubSql
-					+ " AND (size<0 OR EXISTS (SELECT * FROM directory AS d2"
-					+ " WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid)) "
+					+ " AND (size<0 OR (csum IS NULL AND EXISTS (SELECT * FROM directory AS d2"
+					+ " WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid))) "
 					+ " AND EXISTS (SELECT * FROM directory AS d3 WHERE d3.pathid=d1.parentid)"
 					//+ "ORDER BY size DESC"
 					;
