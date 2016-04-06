@@ -210,7 +210,7 @@ public class PathEntry {
 
 	public void setCsum(InputStream inf) throws IOException {
 		try {
-			int contentsize = 0;
+			long contentsize = 0;
 			MessageDigest md5digest = MessageDigest.getInstance("MD5");
 
 			byte[] buff = new byte[4096];
