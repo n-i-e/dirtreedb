@@ -419,17 +419,18 @@ public class StandardCrawler extends LazyAccessorThread {
 	}
 
 	private static int scheduleLayer2RoundRobinState = 0;
-	private static int scheduleLayer2ListDirtiesCounter = 0;
+	private static int scheduleLayer2ListDirtyFoldersCounter = 0;
+	private static boolean scheduleLayer2ListDirtyFoldersFinishedFlag = false;
 	private void scheduleLayer2(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
 		consumeSomeUpdateQueue();
 
 		assert(scheduleLayer2RoundRobinState >= 0);
-		assert(scheduleLayer2RoundRobinState <= 3);
+		assert(scheduleLayer2RoundRobinState <= 7);
 
 		if (scheduleLayer2RoundRobinState == 0) {
-			writelog2("+++ list (1/4) +++");
-			int count = list(null, "(type=1 AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)", "", "");
-			writelog2("+++ list (1/4) finished count=" + count + " +++");
+			writelog2("+++ list (1/8) +++");
+			int count = list("(type=1 AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)", false);
+			writelog2("+++ list (1/8) finished count=" + count + " +++");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -439,9 +440,9 @@ public class StandardCrawler extends LazyAccessorThread {
 
 		if (scheduleLayer2RoundRobinState == 1) {
 			consumeInsertableQueue();
-			writelog2("+++ list (2/4) +++");
-			int count = list(null, "type=0 AND status=2", "", "");
-			writelog2("+++ list (2/4) finished count=" + count + " +++");
+			writelog2("+++ list (2/8) +++");
+			int count = list("type=0 AND status=2", false);
+			writelog2("+++ list (2/8) finished count=" + count + " +++");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -450,42 +451,95 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleLayer2RoundRobinState == 2) {
-			writelog2("+++ list (3/4) +++");
-			int count = list(null, "(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1", "", "");
-			writelog2("+++ list (3/4) finished count=" + count + " +++");
+			writelog2("+++ list (3/8) +++");
+			int count = list("(type=1 AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)", true);
+			writelog2("+++ list (3/8) finished count=" + count + " +++");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
 				scheduleLayer2RoundRobinState++;
 			}
-			scheduleLayer2ListDirtiesCounter = 0;
 		}
 
 		if (scheduleLayer2RoundRobinState == 3) {
 			consumeInsertableQueue();
-			writelog2("+++ list (4/4) +++");
-			int count = list(null, "type=0 AND status=1", "", "");
-			writelog2("+++ list (4/4) finished count=" + count + " +++");
+			writelog2("+++ list (4/8) +++");
+			int count = list("type=0 AND status=2", true);
+			writelog2("+++ list (4/8) finished count=" + count + " +++");
+
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
 				scheduleLayer2RoundRobinState++;
-			} else if (count>0  && scheduleLayer2ListDirtiesCounter < 3) {
+			}
+		}
+
+		if (scheduleLayer2RoundRobinState == 4) {
+			writelog2("+++ list (5/8) +++");
+			int count = list("(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1", false);
+			writelog2("+++ list (5/8) finished count=" + count + " +++");
+
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
+			}
+			scheduleLayer2ListDirtyFoldersCounter = 0;
+			scheduleLayer2ListDirtyFoldersFinishedFlag = false;
+		}
+
+		if (scheduleLayer2RoundRobinState == 5) {
+			consumeInsertableQueue();
+			writelog2("+++ list (6/8) +++");
+			int count = list("type=0 AND status=1", false);
+			writelog2("+++ list (6/8) finished count=" + count + " +++");
+
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
+			} else if (count>0 && scheduleLayer2ListDirtyFoldersCounter < 3) {
 				scheduleLayer2RoundRobinState--;
-				scheduleLayer2ListDirtiesCounter ++;
+				scheduleLayer2ListDirtyFoldersCounter++;
 			} else if (count==0) {
+				scheduleLayer2ListDirtyFoldersFinishedFlag = true;
+			}
+		}
+
+		if (scheduleLayer2RoundRobinState == 6) {
+			writelog2("+++ list (7/8) +++");
+			int count = list("(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1", true);
+			writelog2("+++ list (7/8) finished count=" + count + " +++");
+
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
+			}
+			scheduleLayer2ListDirtyFoldersCounter = 0;
+		}
+
+		if (scheduleLayer2RoundRobinState == 7) {
+			consumeInsertableQueue();
+			writelog2("+++ list (8/8) +++");
+			int count = list("type=0 AND status=1", true);
+			writelog2("+++ list (8/8) finished count=" + count + " +++");
+
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
+			} else if (count>0 && scheduleLayer2ListDirtyFoldersCounter < 3) {
+				scheduleLayer2RoundRobinState--;
+				scheduleLayer2ListDirtyFoldersCounter++;
+			} else if (count==0 && scheduleLayer2ListDirtyFoldersFinishedFlag == true) {
 				setAllCleanFoldersDirty();
 			}
-
 		}
 
 		if (!doAllAtOnce) {
 			scheduleLayer2RoundRobinState++;
 		}
-		scheduleLayer2RoundRobinState = scheduleLayer2RoundRobinState % 4;
+		scheduleLayer2RoundRobinState = scheduleLayer2RoundRobinState % 8;
 	}
 
 	private int setAllCleanFoldersDirty() throws SQLException, InterruptedException {
-		writelog2("+++ set all clean folders dirty +++");
+		writelog2("*** set all clean folders dirty ***");
 		String sql = "SELECT * FROM directory WHERE type=0 AND status=0";
 		PreparedStatement ps = getDb().prepareStatement(sql);
 		ResultSet rs = ps.executeQuery();
@@ -499,15 +553,14 @@ public class StandardCrawler extends LazyAccessorThread {
 			rs.close();
 			ps.close();
 		}
-		writelog2("+++ set all clean folders dirty finished count=" + c2 + " +++");
+		writelog2("*** set all clean folders dirty finished count=" + c2 + " ***");
 		return c2;
 	}
 
+	@Deprecated
 	private int list(List<Long> dontListRootIds,
 			String typeStatusSubSql, String parentTypeSubSql, String orderSubSql)
 			throws SQLException, InterruptedException, IOException {
-		Statement stmt = getDb().createStatement();
-
 		Dispatcher disp = getDb().getDispatcher();
 		disp.setList(Dispatcher.LIST);
 		disp.setCsum(Dispatcher.NONE);
@@ -525,6 +578,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				+ orderSubSql
 				;
 		writelog2(sql);
+		Statement stmt = getDb().createStatement();
 		ResultSet rs = stmt.executeQuery(sql);
 		writelog2("+++ list query finished +++");
 		int count = 0;
@@ -550,6 +604,45 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 		} finally {
 			rs.close();
+			stmt.close();
+		}
+		return count;
+	}
+
+	private int list(String typeStatusSubSql, boolean hasNoChild)
+			throws SQLException, InterruptedException, IOException {
+		Dispatcher disp = getDb().getDispatcher();
+		disp.setList(Dispatcher.LIST);
+		disp.setCsum(Dispatcher.NONE);
+		disp.setNoReturn(true);
+		disp.setNoChildInDb(hasNoChild);
+
+		String sql = "SELECT * FROM directory AS d1 WHERE "
+				+ typeStatusSubSql
+				+ " AND " + (hasNoChild ? "NOT " : "") + "EXISTS (SELECT * FROM directory WHERE parentid=d1.pathid)"
+				+ " AND (d1.parentid=0 OR EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid ))";
+		writelog2(sql);
+		Statement stmt = getDb().createStatement();
+		ResultSet rs = stmt.executeQuery(sql);
+		writelog2("+++ list query finished +++");
+		int count = 0;
+		try {
+			while (rs.next()) {
+				DbPathEntry f = getDb().rsToPathEntry(rs);
+				Assertion.assertAssertionError(f.isFolder()
+						|| ((f.isFile() || f.isCompressedFile()) && ArchiveListerFactory.isArchivable(f)),
+						"!! CANNOT LIST THIS ENTRY: " + f.getType() + " at " + f.getPath());
+				disp.dispatch(f);
+				count++;
+				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
+						|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
+						) {
+					return count;
+				}
+			}
+		} finally {
+			rs.close();
+			stmt.close();
 		}
 		return count;
 	}
@@ -588,7 +681,6 @@ public class StandardCrawler extends LazyAccessorThread {
 				consumeSomeUpdateQueue();
 				scheduleLayer3RoundRobinState++;
 			}
-			scheduleLayer3RefreshDirectorySizesCounter = 0;
 		}
 
 		if (scheduleLayer3RoundRobinState == 2) {
@@ -599,6 +691,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				consumeSomeUpdateQueue();
 				scheduleLayer3RoundRobinState++;
 			}
+			scheduleLayer3RefreshDirectorySizesCounter = 0;
 		}
 
 		if (scheduleLayer3RoundRobinState == 3) {
@@ -698,10 +791,6 @@ public class StandardCrawler extends LazyAccessorThread {
 			dontListRootIdsSubSql = "";
 		}
 		return dontListRootIdsSubSql;
-	}
-
-	private void unlistDisabledExtensions() throws SQLException, InterruptedException {
-		unlistDisabledExtensions(null);
 	}
 
 	private void unlistDisabledExtensions(ProxyDirTreeDb.CleanupOrphansCallback callback)

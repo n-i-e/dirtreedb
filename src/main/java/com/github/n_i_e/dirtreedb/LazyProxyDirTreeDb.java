@@ -44,18 +44,24 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 	@Override
 	public void close() throws SQLException {
+		writelog("Closing lazyqueue_thread DB");
 		lazyqueue_thread.close();
+		writelog("Closed lazyqueue_thread DB");
+		writelog("Closing lazyqueue_insertable DB");
 		lazyqueue_insertable.close();
+		writelog("Closed lazyqueue_insertable DB");
+		writelog("Closing lazyqueue_dontinsert DB");
 		lazyqueue_dontinsert.close();
+		writelog("Closed lazyqueue_dontinsert DB");
+		writelog("Really closing DB");
 		super.close();
+		writelog("Really closed DB");
 	}
 
 	@Override
 	public void threadHook() throws InterruptedException {
 		super.threadHook();
-
-		LazyAccessorThread.RunnerThread t = (LazyAccessorThread.RunnerThread)Thread.currentThread();
-		t.threadHook();
+		((LazyAccessorThread.RunnerThread)Thread.currentThread()).threadHook();
 	}
 
 	@Override
