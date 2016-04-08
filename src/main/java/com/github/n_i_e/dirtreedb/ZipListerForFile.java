@@ -16,6 +16,7 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
@@ -29,12 +30,21 @@ public class ZipListerForFile extends AbstractArchiveLister {
 	private Enumeration<? extends ZipEntry> zipentries;
 	private static String charset = "windows-31j";
 
-	public ZipListerForFile (PathEntry basepath, String charset) throws IOException {
+	public ZipListerForFile (PathEntry basepath, File contentpath, String charset) throws IOException {
 		super(basepath);
-		Assertion.assertAssertionError(basepath.isFile());
 		Assertion.assertNullPointerException(charset != null);
-		zipfile = new ZipFile(basepath.getPath(), Charset.forName(charset));
+		zipfile = new ZipFile(contentpath, Charset.forName(charset));
 		zipentries = zipfile.entries();
+	}
+
+	public ZipListerForFile (PathEntry basepath, String charset) throws IOException {
+		this(basepath, new File(basepath.getPath()), charset);
+		Assertion.assertAssertionError(basepath.isFile());
+	}
+
+	public ZipListerForFile (PathEntry basepath, File contentpath) throws IOException {
+		this(basepath, contentpath, charset);
+		Assertion.assertAssertionError(basepath.isFile());
 	}
 
 	public ZipListerForFile (PathEntry basepath) throws IOException {

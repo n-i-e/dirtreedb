@@ -38,7 +38,7 @@ public class TemporaryFileArchiveLister extends AbstractArchiveLister {
 			toFile.deleteOnExit();
 			Files.copy(inf, toFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 			inf.close();
-			baselister = ArchiveListerFactory.getArchiveListerForFile(new PathEntry(toFile));
+			baselister = ArchiveListerFactory.getArchiveLister(basepath, toFile);
 		}
 	}
 

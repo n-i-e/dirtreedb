@@ -16,6 +16,9 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -26,6 +29,9 @@ public class ArchiveListerFactory {
 
 	private static abstract class ArchiveListerReturner {
 		public abstract IArchiveLister get(PathEntry entry, InputStream instream)  throws IOException;
+		public IArchiveLister get(PathEntry entry, File contentfile)  throws IOException {
+			return get(entry, new BufferedInputStream(new FileInputStream(contentfile), 1*1024*1024));
+		}
 		public IArchiveLister getForFile(PathEntry entry) throws IOException {
 			return get(entry, entry.getInputStream());
 		}
@@ -49,6 +55,7 @@ public class ArchiveListerFactory {
 
 		final ArchiveListerReturner svnzR = new ArchiveListerReturner () {
 			@Override public IArchiveLister get(PathEntry base, InputStream inf) throws IOException { return new TemporaryFileArchiveLister(base, inf); }
+			@Override public IArchiveLister get(PathEntry base, File content) throws IOException { return new SevenZipListerForFile(base, content); }
 			@Override public IArchiveLister getForFile(PathEntry base) throws IOException { return new SevenZipListerForFile(base); }
 		};
 
@@ -140,6 +147,20 @@ public class ArchiveListerFactory {
 		}
 
 		instream.close();
+		return new NullArchiveLister();
+	}
+
+	public static IArchiveLister getArchiveLister(PathEntry entry, File contentpath) throws IOException {
+		Assertion.assertNullPointerException(entry != null);
+		Assertion.assertNullPointerException(contentpath != null);
+
+		for (Entry<String, ArchiveListerReturner> kv: getExtensionBindList().entrySet()) {
+			String ext = kv.getKey();
+			if (fileExtensionMatches(entry.getPath(), ext)) {
+				return kv.getValue().get(entry, contentpath);
+			}
+		}
+
 		return new NullArchiveLister();
 	}
 

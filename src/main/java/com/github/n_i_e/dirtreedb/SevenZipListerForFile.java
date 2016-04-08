@@ -26,10 +26,14 @@ import org.apache.commons.compress.archivers.sevenz.SevenZFile;
 public class SevenZipListerForFile extends AbstractArchiveLister {
 	SevenZFile sevenzfile;
 
-	public SevenZipListerForFile(PathEntry basepath) throws IOException {
+	public SevenZipListerForFile(PathEntry basepath, File contentpath) throws IOException {
 		super(basepath);
+		sevenzfile = new SevenZFile(contentpath);
+	}
+
+	public SevenZipListerForFile(PathEntry basepath) throws IOException {
+		this(basepath, new File(basepath.getPath()));
 		Assertion.assertAssertionError(basepath.isFile());
-		sevenzfile = new SevenZFile(new File(basepath.getPath()));
 	}
 
 	public InputStream getInputStream() {
