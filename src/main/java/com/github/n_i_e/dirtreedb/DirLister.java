@@ -29,16 +29,16 @@ import java.util.Set;
 
 public class DirLister implements IDirArchiveLister {
 	DbPathEntry basepath;
-	Iterator<String> file_iter;
+	Iterator<File> file_iter;
 	PathEntry next_entry;
 
 	DirLister(DbPathEntry entry, File fileobj) throws FileNotFoundException {
 		basepath = entry;
-		String[] s = fileobj.list();
-		if (s == null) {
+		File[] f = fileobj.listFiles();
+		if (f == null) {
 			throw new FileNotFoundException("!! Folder not accessible");
 		}
-		file_iter = Arrays.asList(s).iterator();
+		file_iter = Arrays.asList(f).iterator();
 		next_entry = null;
 	}
 
@@ -48,13 +48,12 @@ public class DirLister implements IDirArchiveLister {
 
 	private void getNext() throws IOException {
 		while (next_entry == null && file_iter.hasNext()) {
-			String n = file_iter.next();
-			Assertion.assertAssertionError(n.length() > 0);
-			Assertion.assertAssertionError(! ".".equals(n));
-			Assertion.assertAssertionError(! "..".equals(n));
-			String p = basepath.getPath() + n;
-			next_entry = new PathEntry(new File(p));
-			if (next_entry != null && next_entry.getSize() < 0) { // size is sometimes <0; JavaVM bug?
+			File f = file_iter.next();
+			Assertion.assertAssertionError(f.getPath().startsWith(basepath.getPath()));
+			Assertion.assertAssertionError(! f.getPath().equals(basepath.getPath() + "."));
+			Assertion.assertAssertionError(! f.getPath().equals(basepath.getPath() + ".."));
+			next_entry = new PathEntry(f);
+			if (next_entry.getSize() < 0) { // size is sometimes <0; JavaVM bug?
 				next_entry.setCsumAndClose(next_entry.getInputStream());
 			}
 		}
