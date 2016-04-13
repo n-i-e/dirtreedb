@@ -105,7 +105,8 @@ public class StandardCrawler extends LazyAccessorThread {
 		scheduleLayer3RoundRobinState = 0;
 		try {
 			while (true) {
-				if (getDb().getDontInsertQueueSize() < DONT_INSERT_QUEUE_SIZE_LIMIT) {
+				if (getDb().getDontInsertQueueSize() < DONT_INSERT_QUEUE_SIZE_LIMIT
+						&& (getDb().getDontInsertQueueSize() == 0 || getDb().getInsertableQueueSize() > 0)) {
 					writelog2("--- scuedule layer 1 ---");
 					scheduleLayer1(false);
 				} else {
@@ -436,61 +437,15 @@ public class StandardCrawler extends LazyAccessorThread {
 				consumeSomeUpdateQueue();
 				scheduleLayer2RoundRobinState++;
 			}
+			scheduleLayer2ListDirtyFoldersCounter = 0;
+			scheduleLayer2ListDirtyFoldersFinishedFlag = false;
 		}
 
 		if (scheduleLayer2RoundRobinState == 1) {
 			consumeInsertableQueue();
 			writelog2("+++ list (2/8) +++");
-			int count = list("type=0 AND status=2", false);
-			writelog2("+++ list (2/8) finished count=" + count + " +++");
-
-			if (doAllAtOnce) {
-				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
-			}
-		}
-
-		if (scheduleLayer2RoundRobinState == 2) {
-			writelog2("+++ list (3/8) +++");
-			int count = list("(type=1 AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)", true);
-			writelog2("+++ list (3/8) finished count=" + count + " +++");
-
-			if (doAllAtOnce) {
-				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
-			}
-		}
-
-		if (scheduleLayer2RoundRobinState == 3) {
-			consumeInsertableQueue();
-			writelog2("+++ list (4/8) +++");
-			int count = list("type=0 AND status=2", true);
-			writelog2("+++ list (4/8) finished count=" + count + " +++");
-
-			if (doAllAtOnce) {
-				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
-			}
-		}
-
-		if (scheduleLayer2RoundRobinState == 4) {
-			writelog2("+++ list (5/8) +++");
-			int count = list("(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1", false);
-			writelog2("+++ list (5/8) finished count=" + count + " +++");
-
-			if (doAllAtOnce) {
-				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
-			}
-			scheduleLayer2ListDirtyFoldersCounter = 0;
-			scheduleLayer2ListDirtyFoldersFinishedFlag = false;
-		}
-
-		if (scheduleLayer2RoundRobinState == 5) {
-			consumeInsertableQueue();
-			writelog2("+++ list (6/8) +++");
 			int count = list("type=0 AND status=1", false);
-			writelog2("+++ list (6/8) finished count=" + count + " +++");
+			writelog2("+++ list (2/8) finished count=" + count + " +++");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -503,10 +458,10 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 		}
 
-		if (scheduleLayer2RoundRobinState == 6) {
-			writelog2("+++ list (7/8) +++");
-			int count = list("(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1", true);
-			writelog2("+++ list (7/8) finished count=" + count + " +++");
+		if (scheduleLayer2RoundRobinState == 2) {
+			writelog2("+++ list (3/8) +++");
+			int count = list("(type=1 AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)", true);
+			writelog2("+++ list (3/8) finished count=" + count + " +++");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -515,11 +470,11 @@ public class StandardCrawler extends LazyAccessorThread {
 			scheduleLayer2ListDirtyFoldersCounter = 0;
 		}
 
-		if (scheduleLayer2RoundRobinState == 7) {
+		if (scheduleLayer2RoundRobinState == 3) {
 			consumeInsertableQueue();
-			writelog2("+++ list (8/8) +++");
+			writelog2("+++ list (4/8) +++");
 			int count = list("type=0 AND status=1", true);
-			writelog2("+++ list (8/8) finished count=" + count + " +++");
+			writelog2("+++ list (4/8) finished count=" + count + " +++");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -529,6 +484,52 @@ public class StandardCrawler extends LazyAccessorThread {
 				scheduleLayer2ListDirtyFoldersCounter++;
 			} else if (count==0 && scheduleLayer2ListDirtyFoldersFinishedFlag == true) {
 				setAllCleanFoldersDirty();
+			}
+		}
+
+		if (scheduleLayer2RoundRobinState == 4) {
+			writelog2("+++ list (5/8) +++");
+			int count = list("(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1", false);
+			writelog2("+++ list (5/8) finished count=" + count + " +++");
+
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
+			}
+		}
+
+		if (scheduleLayer2RoundRobinState == 5) {
+			consumeInsertableQueue();
+			writelog2("+++ list (6/8) +++");
+			int count = list("type=0 AND status=2", false);
+			writelog2("+++ list (6/8) finished count=" + count + " +++");
+
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
+			}
+		}
+
+		if (scheduleLayer2RoundRobinState == 6) {
+			writelog2("+++ list (7/8) +++");
+			int count = list("(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1", true);
+			writelog2("+++ list (7/8) finished count=" + count + " +++");
+
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
+			}
+		}
+
+		if (scheduleLayer2RoundRobinState == 7) {
+			consumeInsertableQueue();
+			writelog2("+++ list (8/8) +++");
+			int count = list("type=0 AND status=2", true);
+			writelog2("+++ list (8/8) finished count=" + count + " +++");
+
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleLayer2RoundRobinState++;
 			}
 		}
 
@@ -569,6 +570,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		String sql = "SELECT d1.*, childhint FROM (SELECT * FROM directory WHERE "
 				+ typeStatusSubSql
 				+ getDontListRootIdsSubSql(dontListRootIds)
+				+ getDontListRootIdsSubSqlFromUnaccessibleRootFolders()
 				+ ") AS d1 "
 				+ "LEFT JOIN "
 				+ "(SELECT DISTINCT parentid AS childhint FROM directory) AS d2 ON pathid=childhint "
@@ -619,6 +621,7 @@ public class StandardCrawler extends LazyAccessorThread {
 
 		String sql = "SELECT * FROM directory AS d1 WHERE "
 				+ typeStatusSubSql
+				+ getDontListRootIdsSubSqlFromUnaccessibleRootFolders()
 				+ " AND " + (hasNoChild ? "NOT " : "") + "EXISTS (SELECT * FROM directory WHERE parentid=d1.pathid)"
 				+ " AND (d1.parentid=0 OR EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid ))";
 		writelog2(sql);
@@ -777,6 +780,32 @@ public class StandardCrawler extends LazyAccessorThread {
 		return result;
 	}
 
+	private String getDontListRootIdsSubSqlFromUnaccessibleRootFolders() throws SQLException, InterruptedException {
+		List<Long> dontListRootIds = new ArrayList<Long>();
+		Statement stmt = getDb().createStatement();
+		ResultSet rs = stmt.executeQuery("SELECT * FROM directory WHERE parentid=0");
+		try {
+			Dispatcher disp = getDb().getDispatcher();
+			disp.setList(Dispatcher.NONE);
+			disp.setCsum(Dispatcher.NONE);
+			disp.setNoReturn(false);
+			while (rs.next()) {
+				DbPathEntry entry = getDb().rsToPathEntry(rs);
+				try {
+					if (disp.dispatch(entry) == null) {
+						dontListRootIds.add(entry.getPathId());
+					}
+				} catch (IOException e) {
+					dontListRootIds.add(entry.getPathId());
+				}
+			}
+		} finally {
+			rs.close();
+			stmt.close();
+		}
+		return getDontListRootIdsSubSql(dontListRootIds);
+	}
+
 	private static String getDontListRootIdsSubSql(List<Long> dontListRootIds) {
 		String dontListRootIdsSubSql;
 		ArrayList<String> s = new ArrayList<String>();
@@ -796,7 +825,6 @@ public class StandardCrawler extends LazyAccessorThread {
 	private void unlistDisabledExtensions(ProxyDirTreeDb.CleanupOrphansCallback callback)
 			throws SQLException, InterruptedException {
 		writelog2("*** unlist disabled extensions ***");
-		Statement stmt = getDb().createStatement();
 		ArrayList<String> ext = new ArrayList<String>();
 		HashMap<String, Boolean> eal = getConf().getExtensionAvailabilityMap();
 		for (Entry<String, Boolean> kv: eal.entrySet()) {
@@ -812,6 +840,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) " + dontArchiveExtSubSql
 					+ " AND EXISTS (SELECT * FROM directory AS d2 WHERE d2.parentid=d1.pathid)"
 					+ " AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.parentid=d3.pathid)";
+			Statement stmt = getDb().createStatement();
 			ResultSet rs = stmt.executeQuery(sql);
 			int count = 0;
 			try {
@@ -829,6 +858,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				}
 			} finally {
 				rs.close();
+				stmt.close();
 			}
 			writelog2("*** unlist disabled extensions finished count=" + count + " ***");
 		}
