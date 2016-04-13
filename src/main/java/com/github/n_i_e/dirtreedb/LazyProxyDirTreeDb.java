@@ -202,6 +202,20 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 	}
 
+	@Override
+	public void orphanize(final DbPathEntry entry) throws SQLException, InterruptedException {
+		Assertion.assertNullPointerException(entry != null);
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.orphanize(entry);
+		} else {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.orphanize(entry);
+				}
+			});
+		}
+	}
+
 	public void noop() throws InterruptedException {
 		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 			public void run() throws SQLException, InterruptedException {

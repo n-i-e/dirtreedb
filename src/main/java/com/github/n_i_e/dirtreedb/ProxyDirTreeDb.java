@@ -131,12 +131,6 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		delete(entry);
 	}
 
-	public void delete(Iterator<DbPathEntry> entries) throws SQLException, InterruptedException {
-		while (entries.hasNext()) {
-			delete(entries.next());
-		}
-	}
-
 	public void deleteChildren(final DbPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 		PreparedStatement ps = prepareStatement("SELECT * FROM directory WHERE parentid=?");
@@ -199,6 +193,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	public void disable(DbPathEntry entry, PathEntry newentry) throws SQLException, InterruptedException {
 		threadHook();
 		parent.disable(entry, newentry);
+	}
+
+	@Override
+	public void orphanize(DbPathEntry entry) throws SQLException, InterruptedException {
+		threadHook();
+		parent.orphanize(entry);
 	}
 
 	@Override
@@ -447,7 +447,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		Assertion.assertNullPointerException(path != null);
-		String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 AND path=? "
+		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 AND path=? "
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
 		ps = prepareStatement(sql);
 		ps.setString(1, path);
@@ -466,7 +466,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		Assertion.assertAssertionError(type >= 0 && type <= 3);
-		String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 AND type=? "
+		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 AND type=? "
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)"
 				+ (hasChildren ? " AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)" : "");
 		ps = prepareStatement(sql);
@@ -486,7 +486,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	private int cleanupOrphansWithoutChildren(CleanupOrphansCallback runnable, boolean noLazy)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
-		String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 "
+		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 "
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid) "
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)";
 		ps = prepareStatement(sql);
@@ -501,7 +501,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	private int cleanupOrphans(boolean hasChildren, CleanupOrphansCallback runnable, boolean noLazy)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
-		String sql = "SELECT * FROM directory AS d1 WHERE parentid>0 "
+		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 "
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)"
 				+ (hasChildren ? " AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)" : "");
 		ps = prepareStatement(sql);
@@ -551,7 +551,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		int count = 0;
 		try {
 			threadHook();
-			ResultSet rs = stmt.executeQuery("SELECT parentid, pathid FROM directory AS d1 WHERE parentid>0 "
+			ResultSet rs = stmt.executeQuery("SELECT parentid, pathid FROM directory AS d1 WHERE parentid<>0 "
 					+ getDontListRootIdsSubSql(dontListRootIds)
 					+ "AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid) " // NOT orphan
 					+ "AND NOT EXISTS (SELECT * FROM upperlower WHERE distance=1 AND parentid=upper AND pathid=lower)");
@@ -661,11 +661,8 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		ResultSet rs = stmt.executeQuery("SELECT d1.*, newsize, newcompressedsize FROM "
 				+ "(SELECT * FROM directory WHERE type=0) as d1, "
 				+ "(SELECT parentid, SUM(size) AS newsize, SUM(compressedsize) AS newcompressedsize FROM directory "
-				+ "WHERE parentid IS NOT NULL AND parentid > 0 AND size IS NOT NULL AND compressedsize IS NOT NULL "
 				+ "GROUP BY parentid) AS d2 "
-				+ "WHERE d1.pathid=d2.parentid "
-				+ "AND ((d1.size IS NULL OR d1.size<>d2.newsize) "
-				+ "OR (d1.compressedsize IS NULL OR d1.compressedsize<>d2.newcompressedsize))");
+				+ "WHERE d1.pathid=d2.parentid AND (d1.size<>d2.newsize OR d1.compressedsize<>d2.newcompressedsize)");
 		try {
 			int count=0;
 			while (rs.next()) {
@@ -768,6 +765,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			s += "\\";
 		}
 		if (!s.equals(entry.getPath())) {
+			Assertion.assertAssertionError(s.equalsIgnoreCase(entry.getPath()));
 			return null;
 		}
 		return result;
@@ -1010,18 +1008,25 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			long new_compressedsize = 0;
 
 			final List<DbPathEntry> updatedfolders = new ArrayList<DbPathEntry>();
+			long t0 = new Date().getTime();
 			while (newfolderIter.hasNext()) {
+				long t1 = new Date().getTime();
+				if (t1-t0 > 10*60*1000) {
+					writelog("dispatchFolderListCore loop too long, still ongoing: " + entry.getPath());
+					t0 = t1;
+				}
 				PathEntry newchild = newfolderIter.next();
 				Assertion.assertAssertionError(newchild.isFolder() || newchild.isFile());
 				if (oldfolder.containsKey(newchild.getPath())) { // exists in oldfolder - update
 					DbPathEntry oldchild = oldfolder.get(newchild.getPath());
 					if (newchild.isFolder()) {
-						if (!oldchild.isDirty() && !dMatch(oldchild, newchild)) {
+						if (oldchild.isClean() && !dMatch(oldchild, newchild)) {
 							updatedfolders.add(oldchild);
 						}
 						new_size += oldchild.getSize();
 						new_compressedsize += oldchild.getCompressedSize();
 					} else { // FILE
+						assert(newchild.isFile());
 						if (isListCsumForce() || (isListCsum() && (oldchild.isCsumNull() || !dscMatch(oldchild, newchild)))) {
 							try {
 								newchild.setCsumAndClose(newchild.getInputStream());
@@ -1055,7 +1060,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			}
 
 			updateStatuses(updatedfolders.iterator(), PathEntry.DIRTY);
-			delete(oldfolder.values().iterator());
+			for (DbPathEntry p: oldfolder.values()) {
+				Assertion.assertFileNotFoundException(getFileIfExists(p) == null,
+						"!! File DOES exist: " + p.getPath()
+						);
+				orphanize(p);
+			}
 
 			newentry.setSize(new_size);
 			newentry.setCompressedSize(new_compressedsize);
@@ -1069,7 +1079,13 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				PathEntry newentry,
 				IArchiveLister newfolderIter
 				) throws InterruptedException, SQLException, IOException {
+			long t0 = new Date().getTime();
 			while (newfolderIter.hasNext(ArchiveListerFactory.isCsumRecommended(entry))) {
+				long t1 = new Date().getTime();
+				if (t1-t0 > 10*60*1000) {
+					writelog("dispatchFileListCore loop too long, still ongoing: " + entry.getPath());
+					t0 = t1;
+				}
 				PathEntry newchild = newfolderIter.next(true);
 				Assertion.assertAssertionError(newchild.isCompressedFolder() || newchild.isCompressedFile());
 				if (oldfolder.containsKey(newchild.getPath())) {
@@ -1085,7 +1101,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				}
 			}
 			newfolderIter.close();
-			delete(oldfolder.values().iterator());
+			for (DbPathEntry p: oldfolder.values()) {
+				orphanize(p);
+			}
 			newentry.setStatus(PathEntry.CLEAN);
 			update(entry, newentry);
 		}

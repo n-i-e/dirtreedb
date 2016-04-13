@@ -34,6 +34,7 @@ public abstract class AbstractDirTreeDb {
 	public abstract void delete(DbPathEntry entry) throws SQLException, InterruptedException;
 	public abstract void disable(DbPathEntry entry) throws SQLException, InterruptedException;
 	public abstract void disable(DbPathEntry entry, PathEntry newentry) throws SQLException, InterruptedException;
+	public abstract void orphanize(DbPathEntry entry) throws SQLException, InterruptedException;
 	public abstract void insertUpperLower(long upper, long lower, int distance) throws SQLException, InterruptedException;
 	public abstract void deleteUpperLower(long upper, long lower) throws SQLException, InterruptedException;
 	public abstract void insertEquality(long pathid1, long pathid2, long size, int csum) throws SQLException, InterruptedException;
