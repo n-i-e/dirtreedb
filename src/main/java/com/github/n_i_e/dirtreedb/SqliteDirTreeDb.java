@@ -42,7 +42,7 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 		Statement stmt = conn.createStatement();
 		try {
 			stmt.execute("PRAGMA synchronous=OFF;");
-			stmt.execute("PRAGMA journal_mode=MEMORY;");
+			stmt.execute("PRAGMA journal_mode=WAL;");
 			stmt.execute("PRAGMA foreign_keys=ON;");
 			//stmt.execute("PRAGMA case_sensitive_like=ON;");
 
