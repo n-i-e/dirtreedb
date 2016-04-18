@@ -23,7 +23,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
@@ -67,12 +69,12 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	@Override
 	public int refreshIndirectUpperLower(RunnableWithException2<SQLException, InterruptedException> r)
 			throws SQLException, InterruptedException {
-		return refreshIndirectUpperLower(getInsertableRootIdList(), r);
+		return refreshIndirectUpperLower(getInsertableRootIdSet(), r);
 	}
 
 	@Override
 	public int refreshIndirectUpperLower() throws SQLException, InterruptedException {
-		return refreshIndirectUpperLower(getInsertableRootIdList());
+		return refreshIndirectUpperLower(getInsertableRootIdSet());
 	}
 
 	@Override
@@ -203,14 +205,44 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	}
 
 	@Override
+	public void updateParentId(final DbPathEntry entry, final long newparentid) throws SQLException, InterruptedException {
+		Assertion.assertNullPointerException(entry != null);
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.updateParentId(entry, newparentid);
+		} else {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.updateParentId(entry, newparentid);
+				}
+			});
+		}
+	}
+
+	@Override
 	public void orphanize(final DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
+		Assertion.assertAssertionError(entry.getParentId() != 0);
 		if (iAmLazyAccessorThread()) {
 			LazyProxyDirTreeDb.super.orphanize(entry);
 		} else {
 			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
 					LazyProxyDirTreeDb.super.orphanize(entry);
+				}
+			});
+		}
+	}
+
+	@Override
+	public void orphanizeChildren(final DbPathEntry entry) throws SQLException, InterruptedException {
+		Assertion.assertNullPointerException(entry != null);
+		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.deleteChildren(entry);
+		} else {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.orphanizeChildren(entry);
 				}
 			});
 		}
@@ -356,12 +388,12 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		return updatequeue.size(priority);
 	}
 
-	public List<Long> getInsertableRootIdList() {
-		return lazyqueue_insertable.getRootIdList();
+	public Set<Long> getInsertableRootIdSet() {
+		return lazyqueue_insertable.getRootIdSet();
 	}
 
-	public List<Long> getDontInsertRootIdList() {
-		return lazyqueue_dontinsert.getRootIdList();
+	public Set<Long> getDontInsertRootIdSet() {
+		return lazyqueue_dontinsert.getRootIdSet();
 	}
 
 	public void discardAllQueueItems() {
@@ -602,8 +634,8 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			return super.size();
 		}
 
-		public ArrayList<Long> getRootIdList() {
-			ArrayList<Long> result = new ArrayList<Long>();
+		public Set<Long> getRootIdSet() {
+			Set<Long> result = new HashSet<Long>();
 			for (java.util.Map.Entry<Long, LazyQueueElement> kv: entrySet()) {
 				if (kv.getValue().size()>0) {
 					result.add(kv.getKey());

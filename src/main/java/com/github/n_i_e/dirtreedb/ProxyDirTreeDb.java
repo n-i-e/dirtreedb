@@ -29,6 +29,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	protected AbstractDirTreeDb parent;
@@ -78,8 +79,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		try {
 			parent.insert(basedir, newentry);
 		} catch (SQLException e) {
-			cleanupOrphansNow(newentry.getPath());
-			parent.insert(basedir, newentry);
+			if (reviveOprhan(basedir, newentry) == 0) {
+				parent.insert(basedir, newentry);
+			}
 		}
 	}
 
@@ -196,9 +198,30 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	@Override
+	public void updateParentId(DbPathEntry entry, long newparentid) throws SQLException ,InterruptedException {
+		threadHook();
+		parent.updateParentId(entry, newparentid);
+	};
+
+	@Override
 	public void orphanize(DbPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 		parent.orphanize(entry);
+	}
+
+	public void orphanizeChildren(final DbPathEntry entry) throws SQLException, InterruptedException {
+		threadHook();
+		PreparedStatement ps = prepareStatement("SELECT * FROM directory WHERE parentid=?");
+		ps.setLong(1, entry.getPathId());
+		ResultSet rs = ps.executeQuery();
+		try {
+			while (rs.next()) {
+				orphanize(rsToPathEntry(rs));
+			}
+		} finally {
+			rs.close();
+			ps.close();
+		}
 	}
 
 	@Override
@@ -530,6 +553,45 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	public void cleanupOrphansAll() throws SQLException, InterruptedException {
 		while (cleanupOrphans() > 0) {}
 	}
+
+	private int reviveOprhan(final DbPathEntry basedir, final PathEntry newentry)
+			throws SQLException, InterruptedException {
+		Assertion.assertNullPointerException(basedir != null);
+		Assertion.assertNullPointerException(newentry != null);
+		Assertion.assertAssertionError(!newentry.isClean());
+		String sql = "SELECT * FROM directory AS d1 WHERE path=?"
+				+ " AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
+		PreparedStatement ps = prepareStatement(sql);
+		ps.setString(1, newentry.getPath());
+		ResultSet rs = ps.executeQuery();
+		try {
+			while (rs.next()) {
+				DbPathEntry oldentry = rsToPathEntry(rs);
+				if (newentry.getPath().equals(oldentry.getPath())) {
+					if (oldentry.isFolder()) {
+						if (newentry.isClean()) {
+							updateStatus(oldentry, PathEntry.DIRTY);
+						}
+					} else {
+						if (!dscMatch(oldentry, newentry)
+								|| oldentry.getStatus() != newentry.getStatus()
+								|| newentry.isClean()) {
+						} else {
+							update(oldentry, newentry);
+						}
+
+					}
+					updateParentId(oldentry, basedir.getPathId());
+					return 1;
+				}
+			}
+			return 0;
+		} finally {
+			rs.close();
+			ps.close();
+		}
+	}
+
 	public int refreshDirectUpperLower() throws SQLException, InterruptedException {
 		return refreshDirectUpperLower((RunnableWithException2<SQLException, InterruptedException>)null);
 	}
@@ -539,11 +601,11 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return refreshDirectUpperLower(null, runnable);
 	}
 
-	public int refreshDirectUpperLower(List<Long> dontListRootIds) throws SQLException, InterruptedException {
+	public int refreshDirectUpperLower(Set<Long> dontListRootIds) throws SQLException, InterruptedException {
 		return refreshDirectUpperLower(dontListRootIds, null);
 	}
 
-	public int refreshDirectUpperLower(List<Long> dontListRootIds,
+	public int refreshDirectUpperLower(Set<Long> dontListRootIds,
 			RunnableWithException2<SQLException, InterruptedException> runnable)
 			throws SQLException, InterruptedException {
 		threadHook();
@@ -585,11 +647,11 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return refreshIndirectUpperLower(null, runnable);
 	}
 
-	public int refreshIndirectUpperLower(List<Long> dontListRootIds) throws SQLException, InterruptedException {
+	public int refreshIndirectUpperLower(Set<Long> dontListRootIds) throws SQLException, InterruptedException {
 		return refreshIndirectUpperLower(dontListRootIds, null);
 	}
 
-	public int refreshIndirectUpperLower(List<Long> dontListRootIds,
+	public int refreshIndirectUpperLower(Set<Long> dontListRootIds,
 			RunnableWithException2<SQLException, InterruptedException> runnable)
 					throws SQLException, InterruptedException {
 		Statement stmt = createStatement();
@@ -631,7 +693,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return count;
 	}
 
-	private static String getDontListRootIdsSubSql(List<Long> dontListRootIds) {
+	private static String getDontListRootIdsSubSql(Set<Long> dontListRootIds) {
 		String dontListRootIdsSubSql;
 		ArrayList<String> s = new ArrayList<String>();
 		if (dontListRootIds != null) {
@@ -1102,6 +1164,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			}
 			newfolderIter.close();
 			for (DbPathEntry p: oldfolder.values()) {
+				Assertion.assertAssertionError(p.getParentId()!=0);
 				orphanize(p);
 			}
 			newentry.setStatus(PathEntry.CLEAN);
