@@ -225,16 +225,22 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	@Override
-	public void orphanize(DbPathEntry entry) throws SQLException, InterruptedException {
+	public void updateParentId(DbPathEntry entry, long newparentid) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
 		PreparedStatement ps;
-		ps = prepareStatement("UPDATE directory SET parentid=-1 WHERE pathid=?");
+		ps = prepareStatement("UPDATE directory SET parentid=? WHERE pathid=?");
 		try {
-			ps.setLong(1, entry.getParentId());
+			ps.setLong(1, newparentid);
+			ps.setLong(2, entry.getPathId());
 			ps.executeUpdate();
 		} finally {
 			ps.close();
 		}
+	}
+
+	@Override
+	public void orphanize(DbPathEntry entry) throws SQLException, InterruptedException {
+		updateParentId(entry, -1);
 	}
 
 	@Override
