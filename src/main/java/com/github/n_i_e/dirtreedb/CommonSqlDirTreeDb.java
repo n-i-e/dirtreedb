@@ -34,7 +34,7 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	@Override
-	public Statement createStatement() throws SQLException, InterruptedException {
+	public Statement createStatement() throws SQLException {
 		return new StatementWithDebugLog(conn.createStatement());
 	}
 
