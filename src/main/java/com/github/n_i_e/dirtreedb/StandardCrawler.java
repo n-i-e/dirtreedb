@@ -87,18 +87,6 @@ public class StandardCrawler extends LazyAccessorThread {
 		super(registry);
 	}
 
-	// "d1.*, d2.*" notation does not work for H2 database
-	private static final String d1d2SubSql = "d1.pathid AS d1_pathid, d1.parentid AS d1_parentid, "
-			+ "d1.rootid AS d1_rootid, d1.datelastmodified AS d1_datelastmodified, "
-			+ "d1.size AS d1_size, d1.compressedsize AS d1_compressedsize, d1.csum AS d1_csum, "
-			+ "d1.path AS d1_path, d1.type AS d1_type, d1.status AS d1_status, "
-			+ "d1.duplicate AS d1_duplicate, d1.dedupablesize AS d1_dedupablesize, "
-			+ "d2.pathid AS d2_pathid, d2.parentid AS d2_parentid, "
-			+ "d2.rootid AS d2_rootid, d2.datelastmodified AS d2_datelastmodified, "
-			+ "d2.size AS d2_size, d2.compressedsize AS d2_compressedsize, d2.csum AS d2_csum, "
-			+ "d2.path AS d2_path, d2.type AS d2_type, d2.status AS d2_status, "
-			+ "d2.duplicate AS d2_duplicate, d2.dedupablesize AS d2_dedupablesize";
-
 	@Override
 	public void run() throws Exception {
 		scheduleLayer1RoundRobinState = 0;
@@ -234,80 +222,6 @@ public class StandardCrawler extends LazyAccessorThread {
 			scheduleLayer1RoundRobinState++;
 		}
 		scheduleLayer1RoundRobinState = scheduleLayer1RoundRobinState % 3;
-	}
-
-	private int crawlEqualityNew(boolean skipNoAccess, List<Long> dontListRootIds)
-			throws SQLException, InterruptedException, IOException {
-		int count1 = 0;
-		Statement stmt = getDb().createStatement();
-		try {
-			String sql1 = "SELECT size, csum FROM directory WHERE csum IS NOT NULL AND duplicate>=1 "
-					+ (skipNoAccess ? "AND status<>2 " : "")
-					+ "AND EXISTS (SELECT * FROM (SELECT COUNT(*) AS c FROM equality "
-					+ "WHERE pathid1=pathid OR pathid2=pathid) WHERE c<duplicate) GROUP BY size, csum"
-					;
-			writelog2(sql1);
-			ResultSet rs1 = stmt.executeQuery(sql1);
-			writelog2("+++ equality (new) query finished +++");
-			try {
-				Dispatcher disp = getDb().getDispatcher();
-				disp.setNoReturn(true);
-				while (rs1.next()) {
-					String sql2 = "SELECT " + d1d2SubSql + " FROM directory AS d1, directory AS d2 "
-							+ "WHERE (d1.type=1 OR d1.type=3) AND (d2.type=1 OR d2.type=3) "
-							+ getDontListRootIdsSubSql_D1D2(dontListRootIds)
-							+ "AND d1.size=? AND d1.csum=? AND d2.size=? AND d2.csum=? "
-							+ "AND d1.pathid>d2.pathid "
-							+ (skipNoAccess ? "AND d1.status<>2 AND d2.status<>2 " : "")
-							+ "AND NOT EXISTS (SELECT * FROM equality WHERE d1.pathid=pathid1 AND d2.pathid=pathid2)";
-					PreparedStatement ps2 = getDb().prepareStatement(sql2);
-					ps2.setLong(1, rs1.getLong("size"));
-					ps2.setInt (2, rs1.getInt("csum"));
-					ps2.setLong(3, rs1.getLong("size"));
-					ps2.setInt (4, rs1.getInt("csum"));
-					ResultSet rs2 = ps2.executeQuery();
-					int count2 = 0;
-					try {
-						while (rs2.next()) {
-							DbPathEntry p1 = getDb().rsToPathEntry(rs2, "d1_");
-							DbPathEntry p2 = getDb().rsToPathEntry(rs2, "d2_");
-							disp.checkEquality(p1, p2, disp.CHECKEQUALITY_INSERT);
-							//cleanupDbAndListIfRecommended();
-							consumeSomeUpdateQueue();
-							count1++;
-							count2++;
-						}
-					} finally {
-						rs2.close();
-					}
-					if (count2>0) {
-						writelog2("+++ equality (new) "+rs1.getLong("size")+" "+rs1.getLong("csum")+" "+count2+" +++");
-					}
-				}
-			} finally {
-				rs1.close();
-			}
-		} finally {
-			stmt.close();
-		}
-		return count1;
-	}
-
-	private static String getDontListRootIdsSubSql_D1D2(List<Long> dontListRootIds) {
-		String dontListRootIdsSubSql;
-		ArrayList<String> s = new ArrayList<String>();
-		if (dontListRootIds != null) {
-			for (Long i: dontListRootIds) {
-				s.add("d1.rootid<>" + i);
-				s.add("d2.rootid<>" + i);
-			}
-		}
-		if (s.size() > 0) {
-			dontListRootIdsSubSql = " AND (" + String.join(" AND ", s) + ") ";
-		} else {
-			dontListRootIdsSubSql = "";
-		}
-		return dontListRootIdsSubSql;
 	}
 
 	private int crawlEqualityUpdate() throws SQLException, InterruptedException, IOException {
