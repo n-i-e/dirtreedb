@@ -1072,6 +1072,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			final List<DbPathEntry> updatedfolders = new ArrayList<DbPathEntry>();
 			long t0 = new Date().getTime();
 			while (newfolderIter.hasNext()) {
+				Thread.sleep(0);
 				long t1 = new Date().getTime();
 				if (t1-t0 > 10*60*1000) {
 					writelog("dispatchFolderListCore loop too long, still ongoing: " + entry.getPath());
@@ -1143,6 +1144,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				) throws InterruptedException, SQLException, IOException {
 			long t0 = new Date().getTime();
 			while (newfolderIter.hasNext(ArchiveListerFactory.isCsumRecommended(entry))) {
+				Thread.sleep(0);
 				long t1 = new Date().getTime();
 				if (t1-t0 > 10*60*1000) {
 					writelog("dispatchFileListCore loop too long, still ongoing: " + entry.getPath());
