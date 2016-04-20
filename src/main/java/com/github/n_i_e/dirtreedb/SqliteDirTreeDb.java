@@ -41,9 +41,27 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 		conn.setAutoCommit(true);
 		Statement stmt = conn.createStatement();
 		try {
-			stmt.execute("PRAGMA synchronous=OFF;");
-			stmt.execute("PRAGMA journal_mode=WAL;");
-			stmt.execute("PRAGMA foreign_keys=ON;");
+			stmt.execute("PRAGMA synchronous=OFF");
+			{
+				ResultSet rs = stmt.executeQuery("PRAGMA synchronous");
+				Assertion.assertAssertionError(rs.next());
+				Assertion.assertAssertionError(rs.getInt("synchronous")==0, "synchronous="+rs.getInt("synchronous"));
+				rs.close();
+			}
+			stmt.execute("PRAGMA journal_mode=PERSIST");
+			{
+				ResultSet rs = stmt.executeQuery("PRAGMA journal_mode");
+				Assertion.assertAssertionError(rs.next());
+				Assertion.assertAssertionError(rs.getString("journal_mode").equals("persist"), "journal_mode="+rs.getString("journal_mode"));
+				rs.close();
+			}
+			stmt.execute("PRAGMA foreign_keys=ON");
+			{
+				ResultSet rs = stmt.executeQuery("PRAGMA foreign_keys");
+				Assertion.assertAssertionError(rs.next());
+				Assertion.assertAssertionError(rs.getInt("foreign_keys")==1, "foreign_keys=" + rs.getInt("foreign_keys"));
+				rs.close();
+			}
 			//stmt.execute("PRAGMA case_sensitive_like=ON;");
 
 			if (!fileExists) {
@@ -84,9 +102,26 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 			}
 			stmt.executeUpdate("UPDATE directory SET rootid=pathid WHERE rootid IS NULL AND pathid IS NOT NULL");
 		} finally {
-			//stmt.executeUpdate("VACUUM");
 			stmt.close();
 		}
+	}
+
+	@Override
+	public void close() throws SQLException {
+		Statement stmt = conn.createStatement();
+		try {
+			stmt.execute("PRAGMA journal_mode=DELETE");
+			{
+				ResultSet rs = stmt.executeQuery("PRAGMA journal_mode");
+				Assertion.assertAssertionError(rs.next());
+				Assertion.assertAssertionError(rs.getString("journal_mode").equals("delete"), "journal_mode="+rs.getString("journal_mode"));
+				rs.close();
+			}
+		} finally {
+			stmt.close();
+		}
+
+		super.close();
 	}
 
 	@Override
