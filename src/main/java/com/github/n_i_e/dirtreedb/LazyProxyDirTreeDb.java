@@ -46,18 +46,15 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 	@Override
 	public void close() throws SQLException {
-		writelog("Closing lazyqueue_thread DB");
-		lazyqueue_thread.close();
-		writelog("Closed lazyqueue_thread DB");
-		writelog("Closing lazyqueue_insertable DB");
-		lazyqueue_insertable.close();
-		writelog("Closed lazyqueue_insertable DB");
-		writelog("Closing lazyqueue_dontinsert DB");
-		lazyqueue_dontinsert.close();
-		writelog("Closed lazyqueue_dontinsert DB");
 		writelog("Really closing DB");
 		super.close();
-		writelog("Really closed DB");
+		writelog("Closing lazyqueue_thread DB");
+		lazyqueue_thread.close();
+		writelog("Closing lazyqueue_insertable DB");
+		lazyqueue_insertable.close();
+		writelog("Closing lazyqueue_dontinsert DB");
+		lazyqueue_dontinsert.close();
+		writelog("LazyProxyDirTreeDb close finished");
 	}
 
 	@Override
@@ -231,6 +228,16 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				}
 			});
 		}
+	}
+
+	public void orphanizeLater(final DbPathEntry entry) throws SQLException, InterruptedException {
+		Assertion.assertNullPointerException(entry != null);
+		Assertion.assertAssertionError(entry.getParentId() != 0);
+		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
+			public void run() throws SQLException, InterruptedException {
+				LazyProxyDirTreeDb.super.orphanize(entry);
+			}
+		});
 	}
 
 	@Override
