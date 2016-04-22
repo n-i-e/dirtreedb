@@ -505,7 +505,9 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 	private class LazyQueueRunnerThread extends Thread {
 
-		boolean isInterrupted = false;
+		public void threadHook() throws InterruptedException {
+			Thread.sleep(0); // throw InterruptedException if interrupted
+		}
 
 		public void run() {
 			while (true) {
@@ -525,9 +527,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				}
 				try {
 					while (target.size() > 0) {
-						if (isInterrupted) {
-							throw new InterruptedException("!! DirTreeDBLazyQueueElement thread interrupted");
-						}
+						threadHook();
 						LazyQueueableRunnable o = target.previewNext();
 						try {
 							o.run();
@@ -544,10 +544,6 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					target.setThread(null);
 				}
 			}
-		}
-
-		public void interrupt() {
-			isInterrupted = true;
 		}
 	}
 
