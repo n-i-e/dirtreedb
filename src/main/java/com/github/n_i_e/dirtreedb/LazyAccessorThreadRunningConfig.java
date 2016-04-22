@@ -24,7 +24,6 @@ import java.util.Map;
 public class LazyAccessorThreadRunningConfig {
 	private StackingLock lock = new StackingLock();
 	private LazyProxyDirTreeDb lazydb = null;
-	private AbstractDirTreeDb singlethreaddb = null;
 	private MessageWriter messagewriter = null;
 	private String dbFilePath = null;
 	private Map<String, Boolean> extensionAvailabilityMap = null;
@@ -51,11 +50,6 @@ public class LazyAccessorThreadRunningConfig {
 		return lazydb;
 	}
 
-	public AbstractDirTreeDb getSingleThreadDirTreeDb() throws SQLException {
-		Assertion.assertSQLException(singlethreaddb != null, "!! db is null");
-		return singlethreaddb;
-	}
-
 	public void setMessageWriter(MessageWriter messagewriter) {
 		this.messagewriter = messagewriter;
 	}
@@ -69,15 +63,15 @@ public class LazyAccessorThreadRunningConfig {
 	}
 
 	private synchronized void openDbIfNot() throws ClassNotFoundException, SQLException, IOException {
-		if (lazydb != null && singlethreaddb != null) {
+		if (lazydb != null) {
 			return;
 		}
-		Assertion.assertNullPointerException(lazydb == null && singlethreaddb == null);
+		Assertion.assertNullPointerException(lazydb == null);
 		Assertion.assertNullPointerException(dbFilePath != null);
 		writelog("DB file is: " + dbFilePath);
 
 		try {
-			singlethreaddb = DirTreeDbFactory.getDirTreeDb(dbFilePath);
+			AbstractDirTreeDb singlethreaddb = DirTreeDbFactory.getDirTreeDb(dbFilePath);
 			if (singlethreaddb == null) {
 				final String errmsg = String.format("Cannot determine DB type for this file name: %s", dbFilePath);
 				writelog(errmsg);
@@ -91,7 +85,6 @@ public class LazyAccessorThreadRunningConfig {
 			messagewriter.writeError("ClassNotFoundException", errmsg);
 			e.printStackTrace();
 			lazydb = null;
-			singlethreaddb = null;
 			throw e;
 		} catch (SQLException e) {
 			final String errmsg = String.format("Possibly DB file is broken: %s\n%s", dbFilePath, e.toString());
@@ -99,7 +92,6 @@ public class LazyAccessorThreadRunningConfig {
 			messagewriter.writeError("SQLException", errmsg);
 			e.printStackTrace();
 			lazydb = null;
-			singlethreaddb = null;
 			throw e;
 		} catch (IOException e) {
 			final String errmsg = String.format("Possibly you cannot write file: %s\n%s", dbFilePath, e.toString());
@@ -107,7 +99,6 @@ public class LazyAccessorThreadRunningConfig {
 			messagewriter.writeError("IOException", errmsg);
 			e.printStackTrace();
 			lazydb = null;
-			singlethreaddb = null;
 			throw e;
 		}
 	}
@@ -116,14 +107,13 @@ public class LazyAccessorThreadRunningConfig {
 		if (lock.size() == 0) {
 			lock.regist();
 			try {
-				if (lazydb == null || singlethreaddb == null) {
+				if (lazydb == null) {
 					return;
 				}
 				if (lock.size() == 1) {
 					writelog("Closing DB");
 					LazyProxyDirTreeDb l = lazydb;
 					lazydb = null;
-					singlethreaddb = null;
 					l.close();
 				}
 			} finally {
