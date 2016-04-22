@@ -19,7 +19,7 @@ package com.github.n_i_e.dirtreedb;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Date;
-import java.util.HashMap;
+import java.util.Map;
 
 public class LazyAccessorThreadRunningConfig {
 	private StackingLock lock = new StackingLock();
@@ -27,13 +27,13 @@ public class LazyAccessorThreadRunningConfig {
 	private AbstractDirTreeDb singlethreaddb = null;
 	private MessageWriter messagewriter = null;
 	private String dbFilePath = null;
-	private HashMap<String, Boolean> extensionAvailabilityMap = null;
+	private Map<String, Boolean> extensionAvailabilityMap = null;
 
-	public HashMap<String, Boolean> getExtensionAvailabilityMap() {
+	public Map<String, Boolean> getExtensionAvailabilityMap() {
 		return extensionAvailabilityMap;
 	}
 
-	public void setExtensionAvailabilityMap(HashMap<String, Boolean> extensionAvailabilityMap) {
+	public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {
 		this.extensionAvailabilityMap = extensionAvailabilityMap;
 	}
 
