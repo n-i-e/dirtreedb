@@ -89,27 +89,27 @@ public class StandardCrawler extends LazyAccessorThread {
 
 	@Override
 	public void run() throws Exception {
-		scheduleLayer1RoundRobinState = 0;
-		scheduleLayer2RoundRobinState = 0;
-		scheduleLayer3RoundRobinState = 0;
+		scheduleDontInsertsRoundRobinState = 0;
+		scheduleInsertablesRoundRobinState = 0;
+		scheduleUpdatesRoundRobinState = 0;
 		try {
 			while (true) {
-				if (getDb().getDontInsertQueueSize() < DONT_INSERT_QUEUE_SIZE_LIMIT) {
+				if (getDb().getInsertableQueueSize() < INSERTABLE_QUEUE_SIZE_LIMIT) {
 					writelog2("--- scuedule layer 1 ---");
-					scheduleLayer1(false);
+					scheduleInsertables(false);
 				} else {
 					writelog2("--- SKIP scuedule layer 1 ---");
 				}
 
-				if (getDb().getInsertableQueueSize() < INSERTABLE_QUEUE_SIZE_LIMIT) {
+				if (getDb().getDontInsertQueueSize() < RESTRICTED_DONT_INSERT_QUEUE_SIZE_LIMIT) {
 					writelog2("--- scuedule layer 2 ---");
-					scheduleLayer2(false);
+					scheduleDontInserts(false);
 				} else {
 					writelog2("--- SKIP scuedule layer 2 ---");
 				}
 
 				writelog2("--- scuedule layer 3 ---");
-				scheduleLayer3(false);
+				scheduleUpdates(false);
 			}
 		} catch (SQLException e) {
 			writeWarning("Warning", "Caught SQLException, trying to recover (this is usually OK)");
@@ -121,24 +121,24 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 	}
 
-	private Set<Long> getScheduleLayer1DontAccessRootIds(Set<DbPathEntry> allRoots)
+	private Set<Long> getScheduleDontInsertsDontAccessRootIds(Set<DbPathEntry> allRoots)
 			throws SQLException, InterruptedException {
 		Set<Long> s = getDb().getDontInsertRootIdSet();
 		Set<DbPathEntry> r = minus(allRoots, s);
 		return InterSetOperation.or(getIdsFromEntries(getUnreachableRoots(r)), s);
 	}
 
-	private static int scheduleLayer1RoundRobinState = 0;
-	private void scheduleLayer1(boolean doAllAtOnce) throws InterruptedException, SQLException, IOException {
+	private static int scheduleDontInsertsRoundRobinState = 0;
+	private void scheduleDontInserts(boolean doAllAtOnce) throws InterruptedException, SQLException, IOException {
 
 		Set<DbPathEntry> allRoots = getAllRoots();
 		Set<Long> allRootIds = getIdsFromEntries(allRoots);
 		consumeSomeUpdateQueue();
 
-		assert(scheduleLayer1RoundRobinState >= 0);
-		assert(scheduleLayer1RoundRobinState <= 2);
+		assert(scheduleDontInsertsRoundRobinState >= 0);
+		assert(scheduleDontInsertsRoundRobinState <= 2);
 
-		if (scheduleLayer1RoundRobinState == 0) {
+		if (scheduleDontInsertsRoundRobinState == 0) {
 			Set<Long> dontAccessRootIds = getIdsFromEntries(getUnreachableRoots(allRoots));
 			if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
 				|| InterSetOperation.include(dontAccessRootIds, allRootIds)
@@ -146,7 +146,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				writelog2("--- SKIP csum (1/2) ---");
 			} else {
 				writelog2("--- csum (1/2) ---");
-				String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR (type=3 AND status<>2))"
+				String sql = "SELECT * FROM directory AS d1 WHERE ((type=1 OR type=3) AND status<>2)"
 						+ getSubSqlFromIds(dontAccessRootIds)
 						+ " AND (size<0 OR (csum IS NULL AND EXISTS (SELECT * FROM directory AS d2"
 						+ " WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid))) "
@@ -158,11 +158,11 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer1RoundRobinState++;
+				scheduleDontInsertsRoundRobinState++;
 			}
 		}
 
-		if (scheduleLayer1RoundRobinState == 1) {
+		if (scheduleDontInsertsRoundRobinState == 1) {
 			Set<Long> dontAccessRootIds = getIdsFromEntries(getUnreachableRoots(allRoots));
 			if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
 				|| InterSetOperation.include(dontAccessRootIds, allRootIds)
@@ -173,12 +173,12 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer1RoundRobinState++;
+				scheduleDontInsertsRoundRobinState++;
 			}
 		}
 
-		if (scheduleLayer1RoundRobinState == 2) {
-			Set<Long> dontAccessRootIds = getScheduleLayer1DontAccessRootIds(allRoots);
+		if (scheduleDontInsertsRoundRobinState == 2) {
+			Set<Long> dontAccessRootIds = getScheduleDontInsertsDontAccessRootIds(allRoots);
 			if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
 				|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 				) {
@@ -195,15 +195,15 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer1RoundRobinState++;
+				scheduleDontInsertsRoundRobinState++;
 			}
 		}
 
 		if (!doAllAtOnce) {
 			consumeSomeUpdateQueue();
-			scheduleLayer1RoundRobinState++;
+			scheduleDontInsertsRoundRobinState++;
 		}
-		scheduleLayer1RoundRobinState = scheduleLayer1RoundRobinState % 3;
+		scheduleDontInsertsRoundRobinState = scheduleDontInsertsRoundRobinState % 3;
 	}
 
 	private int csum(String sql) throws SQLException, InterruptedException, IOException {
@@ -295,26 +295,26 @@ public class StandardCrawler extends LazyAccessorThread {
 		return result;
 	}
 
-	private Set<Long> getScheduleLayer2DontAccessRootIds(Set<DbPathEntry> allRoots)
+	private Set<Long> getScheduleInsertablesDontAccessRootIds(Set<DbPathEntry> allRoots)
 			throws SQLException, InterruptedException {
 		Set<Long> s = getDb().getInsertableRootIdSet();
 		Set<DbPathEntry> r = minus(allRoots, s);
 		return InterSetOperation.or(getIdsFromEntries(getUnreachableRoots(r)), s);
 	}
 
-	private static int scheduleLayer2RoundRobinState = 0;
-	private static int scheduleLayer2ListDirtyFoldersCounter = 0;
-	private static Set<Long> scheduleLayer2ListDirtyFoldersFinished = null;
-	private void scheduleLayer2(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
-		assert(scheduleLayer2RoundRobinState >= 0);
-		assert(scheduleLayer2RoundRobinState <= 7);
+	private static int scheduleInsertablesRoundRobinState = 0;
+	private static int scheduleInsertablesListDirtyFoldersCounter = 0;
+	private static Set<Long> scheduleInsertablesListDirtyFoldersFinished = null;
+	private void scheduleInsertables(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
+		assert(scheduleInsertablesRoundRobinState >= 0);
+		assert(scheduleInsertablesRoundRobinState <= 7);
 
 		Set<DbPathEntry> allRoots = getAllRoots();
 		Set<Long> allRootIds = getIdsFromEntries(allRoots);
 		consumeSomeUpdateQueue();
 
-		if (scheduleLayer2RoundRobinState == 0) {
-			Set<Long> dontAccessRootIds = getScheduleLayer2DontAccessRootIds(allRoots);
+		if (scheduleInsertablesRoundRobinState == 0) {
+			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
@@ -326,14 +326,14 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
+				scheduleInsertablesRoundRobinState++;
 			}
-			scheduleLayer2ListDirtyFoldersCounter = 0;
-			scheduleLayer2ListDirtyFoldersFinished = null;
+			scheduleInsertablesListDirtyFoldersCounter = 0;
+			scheduleInsertablesListDirtyFoldersFinished = null;
 		}
 
-		if (scheduleLayer2RoundRobinState == 1) {
-			Set<Long> dontAccessRootIds = getScheduleLayer2DontAccessRootIds(allRoots);
+		if (scheduleInsertablesRoundRobinState == 1) {
+			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
@@ -343,21 +343,21 @@ public class StandardCrawler extends LazyAccessorThread {
 				int count = list(dontAccessRootIds, "type=0 AND status=1", false);
 				writelog2("+++ list (2/8) finished count=" + count + " +++");
 
-				if (count>0 && scheduleLayer2ListDirtyFoldersCounter < 3) {
-					scheduleLayer2RoundRobinState--;
-					scheduleLayer2ListDirtyFoldersCounter++;
+				if (count>0 && scheduleInsertablesListDirtyFoldersCounter < 3) {
+					scheduleInsertablesRoundRobinState--;
+					scheduleInsertablesListDirtyFoldersCounter++;
 				} else if (count==0) {
-					scheduleLayer2ListDirtyFoldersFinished = dontAccessRootIds;
+					scheduleInsertablesListDirtyFoldersFinished = dontAccessRootIds;
 				}
 			}
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
+				scheduleInsertablesRoundRobinState++;
 			}
 		}
 
-		if (scheduleLayer2RoundRobinState == 2) {
-			Set<Long> dontAccessRootIds = getScheduleLayer2DontAccessRootIds(allRoots);
+		if (scheduleInsertablesRoundRobinState == 2) {
+			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
@@ -369,13 +369,12 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
+				scheduleInsertablesRoundRobinState++;
 			}
-			scheduleLayer2ListDirtyFoldersCounter = 0;
 		}
 
-		if (scheduleLayer2RoundRobinState == 3) {
-			Set<Long> dontAccessRootIds = getScheduleLayer2DontAccessRootIds(allRoots);
+		if (scheduleInsertablesRoundRobinState == 3) {
+			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
@@ -385,12 +384,9 @@ public class StandardCrawler extends LazyAccessorThread {
 				int count = list(dontAccessRootIds, "type=0 AND status=1", true, RELAXED_INSERTABLE_QUEUE_SIZE_LIMIT);
 				writelog2("+++ list (4/8) finished count=" + count + " +++");
 
-				if (count>0 && scheduleLayer2ListDirtyFoldersCounter < 3) {
-					scheduleLayer2RoundRobinState--;
-					scheduleLayer2ListDirtyFoldersCounter++;
-				} else if (count==0 && scheduleLayer2ListDirtyFoldersFinished != null) {
+				if (count==0 && scheduleInsertablesListDirtyFoldersFinished != null) {
 					Set<Long> dontAccessRootIds2 =
-							InterSetOperation.or(scheduleLayer2ListDirtyFoldersFinished, dontAccessRootIds);
+							InterSetOperation.or(scheduleInsertablesListDirtyFoldersFinished, dontAccessRootIds);
 					if (! InterSetOperation.include(dontAccessRootIds2, allRootIds)) {
 						setAllCleanFoldersDirty(dontAccessRootIds2);
 					}
@@ -399,12 +395,12 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
+				scheduleInsertablesRoundRobinState++;
 			}
 		}
 
-		if (scheduleLayer2RoundRobinState == 4) {
-			Set<Long> dontAccessRootIds = getScheduleLayer2DontAccessRootIds(allRoots);
+		if (scheduleInsertablesRoundRobinState == 4) {
+			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
@@ -417,12 +413,12 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
+				scheduleInsertablesRoundRobinState++;
 			}
 		}
 
-		if (scheduleLayer2RoundRobinState == 5) {
-			Set<Long> dontAccessRootIds = getScheduleLayer2DontAccessRootIds(allRoots);
+		if (scheduleInsertablesRoundRobinState == 5) {
+			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
@@ -435,12 +431,12 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
+				scheduleInsertablesRoundRobinState++;
 			}
 		}
 
-		if (scheduleLayer2RoundRobinState == 6) {
-			Set<Long> dontAccessRootIds = getScheduleLayer2DontAccessRootIds(allRoots);
+		if (scheduleInsertablesRoundRobinState == 6) {
+			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
@@ -453,12 +449,12 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
+				scheduleInsertablesRoundRobinState++;
 			}
 		}
 
-		if (scheduleLayer2RoundRobinState == 7) {
-			Set<Long> dontAccessRootIds = getScheduleLayer2DontAccessRootIds(allRoots);
+		if (scheduleInsertablesRoundRobinState == 7) {
+			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
@@ -471,15 +467,15 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer2RoundRobinState++;
+				scheduleInsertablesRoundRobinState++;
 			}
 		}
 
 		if (!doAllAtOnce) {
 			consumeSomeUpdateQueue();
-			scheduleLayer2RoundRobinState++;
+			scheduleInsertablesRoundRobinState++;
 		}
-		scheduleLayer2RoundRobinState = scheduleLayer2RoundRobinState % 8;
+		scheduleInsertablesRoundRobinState = scheduleInsertablesRoundRobinState % 8;
 	}
 
 	private int setAllCleanFoldersDirty(Set<Long> dontListRootIds) throws SQLException, InterruptedException {
@@ -555,85 +551,89 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 	};
 
-	private static int scheduleLayer3RoundRobinState = 0;
-	private static int scheduleLayer3RepeatCounter = 0;
-	private void scheduleLayer3(boolean doAllAtOnce) throws SQLException, InterruptedException {
+	private static int scheduleUpdatesRoundRobinState = 0;
+	private static int scheduleUpdatesRepeatCounter = 0;
+	private void scheduleUpdates(boolean doAllAtOnce) throws SQLException, InterruptedException {
 		consumeSomeUpdateQueue();
 
-		assert(scheduleLayer3RoundRobinState >= 0);
-		assert(scheduleLayer3RoundRobinState <= 7);
+		assert(scheduleUpdatesRoundRobinState >= 0);
+		assert(scheduleUpdatesRoundRobinState <= 7);
 
-		if (scheduleLayer3RoundRobinState == 0) {
+		if (scheduleUpdatesRoundRobinState == 0) {
 			writelog2("*** refresh upperlower entries (1/2) ***");
 			int c = getDb().refreshDirectUpperLower(consumeSomeUpdateQueueRunner);
 			writelog2("*** refresh upperlower entries (1/2) finished count=" + c + " ***");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer3RoundRobinState++;
+				scheduleUpdatesRoundRobinState++;
 			}
-			scheduleLayer3RepeatCounter = 0;
+			scheduleUpdatesRepeatCounter = 0;
 		}
 
-		if (scheduleLayer3RoundRobinState == 1) {
+		if (scheduleUpdatesRoundRobinState == 1) {
 			writelog2("*** refresh upperlower entries (2/2) ***");
 			int c = getDb().refreshIndirectUpperLower(consumeSomeUpdateQueueRunner);
 			writelog2("*** refresh upperlower entries (2/2) finished count=" + c + " ***");
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer3RoundRobinState++;
-			} else if (c>0  && scheduleLayer3RepeatCounter < 5) {
-				scheduleLayer3RoundRobinState--;
-				scheduleLayer3RepeatCounter++;
+				scheduleUpdatesRoundRobinState++;
+			} else if (c>0  && scheduleUpdatesRepeatCounter < 5) {
+				scheduleUpdatesRoundRobinState--;
+				scheduleUpdatesRepeatCounter++;
 			}
 		}
 
-		if (scheduleLayer3RoundRobinState == 2) {
-			unlistDisabledExtensions();
+		if (scheduleUpdatesRoundRobinState == 2) {
+			writelog2("*** unlist disabled extensions ***");
+			int c = unlistDisabledExtensions();
+			writelog2("*** unlist disabled extensions finished count=" + c + " ***");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer3RoundRobinState++;
+				scheduleUpdatesRoundRobinState++;
 			}
 		}
 
-		if (scheduleLayer3RoundRobinState == 3) {
+		if (scheduleUpdatesRoundRobinState == 3) {
+			writelog2("*** orphanize orphan's children ***");
 			int c = orphanizeOrphansChildren();
+			writelog2("*** orphanize orphan's children finished count=" + c + " ***");
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer3RoundRobinState++;
+				scheduleUpdatesRoundRobinState++;
 			} else if (c>0) {
-				scheduleLayer3RoundRobinState--;
+				scheduleUpdatesRoundRobinState--;
 			}
 		}
 
-		if (scheduleLayer3RoundRobinState == 4) {
+		if (scheduleUpdatesRoundRobinState == 4) {
 			writelog2("*** refresh duplicate fields ***");
 			int c = getDb().refreshDuplicateFields(consumeSomeUpdateQueueRunner);
 			writelog2("*** refresh duplicate fields finished count=" + c + " ***");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer3RoundRobinState++;
+				scheduleUpdatesRoundRobinState++;
 			}
-			scheduleLayer3RepeatCounter = 0;
+			scheduleUpdatesRepeatCounter = 0;
 		}
 
-		if (scheduleLayer3RoundRobinState == 5) {
+		if (scheduleUpdatesRoundRobinState == 5) {
 			writelog2("*** refresh directory sizes ***");
 			int c = getDb().refreshFolderSizes(consumeSomeUpdateQueueRunner);
 			writelog2("*** refresh directory sizes finished count=" + c + " ***");
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer3RoundRobinState++;
-			} else if (c>0  && scheduleLayer3RepeatCounter < 10) {
-				scheduleLayer3RoundRobinState--;
-				scheduleLayer3RepeatCounter++;
+				scheduleUpdatesRoundRobinState++;
+			} else if (c>0  && scheduleUpdatesRepeatCounter < 10) {
+				scheduleUpdatesRoundRobinState--;
+				scheduleUpdatesRepeatCounter++;
 			}
 		}
 
-		if (scheduleLayer3RoundRobinState == 6) {
+		if (scheduleUpdatesRoundRobinState == 6) {
 			if (getDb().getUpdateQueueSize(1) > 0) {
 				writelog2("*** SKIP cleanup orphans ***");
 			} else {
@@ -644,36 +644,38 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer3RoundRobinState++;
+				scheduleUpdatesRoundRobinState++;
 			}
 		}
 
-		if (scheduleLayer3RoundRobinState == 7) {
-			int c=0;
-			if (getDb().getUpdateQueueSize(1) > 0) {
-				getDb().consumeOneUpdateQueue();
-				c++;
+		if (scheduleUpdatesRoundRobinState == 7) {
+			int c = getDb().getUpdateQueueSize(1);
+			if (c>0) {
+				while (c <= getDb().getUpdateQueueSize(1)) {
+					getDb().consumeOneUpdateQueue();
+				}
 			}
 
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
-				scheduleLayer3RoundRobinState++;
+				scheduleUpdatesRoundRobinState++;
 			} else if (c>0) {
-				scheduleLayer3RoundRobinState--;
+				scheduleUpdatesRoundRobinState--;
 			}
 		}
 
 		if (!doAllAtOnce) {
 			consumeSomeUpdateQueue();
-			scheduleLayer3RoundRobinState++;
+			scheduleUpdatesRoundRobinState++;
 		}
-		scheduleLayer3RoundRobinState = scheduleLayer3RoundRobinState % 8;
+		scheduleUpdatesRoundRobinState = scheduleUpdatesRoundRobinState % 8;
 	}
 
 	private static final int UPDATE_QUEUE_SIZE_LIMIT = 10000;
 	private static final int INSERTABLE_QUEUE_SIZE_LIMIT = 100;
 	private static final int RELAXED_INSERTABLE_QUEUE_SIZE_LIMIT = 1000;
 	private static final int DONT_INSERT_QUEUE_SIZE_LIMIT = 10000;
+	private static final int RESTRICTED_DONT_INSERT_QUEUE_SIZE_LIMIT = 1000;
 
 	private int cleanupOrphans() throws SQLException, InterruptedException {
 		ProxyDirTreeDb.CleanupOrphansCallback cleanupOrphansCallbackRunner =
@@ -795,9 +797,8 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 	}
 
-	private void unlistDisabledExtensions()
+	private int unlistDisabledExtensions()
 			throws SQLException, InterruptedException {
-		writelog2("*** unlist disabled extensions ***");
 		ArrayList<String> ext = new ArrayList<String>();
 		Map<String, Boolean> eal = getConf().getExtensionAvailabilityMap();
 		for (Entry<String, Boolean> kv: eal.entrySet()) {
@@ -808,6 +809,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		String dontArchiveExtSubSql;
 		if (ext.size() == 0) {
 			writelog2("*** SKIP unlist disabled extensions (nothing to unlist) ***");
+			return 0;
 		} else {
 			dontArchiveExtSubSql = "AND (" + String.join(" OR ", ext) + ")";
 			String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) " + dontArchiveExtSubSql
@@ -828,7 +830,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				rs.close();
 				stmt.close();
 			}
-			writelog2("*** unlist disabled extensions finished count=" + count + " ***");
+			return count;
 		}
 	}
 
