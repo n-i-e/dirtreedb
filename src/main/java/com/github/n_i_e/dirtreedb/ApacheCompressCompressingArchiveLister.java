@@ -56,6 +56,7 @@ public class ApacheCompressCompressingArchiveLister extends AbstractArchiveListe
 		}
 		ArchiveEntry z = instream.getNextEntry();
 		if (z == null) {
+			close();
 			return;
 		}
 		int newtype = z.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;

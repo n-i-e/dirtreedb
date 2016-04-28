@@ -67,6 +67,7 @@ public abstract class AbstractCompressorLister implements IArchiveLister {
 
 	public PathEntry next(boolean csum) throws IOException {
 		if (next_entry == null) {
+			close();
 			return null;
 		} else {
 			if (csum) {

@@ -62,6 +62,7 @@ public class ZipLister extends AbstractArchiveLister {
 			return;
 		}
 		if (z == null) {
+			close();
 			return;
 		}
 		int newtype = z.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;

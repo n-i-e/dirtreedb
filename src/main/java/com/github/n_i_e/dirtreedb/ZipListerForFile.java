@@ -16,6 +16,7 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -59,10 +60,21 @@ public class ZipListerForFile extends AbstractArchiveLister {
 		ZipListerForFile.charset = charset;
 	}
 
+	private class InputStreamWithCascadingClose extends BufferedInputStream {
+		public InputStreamWithCascadingClose(InputStream in) {
+			super(in);
+		}
+
+		public void close() throws IOException {
+			super.close();
+			ZipListerForFile.this.close();
+		}
+	}
+
 	private ZipEntry next_zip_entry = null;
 	public InputStream getInputStream() throws IOException {
 		Assertion.assertNullPointerException(next_zip_entry != null);
-		return zipfile.getInputStream(next_zip_entry);
+		return new InputStreamWithCascadingClose(zipfile.getInputStream(next_zip_entry));
 	}
 
 	protected void getNext(boolean csum) throws IOException {
