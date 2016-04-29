@@ -21,18 +21,23 @@ import java.sql.SQLException;
 import java.util.Date;
 import java.util.Map;
 
-public class LazyAccessorThreadRunningConfig {
+public class LazyAccessorThreadRunningConfig implements IPreferenceSyncUpdate {
+
 	private StackingLock lock = new StackingLock();
 	private LazyProxyDirTreeDb lazydb = null;
 	private MessageWriter messagewriter = null;
 	private String dbFilePath = null;
 	private Map<String, Boolean> extensionAvailabilityMap = null;
 
+	public LazyAccessorThreadRunningConfig() {
+		PreferenceRW.regist(this);
+	}
+
 	public Map<String, Boolean> getExtensionAvailabilityMap() {
 		return extensionAvailabilityMap;
 	}
 
-	public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {
+	@Override public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {
 		this.extensionAvailabilityMap = extensionAvailabilityMap;
 	}
 
@@ -40,7 +45,7 @@ public class LazyAccessorThreadRunningConfig {
 		return dbFilePath;
 	}
 
-	public void setDbFilePath(String dbFilePath) {
+	@Override public void setDbFilePath(String dbFilePath) {
 		Assertion.assertNullPointerException(dbFilePath != null);
 		this.dbFilePath = dbFilePath;
 	}
@@ -143,4 +148,8 @@ public class LazyAccessorThreadRunningConfig {
 		System.out.print(" ");
 		System.out.println(message);
 	}
+
+	@Override public void setNumCrawlingThreads(int numCrawlingThreads) {}
+	@Override public void setWindowsIdleSeconds(int windowsIdleSeconds) {}
+	@Override public void setCharset(String newvalue) {}
 }

@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.Enumeration;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -30,6 +31,18 @@ public class ZipListerForFile extends AbstractArchiveLister {
 	private ZipFile zipfile;
 	private Enumeration<? extends ZipEntry> zipentries;
 	private static String charset = "windows-31j";
+
+	static {
+		PreferenceRW.regist(new IPreferenceSyncUpdate() {
+			@Override public void setDbFilePath(String dbFilePath) {}
+			@Override public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {}
+			@Override public void setNumCrawlingThreads(int numCrawlingThreads) {}
+			@Override public void setWindowsIdleSeconds(int windowsIdleSeconds) {}
+			@Override public void setCharset(String newvalue) {
+				ZipLister.setCharset(newvalue);
+			}
+		});
+	}
 
 	public ZipListerForFile (PathEntry basepath, File contentpath, String charset) throws IOException {
 		super(basepath);

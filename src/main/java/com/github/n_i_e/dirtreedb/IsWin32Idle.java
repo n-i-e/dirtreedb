@@ -16,9 +16,23 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.util.Map;
+
 public class IsWin32Idle {
 
 	private static int windowsIdleSeconds = 30;
+
+	static {
+		PreferenceRW.regist(new IPreferenceSyncUpdate() {
+			@Override public void setDbFilePath(String dbFilePath) {}
+			@Override public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {}
+			@Override public void setNumCrawlingThreads(int numCrawlingThreads) {}
+			@Override public void setWindowsIdleSeconds(int windowsIdleSeconds) {
+				IsWin32Idle.setWindowsIdleSeconds(windowsIdleSeconds);
+			}
+			@Override public void setCharset(String newvalue) {}
+		});
+	}
 
 	public static int getWindowsIdleSeconds() {
 		return windowsIdleSeconds;

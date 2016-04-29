@@ -25,12 +25,25 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 	private static int numCrawlingThreads = 1;
+
+	static {
+		PreferenceRW.regist(new IPreferenceSyncUpdate() {
+			@Override public void setDbFilePath(String dbFilePath) {}
+			@Override public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {}
+			@Override public void setNumCrawlingThreads(int numCrawlingThreads) {
+				LazyProxyDirTreeDb.setNumCrawlingThreads(numCrawlingThreads);
+			}
+			@Override public void setWindowsIdleSeconds(int windowsIdleSeconds) {}
+			@Override public void setCharset(String newvalue) {}
+		});
+	}
 
 	public static int getNumCrawlingThreads() {
 		return numCrawlingThreads;

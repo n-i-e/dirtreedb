@@ -19,6 +19,7 @@ package com.github.n_i_e.dirtreedb;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
@@ -27,6 +28,18 @@ public class ZipLister extends AbstractArchiveLister {
 
 	private ZipInputStream instream;
 	private static String charset = "windows-31j";
+
+	static {
+		PreferenceRW.regist(new IPreferenceSyncUpdate() {
+			@Override public void setDbFilePath(String dbFilePath) {}
+			@Override public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {}
+			@Override public void setNumCrawlingThreads(int numCrawlingThreads) {}
+			@Override public void setWindowsIdleSeconds(int windowsIdleSeconds) {}
+			@Override public void setCharset(String newvalue) {
+				ZipLister.setCharset(newvalue);
+			}
+		});
+	}
 
 	public ZipLister (PathEntry basepath, InputStream inf, String charset) throws IOException {
 		super(basepath);
@@ -92,4 +105,5 @@ public class ZipLister extends AbstractArchiveLister {
 	public void close() throws IOException {
 		instream.close();
 	}
+
 }
