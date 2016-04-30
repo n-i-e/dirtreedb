@@ -108,13 +108,13 @@ public abstract class LazyAccessorThread {
 		return isInterrupted;
 	}
 
-	protected LazyProxyDirTreeDb getDb() throws SQLException {
+	protected LazyProxyDirTreeDb getDb() {
 		Assertion.assertAssertionError((LazyAccessorThread.RunnerThread)Thread.currentThread() != null);
 		return getConf().getLazyDirTreeDb();
 	}
 
 	// old-fashioned, but not deprecated yet; modern LazyProxyDirTreeDb is not lazy when iAmLazyAccessorThread()
-	protected AbstractDirTreeDb getSingleThreadDB() throws SQLException {
+	protected AbstractDirTreeDb getSingleThreadDB() {
 		Assertion.assertAssertionError((LazyAccessorThread.RunnerThread)Thread.currentThread() != null);
 		return getConf().getLazyDirTreeDb();
 	}

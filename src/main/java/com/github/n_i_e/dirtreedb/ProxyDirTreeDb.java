@@ -186,6 +186,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	@Override
+	public void unsetClean(long pathid) throws SQLException, InterruptedException {
+		threadHook();
+		parent.unsetClean(pathid);
+	}
+
+	@Override
 	public void disable(DbPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 		parent.disable(entry);
@@ -811,7 +817,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return count;
 	}
 
-	public static File getFileIfExists(final PathEntry entry) throws SQLException {
+	public static File getFileIfExists(final PathEntry entry) {
 		Assertion.assertAssertionError(entry.getType() == PathEntry.FOLDER || entry.getType() == PathEntry.FILE);
 
 		File result = new File(entry.getPath());

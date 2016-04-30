@@ -50,8 +50,8 @@ public class LazyAccessorThreadRunningConfig implements IPreferenceSyncUpdate {
 		this.dbFilePath = dbFilePath;
 	}
 
-	public LazyProxyDirTreeDb getLazyDirTreeDb() throws SQLException {
-		Assertion.assertSQLException(lazydb != null, "!! db is null");
+	public LazyProxyDirTreeDb getLazyDirTreeDb() {
+		Assertion.assertNullPointerException(lazydb != null, "!! db is null");
 		return lazydb;
 	}
 

@@ -188,17 +188,22 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	@Override
-	public void disable(DbPathEntry entry) throws SQLException, InterruptedException {
-		Assertion.assertNullPointerException(entry != null);
+	public void unsetClean(long pathid) throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		ps = prepareStatement("UPDATE directory SET status=1 WHERE pathid=? AND status=0");
 		try {
-			ps.setLong(1, entry.getParentId());
+			ps.setLong(1, pathid);
 			ps.executeUpdate();
 		} finally {
 			ps.close();
 		}
+	}
 
+	@Override
+	public void disable(DbPathEntry entry) throws SQLException, InterruptedException {
+		Assertion.assertNullPointerException(entry != null);
+		unsetClean(entry.getParentId());
+		PreparedStatement ps;
 		ps = prepareStatement("UPDATE directory SET status=2 WHERE pathid=? AND status<2");
 		try {
 			ps.setLong(1, entry.getPathId());
@@ -212,14 +217,7 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 	public void disable(DbPathEntry entry, PathEntry newentry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
 		Assertion.assertNullPointerException(newentry != null);
-		PreparedStatement ps;
-		ps = prepareStatement("UPDATE directory SET status=1 WHERE pathid=? AND status=0");
-		try {
-			ps.setLong(1, entry.getParentId());
-			ps.executeUpdate();
-		} finally {
-			ps.close();
-		}
+		unsetClean(entry.getParentId());
 		newentry.setStatus(PathEntry.NOACCESS);
 		update(entry, newentry);
 	}

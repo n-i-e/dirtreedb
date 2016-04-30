@@ -32,6 +32,7 @@ public abstract class AbstractDirTreeDb {
 	public abstract void update(DbPathEntry oldentry, PathEntry newentry) throws SQLException, InterruptedException;
 	public abstract void updateStatus(DbPathEntry entry, int newstatus) throws SQLException, InterruptedException;
 	public abstract void delete(DbPathEntry entry) throws SQLException, InterruptedException;
+	public abstract void unsetClean(long pathid) throws SQLException, InterruptedException;
 	public abstract void disable(DbPathEntry entry) throws SQLException, InterruptedException;
 	public abstract void disable(DbPathEntry entry, PathEntry newentry) throws SQLException, InterruptedException;
 	public abstract void updateParentId(DbPathEntry entry, long newparentid) throws SQLException, InterruptedException;

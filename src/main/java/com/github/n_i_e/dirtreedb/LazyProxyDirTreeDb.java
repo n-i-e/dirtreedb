@@ -186,6 +186,28 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	}
 
 	@Override
+	public void unsetClean(long pathid) throws SQLException, InterruptedException {
+		if (iAmLazyAccessorThread()) {
+			LazyProxyDirTreeDb.super.unsetClean(pathid);
+		} else {
+			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
+				public void run() throws SQLException, InterruptedException {
+					LazyProxyDirTreeDb.super.unsetClean(pathid);
+				}
+			});
+		}
+
+	}
+
+	public void unsetCleanLater(long pathid) throws InterruptedException {
+		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
+			public void run() throws SQLException, InterruptedException {
+				LazyProxyDirTreeDb.super.unsetClean(pathid);
+			}
+		});
+	}
+
+	@Override
 	public void disable(final DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
 		if (iAmLazyAccessorThread()) {
@@ -243,7 +265,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 	}
 
-	public void orphanizeLater(final DbPathEntry entry) throws SQLException, InterruptedException {
+	public void orphanizeLater(final DbPathEntry entry) throws InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
 		Assertion.assertAssertionError(entry.getParentId() != 0);
 		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
