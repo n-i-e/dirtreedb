@@ -16,6 +16,7 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.io.File;
 import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -307,7 +308,7 @@ public class StandardCrawler extends LazyAccessorThread {
 	private static Set<Long> scheduleInsertablesListDirtyFoldersFinished = null;
 	private void scheduleInsertables(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException {
 		assert(scheduleInsertablesRoundRobinState >= 0);
-		assert(scheduleInsertablesRoundRobinState <= 7);
+		assert(scheduleInsertablesRoundRobinState <= 5);
 
 		Set<DbPathEntry> allRoots = getAllRoots();
 		Set<Long> allRootIds = getIdsFromEntries(allRoots);
@@ -318,11 +319,13 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
-				writelog2("+++ SKIP list (1/8) +++");
+				writelog2("+++ SKIP list (1/6) +++");
 			} else {
-				writelog2("+++ list (1/8) +++");
-				int count = list(dontAccessRootIds, "(type=1 AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)", false);
-				writelog2("+++ list (1/8) finished count=" + count + " +++");
+				writelog2("+++ list (1/6) +++");
+				int count = list(dontAccessRootIds,
+						"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)",
+						false);
+				writelog2("+++ list (1/6) finished count=" + count + " +++");
 			}
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -337,11 +340,11 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
-				writelog2("+++ SKIP list (2/8) +++");
+				writelog2("+++ SKIP list (2/6) +++");
 			} else {
-				writelog2("+++ list (2/8) +++");
+				writelog2("+++ list (2/6) +++");
 				int count = list(dontAccessRootIds, "type=0 AND status=1", false);
-				writelog2("+++ list (2/8) finished count=" + count + " +++");
+				writelog2("+++ list (2/6) finished count=" + count + " +++");
 
 				if (count>0 && scheduleInsertablesListDirtyFoldersCounter < 3) {
 					scheduleInsertablesRoundRobinState--;
@@ -361,11 +364,13 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
-				writelog2("+++ SKIP list (3/8) +++");
+				writelog2("+++ SKIP list (3/6) +++");
 			} else {
-				writelog2("+++ list (3/8) +++");
-				int count = list(dontAccessRootIds, "(type=1 AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)", true);
-				writelog2("+++ list (3/8) finished count=" + count + " +++");
+				writelog2("+++ list (3/6) +++");
+				int count = list(dontAccessRootIds,
+						"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)",
+						true);
+				writelog2("+++ list (3/6) finished count=" + count + " +++");
 			}
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -378,11 +383,11 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
-				writelog2("+++ SKIP list (4/8) +++");
+				writelog2("+++ SKIP list (4/6) +++");
 			} else {
-				writelog2("+++ list (4/8) +++");
+				writelog2("+++ list (4/6) +++");
 				int count = list(dontAccessRootIds, "type=0 AND status=1", true, RELAXED_INSERTABLE_QUEUE_SIZE_LIMIT);
-				writelog2("+++ list (4/8) finished count=" + count + " +++");
+				writelog2("+++ list (4/6) finished count=" + count + " +++");
 
 				if (count==0 && scheduleInsertablesListDirtyFoldersFinished != null) {
 					Set<Long> dontAccessRootIds2 =
@@ -404,11 +409,11 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
-				writelog2("+++ SKIP list (5/8) +++");
+				writelog2("+++ SKIP list (5/6) +++");
 			} else {
-				writelog2("+++ list (5/8) +++");
-				int count = list(dontAccessRootIds, "(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1", false);
-				writelog2("+++ list (5/8) finished count=" + count + " +++");
+				writelog2("+++ list (5/6) +++");
+				int count = list(dontAccessRootIds, "type=0 AND (status=2 OR parentid=0)", false);
+				writelog2("+++ list (5/6) finished count=" + count + " +++");
 			}
 
 			if (doAllAtOnce) {
@@ -422,47 +427,11 @@ public class StandardCrawler extends LazyAccessorThread {
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
-				writelog2("+++ SKIP list (6/8) +++");
+				writelog2("+++ SKIP list (6/6) +++");
 			} else {
-				writelog2("+++ list (6/8) +++");
-				int count = list(dontAccessRootIds, "type=0 AND (status=2 OR parentid=0)", false);
-				writelog2("+++ list (6/8) finished count=" + count + " +++");
-			}
-
-			if (doAllAtOnce) {
-				consumeSomeUpdateQueue();
-				scheduleInsertablesRoundRobinState++;
-			}
-		}
-
-		if (scheduleInsertablesRoundRobinState == 6) {
-			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
-			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
-					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
-					) {
-				writelog2("+++ SKIP list (7/8) +++");
-			} else {
-				writelog2("+++ list (7/8) +++");
-				int count = list(dontAccessRootIds, "(type=3 AND (" + getArchiveExtSubSql() + ")) AND status=1", true);
-				writelog2("+++ list (7/8) finished count=" + count + " +++");
-			}
-
-			if (doAllAtOnce) {
-				consumeSomeUpdateQueue();
-				scheduleInsertablesRoundRobinState++;
-			}
-		}
-
-		if (scheduleInsertablesRoundRobinState == 7) {
-			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
-			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
-					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
-					) {
-				writelog2("+++ SKIP list (8/8) +++");
-			} else {
-				writelog2("+++ list (8/8) +++");
+				writelog2("+++ list (6/6) +++");
 				int count = list(dontAccessRootIds, "type=0 AND (status=2 OR parentid=0)", true);
-				writelog2("+++ list (8/8) finished count=" + count + " +++");
+				writelog2("+++ list (6/6) finished count=" + count + " +++");
 			}
 
 			if (doAllAtOnce) {
@@ -475,7 +444,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			consumeSomeUpdateQueue();
 			scheduleInsertablesRoundRobinState++;
 		}
-		scheduleInsertablesRoundRobinState = scheduleInsertablesRoundRobinState % 8;
+		scheduleInsertablesRoundRobinState = scheduleInsertablesRoundRobinState % 6;
 	}
 
 	private int setAllCleanFoldersDirty(Set<Long> dontListRootIds) throws SQLException, InterruptedException {
@@ -754,20 +723,13 @@ public class StandardCrawler extends LazyAccessorThread {
 		return result;
 	}
 
-	private Set<DbPathEntry> getUnreachableRoots(Set<DbPathEntry> allRoots) throws SQLException, InterruptedException {
+	private Set<DbPathEntry> getUnreachableRoots(Set<DbPathEntry> allRoots) {
 		if (allRoots == null) { return null; }
 
 		Set<DbPathEntry> result = new HashSet<DbPathEntry>();
-		Dispatcher disp = getDb().getDispatcher();
-		disp.setList(Dispatcher.NONE);
-		disp.setCsum(Dispatcher.NONE);
-		disp.setNoReturn(false);
 		for (DbPathEntry entry: allRoots) {
-			try {
-				if (disp.dispatch(entry) == null) {
-					result.add(entry);
-				}
-			} catch (IOException e) {
+			File f = new File(entry.getPath());
+			if (!f.exists()) {
 				result.add(entry);
 			}
 		}
@@ -837,7 +799,7 @@ public class StandardCrawler extends LazyAccessorThread {
 	private void writelog2(final String message) {
 		try {
 			getDb().writelog2(message);
-		} catch (SQLException e) {
+		} catch (Exception e) {
 			System.out.println(String.format("%s qL=- qC=- qS=- qT=- %s", new Date().toString(), message));
 		}
 	}
