@@ -29,6 +29,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class ProxyDirTreeDb extends AbstractDirTreeDb {
@@ -886,7 +887,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		@Override
 		public PathEntry dispatch(final DbPathEntry entry) throws IOException, InterruptedException, SQLException {
 			threadHook();
-			if (entry == null) {
+			if (entry == null || !isReachableRoot(entry.getRootId())) {
 				return null;
 			}
 			if (entry.isFolder()) {
@@ -906,7 +907,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 
 			File fileobj = getFileIfExists(entry);
 			if (fileobj == null) {
-				disable(entry);
+				checkRootAndDisable(entry);
 				return null;
 			}
 
@@ -914,7 +915,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			try {
 				newentry = getNewPathEntry(entry, fileobj);
 			} catch (IOException e) {
-				disable(entry);
+				checkRootAndDisable(entry);
 				return null;
 			}
 
@@ -933,7 +934,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					newfolderIter = null;
 				}
 
-				final HashMap<String, DbPathEntry> oldfolder;
+				final Map<String, DbPathEntry> oldfolder;
 				if (!isList() || newfolderIter == null) {
 					oldfolder = null;
 				} else if (isNoChildInDb()) {
@@ -950,7 +951,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					dispatchFolderListCore(entry, fileobj, oldfolder, newentry, newfolderIter);
 				}
 			} catch (IOException e) {
-				disable(entry);
+				checkRootAndDisable(entry);
 			}
 			return newentry;
 		}
@@ -964,7 +965,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			try {
 				newentry = getNewPathEntry(entry);
 			} catch (IOException e) {
-				disable(entry);
+				checkRootAndDisable(entry);
 				return null;
 			}
 
@@ -1008,11 +1009,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				}
 				update(entry, newentry);
 			} catch (IOException e) {
-				disable(entry, newentry);
-			} catch (OutOfMemoryError e) {
-				writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
-				e.printStackTrace();
-				disable(entry, newentry);
+				checkRootAndDisable(entry);
 			}
 			return newentry;
 		}
@@ -1056,11 +1053,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				}
 				update(entry, newentry);
 			} catch (IOException e) {
-				disable(entry);
-			} catch (OutOfMemoryError e) {
-				writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
-				e.printStackTrace();
-				disable(entry, newentry);
+				checkRootAndDisable(entry);
 			}
 			return newentry;
 		}
@@ -1068,7 +1061,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		protected void dispatchFolderListCore(
 				DbPathEntry entry,
 				File fileobj,
-				HashMap<String, DbPathEntry> oldfolder,
+				Map<String, DbPathEntry> oldfolder,
 				PathEntry newentry,
 				DirLister newfolderIter
 				) throws InterruptedException, SQLException, IOException {
@@ -1303,15 +1296,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				}
 			} catch (IOException e) {
 				if (re != null) {
-					disable(re);
+					checkRootAndDisable(re);
 				}
 				if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
 					deleteEquality(entry1.getPathId(), entry2.getPathId());
 				}
 				return false;
-			} catch (OutOfMemoryError e) {
-				writelog("!! OutOfMemory at ProxyDirTreeDb re=" + re.getPath());
-				throw e;
 			}
 		}
 	}

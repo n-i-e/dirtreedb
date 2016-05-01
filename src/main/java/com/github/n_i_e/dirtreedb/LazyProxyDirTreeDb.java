@@ -753,7 +753,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					try {
 						newentry = getNewPathEntry(entry);
 					} catch (IOException e) {
-						disable(entry);
+						checkRootAndDisable(entry);
 						return;
 					}
 
@@ -764,7 +764,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					} else { // isList()
 						final File fileobj = getFileIfExists((PathEntry)entry);
 						if (fileobj == null) {
-							disable(entry, newentry);
+							checkRootAndDisable(entry);
 							return;
 						}
 
@@ -773,7 +773,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							newfolderIter = new DirLister(entry, fileobj);
 							dispatchFolderListCore(entry, fileobj, oldfolder, newentry, newfolderIter);
 						} catch (IOException e) {
-							disable(entry, newentry);
+							checkRootAndDisable(entry);
 							return;
 						}
 					}
@@ -800,7 +800,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					try {
 						newentry = getNewPathEntry(entry);
 					} catch (IOException e) {
-						disable(entry);
+						checkRootAndDisable(entry);
 						return;
 					}
 
@@ -821,12 +821,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							}
 						}
 					} catch (IOException e) {
-						disable(entry, newentry);
-						return;
-					} catch (OutOfMemoryError e) {
-						writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
-						e.printStackTrace();
-						disable(entry, newentry);
+						checkRootAndDisable(entry);
 						return;
 					}
 					update(entry, newentry);
@@ -878,12 +873,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							newentry.setCsumAndClose(inf);
 						}
 					} catch (IOException e) {
-						disable(entry);
-						return;
-					} catch (OutOfMemoryError e) {
-						writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
-						e.printStackTrace();
-						disable(entry, newentry);
+						checkRootAndDisable(entry);
 						return;
 					}
 					update(entry, newentry);
@@ -896,7 +886,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 			final File fileobj = getFileIfExists(entry);
 			if (fileobj == null) {
-				disableLater(entry);
+				checkRootAndDisable(entry);
 				return null;
 			}
 
@@ -904,7 +894,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			try {
 				newentry = getNewPathEntry(entry, fileobj);
 			} catch (IOException e) {
-				disableLater(entry);
+				checkRootAndDisable(entry);
 				return null;
 			}
 
@@ -938,7 +928,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							newfolderIter = new DirLister(entry, fileobj);
 							dispatchFolderListCore(entry, fileobj, oldfolder, newentry, newfolderIter);
 						} catch (IOException e) {
-							disable(entry);
+							checkRootAndDisable(entry);
 							return;
 						}
 					}
@@ -954,7 +944,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			try {
 				newentry = getNewPathEntry(entry);
 			} catch (IOException e) {
-				disableLater(entry);
+				checkRootAndDisable(entry);
 				return null;
 			}
 
@@ -988,12 +978,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							}
 						}
 					} catch (IOException e) {
-						disable(entry, newentry);
-						return;
-					} catch (OutOfMemoryError e) {
-						writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
-						e.printStackTrace();
-						disable(entry, newentry);
+						checkRootAndDisable(entry);
 						return;
 					}
 					update(entry, newentry);
@@ -1014,7 +999,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					updateStatus(p1, PathEntry.DIRTY);
 				}
 			} catch (IOException e) {
-				disableLater(entry);
+				checkRootAndDisable(entry);
 				return null;
 			}
 
@@ -1033,7 +1018,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					updateStatus(p1, PathEntry.DIRTY);
 				}
 			} catch (IOException e) {
-				disableLater(entry);
+				checkRootAndDisable(entry);
 				return null;
 			}
 
@@ -1075,27 +1060,13 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							newentry.setCsumAndClose(inf);
 						}
 					} catch (IOException e) {
-						disable(entry);
-						return;
-					} catch (OutOfMemoryError e) {
-						writelog("!! WARNING !! Caught OutOfMemoryError at: " + entry.getPath());
-						e.printStackTrace();
-						disable(entry, newentry);
+						checkRootAndDisable(entry);
 						return;
 					}
 					update(entry, newentry);
 				}
 			});
 			return entry;
-		}
-
-		private void disableLater(final DbPathEntry entry) throws InterruptedException {
-			Assertion.assertNullPointerException(entry != null);
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.disable(entry);
-				}
-			});
 		}
 
 		@Override
@@ -1113,7 +1084,8 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				throws SQLException, InterruptedException {
 			Assertion.assertAssertionError(iAmLazyAccessorThread());
 
-			if (entry1 == null || entry2 == null) { return; }
+			if (entry1 == null || ! isReachableRoot(entry1.getRootId())) { return; }
+			if (entry2 == null || ! isReachableRoot(entry2.getRootId())) { return; }
 
 			final List<DbPathEntry> stack1 = getCompressionStack(entry1);
 			if (stack1 == null) { // orphan
@@ -1169,12 +1141,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			LazyQueue lq = dbAccessMode == CHECKEQUALITY_INSERT ? lazyqueue_insertable : lazyqueue_dontinsert;
 			lq.execute(p, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException {
-					try {
-						Dispatcher.super.checkEquality(stack1, stack2, dbAccessMode);
-					} catch (OutOfMemoryError e){
-						writelog2("OutOfMemoryError caught: entry1=" + entry1.getPath() + ", entry2=" + entry2.getPath());
-						throw e;
-					}
+					Dispatcher.super.checkEquality(stack1, stack2, dbAccessMode);
 				}
 			});
 		}

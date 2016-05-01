@@ -16,7 +16,6 @@
 
 package com.github.n_i_e.dirtreedb;
 
-import java.io.File;
 import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -124,9 +123,7 @@ public class StandardCrawler extends LazyAccessorThread {
 
 	private Set<Long> getScheduleDontInsertsDontAccessRootIds(Set<DbPathEntry> allRoots)
 			throws SQLException, InterruptedException {
-		Set<Long> s = getDb().getDontInsertRootIdSet();
-		Set<DbPathEntry> r = minus(allRoots, s);
-		return InterSetOperation.or(getIdsFromEntries(getUnreachableRoots(r)), s);
+		return getDb().getDontInsertRootIdSet();
 	}
 
 	private static int scheduleDontInsertsRoundRobinState = 0;
@@ -140,21 +137,17 @@ public class StandardCrawler extends LazyAccessorThread {
 		assert(scheduleDontInsertsRoundRobinState <= 2);
 
 		if (scheduleDontInsertsRoundRobinState == 0) {
-			Set<Long> dontAccessRootIds = getIdsFromEntries(getUnreachableRoots(allRoots));
-			if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
-				|| InterSetOperation.include(dontAccessRootIds, allRootIds)
-				) {
+			if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT) {
 				writelog2("--- SKIP csum (1/2) ---");
 			} else {
 				writelog2("--- csum (1/2) ---");
 				String sql = "SELECT * FROM directory AS d1 WHERE ((type=1 OR type=3) AND status<>2)"
-						+ getSubSqlFromIds(dontAccessRootIds)
 						+ " AND (size<0 OR (csum IS NULL AND EXISTS (SELECT * FROM directory AS d2"
 						+ " WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid))) "
 						+ " AND EXISTS (SELECT * FROM directory AS d3 WHERE d3.pathid=d1.parentid)"
 						//+ "ORDER BY size DESC"
 						;
-				int count = csum(sql);
+				int count = csum(sql, allRoots);
 				writelog2("--- csum (1/2) finished count=" + count + " ---");
 			}
 			if (doAllAtOnce) {
@@ -164,13 +157,10 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleDontInsertsRoundRobinState == 1) {
-			Set<Long> dontAccessRootIds = getIdsFromEntries(getUnreachableRoots(allRoots));
-			if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
-				|| InterSetOperation.include(dontAccessRootIds, allRootIds)
-				) {
+			if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT) {
 				writelog2("--- SKIP equality ---");
 			} else {
-				crawlEqualityUpdate(dontAccessRootIds);
+				crawlEqualityUpdate(allRoots);
 			}
 			if (doAllAtOnce) {
 				consumeSomeUpdateQueue();
@@ -191,7 +181,7 @@ public class StandardCrawler extends LazyAccessorThread {
 						+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid AND status=0)"
 						;
 
-				int count = csum(sql);
+				int count = csum(sql, minus(allRoots, dontAccessRootIds));
 				writelog2("--- csum (2/2) finished count=" + count + " ---");
 			}
 			if (doAllAtOnce) {
@@ -207,7 +197,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		scheduleDontInsertsRoundRobinState = scheduleDontInsertsRoundRobinState % 3;
 	}
 
-	private int csum(String sql) throws SQLException, InterruptedException, IOException {
+	private int csum(String sql, Set<DbPathEntry> rootmap) throws SQLException, InterruptedException, IOException {
 		Statement stmt = getDb().createStatement();
 		ResultSet rs = stmt.executeQuery(sql);
 		writelog2("--- csum query finished ---");
@@ -217,6 +207,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			disp.setList(Dispatcher.NONE);
 			disp.setCsum(Dispatcher.CSUM_FORCE);
 			disp.setNoReturn(true);
+			disp.setReachableRoots(rootmap);
 			while (rs.next()) {
 				DbPathEntry f = getDb().rsToPathEntry(rs);
 				assert(f.isFile() || f.isCompressedFile());
@@ -235,10 +226,11 @@ public class StandardCrawler extends LazyAccessorThread {
 		return count;
 	}
 
-	private int crawlEqualityUpdate(Set<Long> dontAccessRootIds) throws SQLException, InterruptedException, IOException {
+	private int crawlEqualityUpdate(Set<DbPathEntry> rootmap) throws SQLException, InterruptedException, IOException {
 		writelog2("--- equality ---");
 		Dispatcher disp = getDb().getDispatcher();
 		disp.setNoReturn(true);
+		disp.setReachableRoots(rootmap);
 		Statement stmt = getDb().createStatement();
 		String sql = "SELECT * FROM equality ORDER BY datelasttested";
 		ResultSet rs = stmt.executeQuery(sql);
@@ -247,9 +239,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		try {
 			while (rs.next()) {
 				DbPathEntry p1 = getDb().getDbPathEntryByPathId(rs.getLong("pathid1"));
-				if (dontAccessRootIds.contains(p1.getRootId())) { break; }
 				DbPathEntry p2 = getDb().getDbPathEntryByPathId(rs.getLong("pathid2"));
-				if (dontAccessRootIds.contains(p2.getRootId())) { break; }
 				disp.checkEquality(p1, p2, disp.CHECKEQUALITY_UPDATE);
 				count++;
 				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
@@ -296,13 +286,6 @@ public class StandardCrawler extends LazyAccessorThread {
 		return result;
 	}
 
-	private Set<Long> getScheduleInsertablesDontAccessRootIds(Set<DbPathEntry> allRoots)
-			throws SQLException, InterruptedException {
-		Set<Long> s = getDb().getInsertableRootIdSet();
-		Set<DbPathEntry> r = minus(allRoots, s);
-		return InterSetOperation.or(getIdsFromEntries(getUnreachableRoots(r)), s);
-	}
-
 	private static int scheduleInsertablesRoundRobinState = 0;
 	private static int scheduleInsertablesListDirtyFoldersCounter = 0;
 	private static Set<Long> scheduleInsertablesListDirtyFoldersFinished = null;
@@ -312,17 +295,17 @@ public class StandardCrawler extends LazyAccessorThread {
 
 		Set<DbPathEntry> allRoots = getAllRoots();
 		Set<Long> allRootIds = getIdsFromEntries(allRoots);
+		Set<Long> dontAccessRootIds = getDb().getInsertableRootIdSet();
 		consumeSomeUpdateQueue();
 
 		if (scheduleInsertablesRoundRobinState == 0) {
-			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
 				writelog2("+++ SKIP list (1/6) +++");
 			} else {
 				writelog2("+++ list (1/6) +++");
-				int count = list(dontAccessRootIds,
+				int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
 						"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)",
 						false);
 				writelog2("+++ list (1/6) finished count=" + count + " +++");
@@ -336,14 +319,14 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleInsertablesRoundRobinState == 1) {
-			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
 				writelog2("+++ SKIP list (2/6) +++");
 			} else {
 				writelog2("+++ list (2/6) +++");
-				int count = list(dontAccessRootIds, "type=0 AND status=1", false);
+				int count = list(dontAccessRootIds,  minus(allRoots, dontAccessRootIds),
+						"type=0 AND status=1", false);
 				writelog2("+++ list (2/6) finished count=" + count + " +++");
 
 				if (count>0 && scheduleInsertablesListDirtyFoldersCounter < 3) {
@@ -360,14 +343,13 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleInsertablesRoundRobinState == 2) {
-			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
 				writelog2("+++ SKIP list (3/6) +++");
 			} else {
 				writelog2("+++ list (3/6) +++");
-				int count = list(dontAccessRootIds,
+				int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
 						"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)",
 						true);
 				writelog2("+++ list (3/6) finished count=" + count + " +++");
@@ -379,14 +361,14 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleInsertablesRoundRobinState == 3) {
-			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
 				writelog2("+++ SKIP list (4/6) +++");
 			} else {
 				writelog2("+++ list (4/6) +++");
-				int count = list(dontAccessRootIds, "type=0 AND status=1", true, RELAXED_INSERTABLE_QUEUE_SIZE_LIMIT);
+				int count = list(dontAccessRootIds,  minus(allRoots, dontAccessRootIds),
+						"type=0 AND status=1", true, RELAXED_INSERTABLE_QUEUE_SIZE_LIMIT);
 				writelog2("+++ list (4/6) finished count=" + count + " +++");
 
 				if (count==0 && scheduleInsertablesListDirtyFoldersFinished != null) {
@@ -405,14 +387,14 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleInsertablesRoundRobinState == 4) {
-			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
 				writelog2("+++ SKIP list (5/6) +++");
 			} else {
 				writelog2("+++ list (5/6) +++");
-				int count = list(dontAccessRootIds, "type=0 AND (status=2 OR parentid=0)", false);
+				int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
+						"type=0 AND (status=2 OR parentid=0)", false);
 				writelog2("+++ list (5/6) finished count=" + count + " +++");
 			}
 
@@ -423,14 +405,14 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleInsertablesRoundRobinState == 5) {
-			Set<Long> dontAccessRootIds = getScheduleInsertablesDontAccessRootIds(allRoots);
 			if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
 					|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 					) {
 				writelog2("+++ SKIP list (6/6) +++");
 			} else {
 				writelog2("+++ list (6/6) +++");
-				int count = list(dontAccessRootIds, "type=0 AND (status=2 OR parentid=0)", true);
+				int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
+						"type=0 AND (status=2 OR parentid=0)", true);
 				writelog2("+++ list (6/6) finished count=" + count + " +++");
 			}
 
@@ -466,13 +448,13 @@ public class StandardCrawler extends LazyAccessorThread {
 		return c2;
 	}
 
-	private int list(Set<Long> dontListRootIds,
+	private int list(Set<Long> dontListRootIds, Set<DbPathEntry> rootmap,
 			String typeStatusSubSql, boolean hasNoChild)
 			throws SQLException, InterruptedException, IOException {
-		return list(dontListRootIds, typeStatusSubSql, hasNoChild, INSERTABLE_QUEUE_SIZE_LIMIT);
+		return list(dontListRootIds, rootmap, typeStatusSubSql, hasNoChild, INSERTABLE_QUEUE_SIZE_LIMIT);
 	}
 
-	private int list(Set<Long> dontListRootIds,
+	private int list(Set<Long> dontListRootIds, Set<DbPathEntry> rootmap,
 			String typeStatusSubSql, boolean hasNoChild, long insertableQueueSizeLimit)
 			throws SQLException, InterruptedException, IOException {
 		Dispatcher disp = getDb().getDispatcher();
@@ -480,6 +462,7 @@ public class StandardCrawler extends LazyAccessorThread {
 		disp.setCsum(Dispatcher.NONE);
 		disp.setNoReturn(true);
 		disp.setNoChildInDb(hasNoChild);
+		disp.setReachableRoots(rootmap);
 
 		String sql = "SELECT * FROM directory AS d1 WHERE "
 				+ typeStatusSubSql
@@ -719,19 +702,6 @@ public class StandardCrawler extends LazyAccessorThread {
 		} finally {
 			rs.close();
 			stmt.close();
-		}
-		return result;
-	}
-
-	private Set<DbPathEntry> getUnreachableRoots(Set<DbPathEntry> allRoots) {
-		if (allRoots == null) { return null; }
-
-		Set<DbPathEntry> result = new HashSet<DbPathEntry>();
-		for (DbPathEntry entry: allRoots) {
-			File f = new File(entry.getPath());
-			if (!f.exists()) {
-				result.add(entry);
-			}
 		}
 		return result;
 	}

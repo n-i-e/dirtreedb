@@ -16,12 +16,16 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.io.File;
 import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Date;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class AbstractDirTreeDb {
 	public abstract Statement createStatement() throws SQLException, InterruptedException;
@@ -92,6 +96,45 @@ public abstract class AbstractDirTreeDb {
 		protected boolean _noChildInDb = false;
 		public void setNoChildInDb(boolean noChildInDb) { _noChildInDb = noChildInDb; }
 		public boolean isNoChildInDb() { return _noChildInDb; }
+
+		protected Map<Long, String> reachableRoots = null;
+		public Map<Long, String> getReachableRoots() { return reachableRoots; }
+		public void setReachableRoots(Set<DbPathEntry> roots) {
+			reachableRoots = new ConcurrentHashMap<Long, String>();
+			if (roots != null) {
+				for (DbPathEntry e: roots) {
+					reachableRoots.put(e.getPathId(), e.getPath());
+				}
+			}
+		}
+		public void deleteReachableRoot(long rootid) {
+			reachableRoots.remove(rootid);
+		}
+		public boolean isReachableRoot(long rootid) {
+			if (reachableRoots == null) {
+				return true; // always true when reachableRoots is undefined
+			}
+			return reachableRoots.containsKey(rootid);
+		}
+		public String getReachableRootPath(long rootid) {
+			if (reachableRoots == null) { return null; }
+			return reachableRoots.get(rootid);
+		}
+		public void checkRootAndDisable(final DbPathEntry entry) throws SQLException, InterruptedException {
+			Assertion.assertNullPointerException(entry != null);
+			if (isReachableRoot(entry.getRootId())) {
+				String s = getReachableRootPath(entry.getRootId());
+				if (s == null) {
+					disable(entry);
+				} else {
+					if ((new File(s)).exists()) {
+						disable(entry);
+					} else {
+						deleteReachableRoot(entry.getRootId());
+					}
+				}
+			}
+		}
 
 		public abstract PathEntry dispatch(final DbPathEntry entry) throws IOException, InterruptedException, SQLException;
 	}
