@@ -178,9 +178,10 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 	@Override
 	public void delete(DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
-		PreparedStatement ps = prepareStatement("DELETE FROM directory WHERE pathid=?");
+		PreparedStatement ps = prepareStatement("DELETE FROM directory WHERE pathid=? AND parentid=?");
 		try {
 			ps.setLong(1, entry.getPathId());
+			ps.setLong(1, entry.getParentId());
 			ps.executeUpdate();
 		} finally {
 			ps.close();
