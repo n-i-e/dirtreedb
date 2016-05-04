@@ -805,6 +805,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					}
 
 					try {
+						if (!dscMatch(entry, newentry)) {
+							unsetClean(entry.getParentId());
+						}
+
 						if (oldfolder == null) { // not isList()
 							if ((!entry.isDirty() && !dscMatch(entry, newentry)) || entry.isNoAccess()) {
 								newentry.setStatus(PathEntry.DIRTY);
@@ -962,6 +966,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				public void run() throws SQLException, InterruptedException
 				{
 					try {
+						if (!dscMatch(entry, newentry)) {
+							unsetClean(entry.getParentId());
+						}
+
 						if (oldfolder == null) {
 							if (!entry.isDirty() && !dscMatch(entry, newentry)) {
 								newentry.setStatus(PathEntry.DIRTY);
