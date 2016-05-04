@@ -1191,10 +1191,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			return checkEquality(stack1, stack2, dbAccessMode);
 		}
 
-		public final static int CHECKEQUALITY_NONE = 0;
-		public final static int CHECKEQUALITY_UPDATE = 1;
-		public final static int CHECKEQUALITY_INSERT = 2;
-		public final static int CHECKEQUALITY_AUTOSELECT = 3;
+		public final int CHECKEQUALITY_NONE = 0;
+		public final int CHECKEQUALITY_UPDATE = 1;
+		public final int CHECKEQUALITY_INSERT = 2;
+		public final int CHECKEQUALITY_AUTOSELECT = 3;
 		public boolean checkEquality(
 				final List<DbPathEntry> stack1,
 				final List<DbPathEntry> stack2,
