@@ -121,20 +121,14 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 	}
 
-	private Set<Long> getScheduleDontInsertsDontAccessRootIds(Set<DbPathEntry> allRoots)
-			throws SQLException, InterruptedException {
-		return getDb().getDontInsertRootIdSet();
-	}
-
 	private int scheduleDontInsertsRoundRobinState = 0;
 	private void scheduleDontInserts(boolean doAllAtOnce) throws InterruptedException, SQLException, IOException {
 
 		Set<DbPathEntry> allRoots = getAllRoots();
-		Set<Long> allRootIds = getIdsFromEntries(allRoots);
 		consumeSomeUpdateQueue();
 
 		assert(scheduleDontInsertsRoundRobinState >= 0);
-		assert(scheduleDontInsertsRoundRobinState <= 2);
+		assert(scheduleDontInsertsRoundRobinState <= 4);
 
 		if (scheduleDontInsertsRoundRobinState == 0) {
 			if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT) {
@@ -172,22 +166,44 @@ public class StandardCrawler extends LazyAccessorThread {
 		}
 
 		if (scheduleDontInsertsRoundRobinState == 2) {
-			Set<Long> dontAccessRootIds = getScheduleDontInsertsDontAccessRootIds(allRoots);
-			if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
-				|| InterSetOperation.include(dontAccessRootIds, allRootIds)
-				) {
+			if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT) {
 				writelog2("--- SKIP csum (2/2) ---");
 				if (!doAllAtOnce) { scheduleDontInsertsRoundRobinState--; }
 			} else {
 				writelog2("--- csum (2/2) ---");
 				String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND status=2"
-						+ " AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid)"
+						+ " AND EXISTS (SELECT * FROM directory AS d2 WHERE d2.pathid=d1.parentid)"
 						+ " AND pathid>? ORDER BY d1.pathid"
 						;
 				PreparedStatement ps = getDb().prepareStatement(sql);
 				ps.setLong(1, csumLastPathId);
-				int count = csum(ps, minus(allRoots, dontAccessRootIds));
+				int count = csum(ps, allRoots);
 				writelog2("--- csum (2/2) finished count=" + count + " ---");
+				if (count>0) {
+					scheduleDontInsertsRoundRobinState--;
+				}
+			}
+			if (doAllAtOnce) {
+				consumeSomeUpdateQueue();
+				scheduleDontInsertsRoundRobinState++;
+			}
+			touchLastPathId = -1;
+		}
+
+		if (scheduleDontInsertsRoundRobinState == 4) {
+			if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT) {
+				writelog2("--- SKIP touch ---");
+				if (!doAllAtOnce) { scheduleDontInsertsRoundRobinState--; }
+			} else {
+				writelog2("--- touch ---");
+				String sql = "SELECT * FROM directory AS d1 WHERE ((type=0 AND status=0) OR type=1)"
+						+ " AND EXISTS (SELECT * FROM directory AS d2 WHERE d2.pathid=d1.parentid AND d2.status=0)"
+						+ " AND pathid>? ORDER BY d1.pathid"
+						;
+				PreparedStatement ps = getDb().prepareStatement(sql);
+				ps.setLong(1, touchLastPathId);
+				int count = touch(ps, allRoots);
+				writelog2("--- touch finished count=" + count + " ---");
 				if (count>0) {
 					scheduleDontInsertsRoundRobinState--;
 				}
@@ -202,11 +218,11 @@ public class StandardCrawler extends LazyAccessorThread {
 			consumeSomeUpdateQueue();
 			scheduleDontInsertsRoundRobinState++;
 		}
-		scheduleDontInsertsRoundRobinState = scheduleDontInsertsRoundRobinState % 3;
+		scheduleDontInsertsRoundRobinState = scheduleDontInsertsRoundRobinState % 5;
 	}
 
 	private long csumLastPathId = 0;
-	private int csum(PreparedStatement ps, Set<DbPathEntry> rootmap)
+	private int csum(PreparedStatement ps, Set<DbPathEntry> reachableRoots)
 			throws SQLException, InterruptedException, IOException {
 		ResultSet rs = ps.executeQuery();
 		writelog2("--- csum query finished ---");
@@ -216,13 +232,44 @@ public class StandardCrawler extends LazyAccessorThread {
 			disp.setList(Dispatcher.NONE);
 			disp.setCsum(Dispatcher.CSUM_FORCE);
 			disp.setNoReturn(true);
-			disp.setReachableRoots(rootmap);
+			disp.setReachableRoots(reachableRoots);
 			while (rs.next()) {
 				DbPathEntry f = getDb().rsToPathEntry(rs);
 				assert(f.isFile() || f.isCompressedFile());
 				disp.dispatch(f);
 				count++;
 				csumLastPathId = f.getPathId();
+				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
+						|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
+						) {
+					break;
+				}
+			}
+		} finally {
+			rs.close();
+			ps.close();
+		}
+		return count;
+	}
+
+	private long touchLastPathId = 0;
+	private int touch(PreparedStatement ps, Set<DbPathEntry> reachableRoots)
+			throws SQLException, InterruptedException, IOException {
+		ResultSet rs = ps.executeQuery();
+		writelog2("--- touch query finished ---");
+		int count = 0;
+		try {
+			Dispatcher disp = getDb().getDispatcher();
+			disp.setList(Dispatcher.NONE);
+			disp.setCsum(Dispatcher.NONE);
+			disp.setNoReturn(true);
+			disp.setReachableRoots(reachableRoots);
+			while (rs.next()) {
+				DbPathEntry f = getDb().rsToPathEntry(rs);
+				assert(f.isFolder() || f.isFile());
+				disp.dispatch(f);
+				count++;
+				touchLastPathId = f.getPathId();
 				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
 						|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
 						) {
