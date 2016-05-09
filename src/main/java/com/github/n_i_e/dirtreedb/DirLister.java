@@ -16,9 +16,7 @@
 
 package com.github.n_i_e.dirtreedb;
 
-import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -92,7 +90,9 @@ public class DirLister implements IDirArchiveLister {
 	}
 
 	public InputStream getInputStream(PathEntry entry) throws IOException {
-		return new BufferedInputStream(new FileInputStream(new File(entry.getPath())), 1*1024*1024);
+		Assertion.assertAssertionError(entry.isFile());
+		Assertion.assertAssertionError(entry.getPath().startsWith(basepath.getPath()));
+		return entry.getInputStream();
 	}
 
 	public InputStream getInputStream() {
