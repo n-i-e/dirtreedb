@@ -73,11 +73,14 @@ public class ZipListerForFile extends AbstractArchiveLister {
 		ZipListerForFile.charset = charset;
 	}
 
-	private class InputStreamWithCascadingClose extends BufferedInputStream {
-		public InputStreamWithCascadingClose(InputStream in) {
+	private class BufferedInputStreamWithCascadingClose extends BufferedInputStream {
+		public BufferedInputStreamWithCascadingClose(InputStream in) {
 			super(in);
 		}
 
+		public BufferedInputStreamWithCascadingClose(InputStream in, int size) {
+			super(in, size);
+		}
 		public void close() throws IOException {
 			super.close();
 			ZipListerForFile.this.close();
@@ -87,7 +90,7 @@ public class ZipListerForFile extends AbstractArchiveLister {
 	private ZipEntry next_zip_entry = null;
 	public InputStream getInputStream() throws IOException {
 		Assertion.assertNullPointerException(next_zip_entry != null);
-		return new InputStreamWithCascadingClose(zipfile.getInputStream(next_zip_entry));
+		return new BufferedInputStreamWithCascadingClose(zipfile.getInputStream(next_zip_entry), 1*1024*1024);
 	}
 
 	protected void getNext(boolean csum) throws IOException {
