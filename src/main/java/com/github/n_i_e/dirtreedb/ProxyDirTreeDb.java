@@ -819,7 +819,8 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	public static File getFileIfExists(final PathEntry entry) {
-		Assertion.assertAssertionError(entry.getType() == PathEntry.FOLDER || entry.getType() == PathEntry.FILE);
+		Assertion.assertAssertionError(entry.getType() == PathEntry.FOLDER || entry.getType() == PathEntry.FILE,
+				"Assertion Error: expected type for path <" + entry.getPath() + "> 0 (folder) or 1 (file), was " + entry.getType());
 
 		File result = new File(entry.getPath());
 		if (!result.exists()
