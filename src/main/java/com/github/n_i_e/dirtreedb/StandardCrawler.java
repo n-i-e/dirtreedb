@@ -257,7 +257,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				} else {
 					writelog2("+++ list files with children +++");
 					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
-							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)",
+							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND status=1",
 							false, false, INSERTABLE_QUEUE_SIZE_LIMIT);
 					writelog2("+++ list files with children finished count=" + count + " +++");
 				}
@@ -276,7 +276,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				} else {
 					writelog2("+++ list files without children +++");
 					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
-							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND (status=1 OR status=2)",
+							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND status=1",
 							true, false, INSERTABLE_QUEUE_SIZE_LIMIT);
 					writelog2("+++ list files without children finished count=" + count + " +++");
 				}
