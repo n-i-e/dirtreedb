@@ -51,11 +51,7 @@ public class MsgLister extends AbstractArchiveLister {
 		try {
 			if (content == null) {
 				MAPIMessage msg;
-				try {
-					msg = new MAPIMessage(inf);
-				} catch (IOException e) {
-					return;
-				}
+				msg = new MAPIMessage(inf);
 
 				date = msg.getMessageDate() == null ? 0L : msg.getMessageDate().getTimeInMillis();
 				subject = msg.getSubject();
