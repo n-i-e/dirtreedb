@@ -28,6 +28,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import org.sqlite.SQLiteConfig;
+
 public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 	static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -37,7 +39,9 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 		File fileobj = new File(filename);
 		boolean fileExists = fileobj.exists();
 
-		conn = DriverManager.getConnection("jdbc:sqlite:" + filename);
+		SQLiteConfig config = new SQLiteConfig();
+		config.setBusyTimeout(String.valueOf(60*1000));
+		conn = DriverManager.getConnection("jdbc:sqlite:" + filename, config.toProperties());
 		conn.setAutoCommit(true);
 		Statement stmt = conn.createStatement();
 		try {
