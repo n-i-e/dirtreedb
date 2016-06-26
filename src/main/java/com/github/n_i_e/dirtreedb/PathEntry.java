@@ -73,7 +73,6 @@ public class PathEntry {
 	}
 
 	public PathEntry(File dh) throws IOException {
-		datelastmodified = (dh.lastModified()/1000)*1000; // sub-second is eliminated
 		if (dh.isDirectory()) {
 			path = dh.getCanonicalPath();
 			if (! "\\".equals(path.substring(path.length()-1))) {
@@ -82,14 +81,15 @@ public class PathEntry {
 			type = FOLDER;
 		} else {
 			path = dh.getCanonicalPath();
-			size = dh.length();
+			setSize(dh.length());
 			try {
-				this.compressedsize = win32_GetCompressedSize(path);
+				setCompressedSize(win32_GetCompressedSize(path));
 			} catch (GetCompressedFileSizeException e) {
-				this.compressedsize = 0;
+				setCompressedSize(0);
 			}
 			type = FILE;
 		}
+		setDateLastModified(dh.lastModified());
 		if (dh.canRead()) {
 			status = DIRTY;
 		} else {
@@ -298,7 +298,9 @@ public class PathEntry {
 		buff.putInt(size_low);
 		buff.flip();
 		long result = buff.getLong();
-		Assertion.assertAssertionError(result >= 0);
+		if (result < 0) {
+			result = 0;
+		}
 		return result;
 	}
 

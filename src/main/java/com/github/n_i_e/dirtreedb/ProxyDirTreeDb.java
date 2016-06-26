@@ -730,7 +730,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		ResultSet rs = stmt.executeQuery("SELECT d1.*, newsize, newcompressedsize FROM "
 				+ "(SELECT * FROM directory WHERE type=0) as d1, "
 				+ "(SELECT parentid, SUM(size) AS newsize, SUM(compressedsize) AS newcompressedsize FROM directory "
-				+ "GROUP BY parentid) AS d2 "
+				+ "WHERE size>=0 GROUP BY parentid) AS d2 "
 				+ "WHERE d1.pathid=d2.parentid AND (d1.size<>d2.newsize OR d1.compressedsize<>d2.newcompressedsize)");
 		try {
 			int count=0;
@@ -1071,23 +1071,31 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 
 			final List<DbPathEntry> updatedfolders = new ArrayList<DbPathEntry>();
 			long t0 = new Date().getTime();
+			long count=0;
 			while (newfolderIter.hasNext()) {
 				Thread.sleep(0);
-				long t1 = new Date().getTime();
-				if (t1-t0 > 10*60*1000) {
-					writelog("dispatchFolderListCore loop too long, still ongoing: " + entry.getPath());
-					t0 = t1;
-				}
 				PathEntry newchild = newfolderIter.next();
 				Assertion.assertAssertionError(newchild.isFolder() || newchild.isFile());
-				if (oldfolder.containsKey(newchild.getPath())) { // exists in oldfolder - update
-					DbPathEntry oldchild = oldfolder.get(newchild.getPath());
+
+				count++;
+				long t1 = new Date().getTime();
+				if (t1-t0 > 2*60*1000) {
+					writelog("dispatchFolderListCore loop too long, still ongoing: basedir=<" + entry.getPath() + ">, "
+							+ "current child=<" + newchild.getPath() + ">, count=" + count + ", "
+							+ "isListCsum=" + isListCsum() + ", oldfoldersize=" + oldfolder.size());
+					t0 = t1;
+				}
+
+				DbPathEntry oldchild = oldfolder.get(newchild.getPath());
+				if (oldchild != null) { // exists in oldfolder - update
 					if (newchild.isFolder()) {
 						if (oldchild.isClean() && !dMatch(oldchild, newchild)) {
 							updatedfolders.add(oldchild);
 						}
-						new_size += oldchild.getSize();
-						new_compressedsize += oldchild.getCompressedSize();
+						if (oldchild.getSize() >= 0) {
+							new_size += oldchild.getSize();
+							new_compressedsize += oldchild.getCompressedSize();
+						}
 					} else { // FILE
 						assert(newchild.isFile());
 						if (isListCsumForce() || (isListCsum() && (oldchild.isCsumNull() || !dscMatch(oldchild, newchild)))) {
@@ -1102,8 +1110,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 						} else if (oldchild.isNoAccess() != newchild.isNoAccess()) {
 							updateStatus(oldchild, newchild.getStatus());
 						}
-						new_size += newchild.getSize();
-						new_compressedsize += newchild.getCompressedSize();
+						if (newchild.getSize() >= 0) {
+							new_size += newchild.getSize();
+							new_compressedsize += newchild.getCompressedSize();
+						}
 					}
 					oldfolder.remove(newchild.getPath());
 				} else { // not in oldfolder - insert
@@ -1116,8 +1126,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					}
 					insert(entry, newchild);
 					if (newchild.isFile()) {
-						new_size += newchild.getSize();
-						new_compressedsize += newchild.getCompressedSize();
+						if (newchild.getSize() >= 0) {
+							new_size += newchild.getSize();
+							new_compressedsize += newchild.getCompressedSize();
+						}
 					}
 				}
 			}
@@ -1143,17 +1155,22 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				IArchiveLister newfolderIter
 				) throws InterruptedException, SQLException, IOException {
 			long t0 = new Date().getTime();
+			long count=0;
 			while (newfolderIter.hasNext(ArchiveListerFactory.isCsumRecommended(entry))) {
 				Thread.sleep(0);
-				long t1 = new Date().getTime();
-				if (t1-t0 > 10*60*1000) {
-					writelog("dispatchFileListCore loop too long, still ongoing: " + entry.getPath());
-					t0 = t1;
-				}
 				PathEntry newchild = newfolderIter.next(true);
 				Assertion.assertAssertionError(newchild.isCompressedFolder() || newchild.isCompressedFile());
-				if (oldfolder.containsKey(newchild.getPath())) {
-					DbPathEntry oldchild = oldfolder.get(newchild.getPath());
+
+				count++;
+				long t1 = new Date().getTime();
+				if (t1-t0 > 2*60*1000) {
+					writelog("dispatchFileListCore loop too long, still ongoing: basedir=<" + entry.getPath() + ">, "
+							+ "current child=<" + newchild.getPath() + ">, count=" + count + ", "
+							+ "isListCsum=" + isListCsum() + ", oldfoldersize=" + oldfolder.size());
+					t0 = t1;
+				}
+				DbPathEntry oldchild = oldfolder.get(newchild.getPath());
+				if (oldchild != null) {
 					if (!dscMatch(oldchild, newchild)) {
 						update(oldchild, newchild);
 					} else if (oldchild.isNoAccess() != newchild.isNoAccess()) {

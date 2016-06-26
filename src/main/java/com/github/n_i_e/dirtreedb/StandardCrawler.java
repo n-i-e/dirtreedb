@@ -358,10 +358,10 @@ public class StandardCrawler extends LazyAccessorThread {
 					+ " AND (d1.parentid=0 OR EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid ))"
 					+ (useLastPathId ? " AND d1.pathid>? ORDER BY d1.pathid" : "")
 					;
-			writelog2(sql);
+			//writelog2(sql);
 			PreparedStatement ps = getDb().prepareStatement(sql);
 			if (useLastPathId) {
-				writelog2(String.valueOf(lastPathId));
+				//writelog2(String.valueOf(lastPathId));
 				ps.setLong(1, lastPathId);
 			}
 			ResultSet rs = ps.executeQuery();
@@ -438,8 +438,9 @@ public class StandardCrawler extends LazyAccessorThread {
 					writelog2("--- csum (1/2) ---");
 					String sql = "SELECT * FROM directory AS d1 WHERE ((type=1 OR type=3) AND status<>2)"
 							+ " AND (size<0 OR (csum IS NULL AND EXISTS (SELECT * FROM directory AS d2"
-							+ " WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid))) "
+							+ " WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid)))"
 							+ " AND EXISTS (SELECT * FROM directory AS d3 WHERE d3.pathid=d1.parentid)"
+							+ " ORDER BY size DESC"
 							;
 					PreparedStatement ps = getDb().prepareStatement(sql);
 					int count = csum(ps, allRoots, false);

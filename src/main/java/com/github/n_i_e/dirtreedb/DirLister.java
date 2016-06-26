@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -46,13 +47,15 @@ public class DirLister implements IDirArchiveLister {
 
 	private void getNext() throws IOException {
 		while (next_entry == null && file_iter.hasNext()) {
+			long t2 = new Date().getTime();
 			File f = file_iter.next();
 			Assertion.assertAssertionError(f.getPath().startsWith(basepath.getPath()));
 			Assertion.assertAssertionError(! f.getPath().equals(basepath.getPath() + "."));
 			Assertion.assertAssertionError(! f.getPath().equals(basepath.getPath() + ".."));
 			next_entry = new PathEntry(f);
-			if (next_entry.getSize() < 0) { // size is sometimes <0; JavaVM bug?
-				next_entry.setCsumAndClose(next_entry.getInputStream());
+			long t3 = new Date().getTime();
+			if (t3-t2 > 1000) {
+				writelog("getNext() too long: " + (t3-t2) + ", path=<" + next_entry.getPath() + ">");
 			}
 		}
 	}
@@ -101,4 +104,9 @@ public class DirLister implements IDirArchiveLister {
 
 	public void close() throws IOException {
 	}
+
+	private static void writelog(final String message) {
+		System.out.println(String.format("%s %s", new Date().toString(), message));
+	}
+
 }
