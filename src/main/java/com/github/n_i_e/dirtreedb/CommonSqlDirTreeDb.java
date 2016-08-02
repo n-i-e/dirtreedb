@@ -181,7 +181,7 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 		PreparedStatement ps = prepareStatement("DELETE FROM directory WHERE pathid=? AND parentid=?");
 		try {
 			ps.setLong(1, entry.getPathId());
-			ps.setLong(1, entry.getParentId());
+			ps.setLong(2, entry.getParentId());
 			ps.executeUpdate();
 		} finally {
 			ps.close();
