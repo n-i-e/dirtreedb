@@ -793,19 +793,19 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 		}
 
-		private int cleanupOrphans() throws SQLException, InterruptedException {
-			ProxyDirTreeDb.CleanupOrphansCallback cleanupOrphansCallbackRunner =
-					new ProxyDirTreeDb.CleanupOrphansCallback() {
-				@Override
-				public boolean isEol() throws SQLException, InterruptedException {
-					if (getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_LIMIT) {
-						return true;
-					} else {
-						return false;
-					}
+		private final ProxyDirTreeDb.CleanupOrphansCallback cleanupOrphansCallbackRunner =
+				new ProxyDirTreeDb.CleanupOrphansCallback() {
+			@Override
+			public boolean isEol() throws SQLException, InterruptedException {
+				if (getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_LIMIT) {
+					return true;
+				} else {
+					return false;
 				}
-			};
+			}
+		};
 
+		private int cleanupOrphans() throws SQLException, InterruptedException {
 			return getDb().cleanupOrphans(cleanupOrphansCallbackRunner);
 		}
 
