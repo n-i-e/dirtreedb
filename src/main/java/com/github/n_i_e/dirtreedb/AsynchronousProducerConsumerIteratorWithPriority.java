@@ -32,7 +32,12 @@ public class AsynchronousProducerConsumerIteratorWithPriority<T> implements Iter
 	}
 
 	public synchronized boolean hasNext() {
-		return size() > 0;
+		for(ArrayList<T> element: buffer) {
+			if (element.size() > 0) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public synchronized T next() {
@@ -41,15 +46,6 @@ public class AsynchronousProducerConsumerIteratorWithPriority<T> implements Iter
 				T result = element.get(0);
 				element.remove(0);
 				return result;
-			}
-		}
-		return null;
-	}
-
-	public synchronized T previewNext() {
-		for(ArrayList<T> element: buffer) {
-			if (element.size() > 0) {
-				return element.get(0);
 			}
 		}
 		return null;

@@ -459,12 +459,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		Assertion.assertAssertionError(iAmLazyAccessorThread());
 		threadHook();
 		if (updatequeue.hasNext()) {
-			RunnableWithException2<SQLException, InterruptedException> o = updatequeue.previewNext();
-			try {
-				o.run();
-			} finally {
-				updatequeue.next();
-			}
+			updatequeue.next().run();
 		}
 	}
 
