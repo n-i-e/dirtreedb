@@ -38,14 +38,6 @@ public class AsynchronousProducerConsumerIterator<T> implements Iterator<T>, Ite
 		}
 	}
 
-	public synchronized T previewNext() {
-		if (buffer.size() == 0) {
-			return null;
-		} else {
-			return buffer.get(0);
-		}
-	}
-
 	public synchronized Iterator<T> iterator() {
 		return this;
 	}

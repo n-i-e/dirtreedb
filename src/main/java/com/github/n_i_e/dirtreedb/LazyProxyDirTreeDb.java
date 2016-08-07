@@ -558,12 +558,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				try {
 					while (target.size() > 0) {
 						threadHook();
-						LazyQueueableRunnable o = target.previewNext();
-						try {
-							o.run();
-						} finally {
-							target.next();
-						}
+						target.next().run();
 					}
 				} catch (InterruptedException e) {
 					return;
@@ -584,8 +579,12 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			this.thread = thread;
 		}
 
-		public LazyQueueRunnerThread getThread() {
+		public synchronized LazyQueueRunnerThread getThread() {
 			return thread;
+		}
+
+		public boolean isEmpty() {
+			return size()==0 && getThread() == null;
 		}
 
 		public void execute(LazyQueueableRunnable newtodo) throws InterruptedException {
@@ -594,7 +593,6 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				lazyqueue_thread.wakeupThreadIfPossible();
 			}
 		}
-
 	}
 
 	public class LazyQueue extends ConcurrentHashMap<Long, LazyQueueElement> {
@@ -619,7 +617,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				if (t != null) {
 					t.interrupt();
 				}
-				while (elm.size() > 0) {
+				while (elm.hasNext()) {
 					elm.next();
 				}
 			}
@@ -670,7 +668,8 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		public Set<Long> getRootIdSet() {
 			Set<Long> result = new HashSet<Long>();
 			for (java.util.Map.Entry<Long, LazyQueueElement> kv: entrySet()) {
-				if (kv.getValue().size()>0) {
+				LazyQueueElement lqe = kv.getValue();
+				if (!lqe.isEmpty()) {
 					result.add(kv.getKey());
 				}
 			}
