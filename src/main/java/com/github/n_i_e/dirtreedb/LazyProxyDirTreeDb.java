@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -540,33 +541,51 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 
 		public void run() {
-			while (true) {
-				LazyQueueElement target = null;
-				LazyQueue[] lql = { lazyqueue_insertable, lazyqueue_dontinsert };
-				LOOP1: for (LazyQueue lq: lql) {
-					for (LazyQueueElement lqe: lq.values()) {
-						if (lqe.size() > 0 && lqe.getThread() == null) {
-							target = lqe;
-							target.setThread((LazyQueueRunnerThread)Thread.currentThread());
-							break LOOP1;
+			boolean isEol = false;
+			while (! isEol) {
+				isEol = true;
+				for (LazyQueueElement target: lazyqueue_insertable.values()) {
+					if (target.hasNext() && target.getThread() == null) {
+						target.setThread((LazyQueueRunnerThread)Thread.currentThread());
+						try {
+							while (target.hasNext()) {
+								threadHook();
+								target.next().run();
+								isEol = false;
+							}
+						} catch (InterruptedException e) {
+							return;
+						} catch (SQLException e) {
+							e.printStackTrace();
+							System.exit(0); // this must not happen
+						} finally {
+							target.setThread(null);
 						}
 					}
 				}
-				if (target == null) {
-					return;
-				}
-				try {
-					while (target.size() > 0) {
-						threadHook();
-						target.next().run();
+
+				for (Entry<Long, LazyQueueElement> entry: lazyqueue_dontinsert.entrySet()) {
+					long rootid = entry.getKey();
+					LazyQueueElement target = entry.getValue();
+					if (target.hasNext()
+							&& target.getThread() == null
+							&& lazyqueue_insertable.get(rootid).isEmpty()) {
+						target.setThread((LazyQueueRunnerThread)Thread.currentThread());
+						try {
+							while (target.hasNext() && lazyqueue_insertable.get(rootid).isEmpty()) {
+								threadHook();
+								target.next().run();
+								isEol = false;
+							}
+						} catch (InterruptedException e) {
+							return;
+						} catch (SQLException e) {
+							e.printStackTrace();
+							System.exit(0); // this must not happen
+						} finally {
+							target.setThread(null);
+						}
 					}
-				} catch (InterruptedException e) {
-					return;
-				} catch (SQLException e) {
-					e.printStackTrace();
-					System.exit(0); // this must not happen
-				} finally {
-					target.setThread(null);
 				}
 			}
 		}
@@ -602,6 +621,15 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			put(0L, new LazyQueueElement());
 		}
 
+		@Override
+		public LazyQueueElement get(Object key) {
+			long root = (Long)key;
+			if (!containsKey(root)) {
+				put(root, new LazyQueueElement());
+			}
+			return super.get(root);
+		}
+
 		public boolean hasThread(Thread t) {
 			for (LazyQueueElement elm: this.values()) {
 				if (elm.getThread() == t) {
@@ -629,9 +657,6 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				root = 0L;
 			} else {
 				root = entry.getRootId();
-				if (! containsKey(root)) {
-					put(root, new LazyQueueElement());
-				}
 			}
 			get(root).execute(newtodo);
 		}
