@@ -88,10 +88,11 @@ public class StandardCrawler extends LazyAccessorThread {
 	}
 
 	private static final int UPDATE_QUEUE_SIZE_LIMIT = 10000;
-	private static final int INSERTABLE_QUEUE_SIZE_LIMIT = 100;
-	private static final int RELAXED_INSERTABLE_QUEUE_SIZE_LIMIT = 1000;
-	private static final int DONT_INSERT_QUEUE_SIZE_LIMIT = 10000;
-	private static final int RESTRICTED_DONT_INSERT_QUEUE_SIZE_LIMIT = 9000;
+	private static final int INSERTABLE_QUEUE_LOW_THRESHOLD = 50;
+	private static final int INSERTABLE_QUEUE_HIGH_THRESHOLD = 100;
+	private static final int RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD = 1000;
+	private static final int DONT_INSERT_QUEUE_SIZE_LOW_THRESHOLD = 9000;
+	private static final int DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD = 10000;
 
 	@Override
 	public void run() throws Exception {
@@ -103,14 +104,14 @@ public class StandardCrawler extends LazyAccessorThread {
 		scheduleUpdates.init();
 		try {
 			while (true) {
-				if (getDb().getInsertableQueueSize() < INSERTABLE_QUEUE_SIZE_LIMIT) {
+				if (getDb().getInsertableQueueSize() < INSERTABLE_QUEUE_LOW_THRESHOLD) {
 					writelog2("--- scuedule layer 1 ---");
 					scheduleInsertables.schedule(false);
 				} else {
 					writelog2("--- SKIP scuedule layer 1 ---");
 				}
 
-				if (getDb().getDontInsertQueueSize() < RESTRICTED_DONT_INSERT_QUEUE_SIZE_LIMIT) {
+				if (getDb().getDontInsertQueueSize() < DONT_INSERT_QUEUE_SIZE_LOW_THRESHOLD) {
 					writelog2("--- scuedule layer 2 ---");
 					scheduleDontInserts.schedule(false);
 				} else {
@@ -191,7 +192,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			consumeSomeUpdateQueue();
 
 			if (roundrobinState == 0) {
-				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
+				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_LOW_THRESHOLD
 						|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 						) {
 					writelog2("+++ SKIP list folders with children +++");
@@ -199,7 +200,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				} else {
 					writelog2("+++ list folders with children +++");
 					int count = list(dontAccessRootIds,  minus(allRoots, dontAccessRootIds),
-							"type=0 AND status=1", false, false, INSERTABLE_QUEUE_SIZE_LIMIT);
+							"type=0 AND status=1", false, false, INSERTABLE_QUEUE_HIGH_THRESHOLD);
 					writelog2("+++ list folders with children finished count=" + count + " +++");
 
 					if (count>0 && repeatCounter < 3) {
@@ -219,7 +220,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (roundrobinState == 1) {
-				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
+				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_LOW_THRESHOLD
 						|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 						) {
 					writelog2("+++ SKIP list folders without children +++");
@@ -227,7 +228,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				} else {
 					writelog2("+++ list folders without children +++");
 					int count = list(dontAccessRootIds,  minus(allRoots, dontAccessRootIds),
-							"type=0 AND status=1", true, false, RELAXED_INSERTABLE_QUEUE_SIZE_LIMIT);
+							"type=0 AND status=1", true, false, RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD);
 					writelog2("+++ list folders without children finished count=" + count + " +++");
 
 					if (count==0) {
@@ -249,7 +250,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (roundrobinState == 2) {
-				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
+				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_LOW_THRESHOLD
 						|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 						) {
 					writelog2("+++ SKIP list files with children +++");
@@ -258,7 +259,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					writelog2("+++ list files with children +++");
 					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
 							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND status=1",
-							false, false, INSERTABLE_QUEUE_SIZE_LIMIT);
+							false, false, INSERTABLE_QUEUE_HIGH_THRESHOLD);
 					writelog2("+++ list files with children finished count=" + count + " +++");
 				}
 				if (doAllAtOnce) {
@@ -268,7 +269,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (roundrobinState == 3) {
-				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
+				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_LOW_THRESHOLD
 						|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 						) {
 					writelog2("+++ SKIP list files without children +++");
@@ -277,7 +278,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					writelog2("+++ list files without children +++");
 					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
 							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND status=1",
-							true, false, INSERTABLE_QUEUE_SIZE_LIMIT);
+							true, false, INSERTABLE_QUEUE_HIGH_THRESHOLD);
 					writelog2("+++ list files without children finished count=" + count + " +++");
 				}
 				if (doAllAtOnce) {
@@ -287,7 +288,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (roundrobinState == 4) {
-				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
+				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_LOW_THRESHOLD
 						|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 						) {
 					writelog2("+++ SKIP list NoAccess folders with children +++");
@@ -295,7 +296,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				} else {
 					writelog2("+++ list NoAccess folders with children +++");
 					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
-							"type=0 AND (status=2 OR parentid=0)", false, true, INSERTABLE_QUEUE_SIZE_LIMIT);
+							"type=0 AND (status=2 OR parentid=0)", false, true, INSERTABLE_QUEUE_HIGH_THRESHOLD);
 					writelog2("+++ list NoAccess folders with children finished count=" + count + " +++");
 					if (count > 0) {
 						roundrobinState --;
@@ -311,7 +312,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (roundrobinState == 5) {
-				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_SIZE_LIMIT
+				if (getDb().getInsertableQueueSize() >= INSERTABLE_QUEUE_LOW_THRESHOLD
 						|| InterSetOperation.include(dontAccessRootIds, allRootIds)
 						) {
 					writelog2("+++ SKIP list NoAccess folders without children +++");
@@ -319,7 +320,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				} else {
 					writelog2("+++ list NoAccess folders without children +++");
 					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
-							"type=0 AND (status=2 OR parentid=0)", true, true, RELAXED_INSERTABLE_QUEUE_SIZE_LIMIT);
+							"type=0 AND (status=2 OR parentid=0)", true, true, RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD);
 					writelog2("+++ list NoAccess folders without children finished count=" + count + " +++");
 					if (count > 0) {
 						roundrobinState --;
@@ -431,7 +432,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			assert(roundrobinState <= 4);
 
 			if (roundrobinState == 0) {
-				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT) {
+				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD) {
 					writelog2("--- SKIP csum (1/2) ---");
 					if (!doAllAtOnce) { roundrobinState--; }
 				} else {
@@ -453,7 +454,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (roundrobinState == 1) {
-				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT) {
+				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD) {
 					writelog2("--- SKIP equality ---");
 					if (!doAllAtOnce) { roundrobinState--; }
 				} else {
@@ -466,7 +467,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (roundrobinState == 2) {
-				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT) {
+				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD) {
 					writelog2("--- SKIP csum (2/2) ---");
 					if (!doAllAtOnce) { roundrobinState--; }
 				} else {
@@ -492,7 +493,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (roundrobinState == 4) {
-				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT) {
+				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD) {
 					writelog2("--- SKIP touch ---");
 					if (!doAllAtOnce) { roundrobinState--; }
 				} else {
@@ -543,7 +544,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					if (useLastPathId) {
 						lastPathId = f.getPathId();
 					}
-					if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
+					if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD
 							|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
 							) {
 						break;
@@ -573,7 +574,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					disp.dispatch(f);
 					count++;
 					lastPathId = f.getPathId();
-					if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
+					if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD
 							|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
 							) {
 						break;
@@ -602,7 +603,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					DbPathEntry p2 = getDb().getDbPathEntryByPathId(rs.getLong("pathid2"));
 					disp.checkEquality(p1, p2, disp.CHECKEQUALITY_UPDATE);
 					count++;
-					if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_LIMIT
+					if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD
 							|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
 							) {
 						break;
