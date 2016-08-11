@@ -623,11 +623,12 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 		@Override
 		public LazyQueueElement get(Object key) {
-			long root = (Long)key;
-			if (!containsKey(root)) {
-				put(root, new LazyQueueElement());
+			LazyQueueElement result = super.get(key);
+			if (result == null) {
+				result = new LazyQueueElement();
+				put((Long)key, result);
 			}
-			return super.get(root);
+			return result;
 		}
 
 		public boolean hasThread(Thread t) {
