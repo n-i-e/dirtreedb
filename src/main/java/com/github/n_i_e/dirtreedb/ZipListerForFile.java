@@ -101,7 +101,13 @@ public class ZipListerForFile extends AbstractArchiveLister {
 		if (! zipentries.hasMoreElements()) {
 			return;
 		}
-		next_zip_entry = zipentries.nextElement();
+		while (true) {
+			try {
+				next_zip_entry = zipentries.nextElement();
+				break;
+			} catch (IllegalArgumentException e) {
+			}
+		}
 		int newtype = next_zip_entry.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;
 		String s = next_zip_entry.getName();
 		s = s.replace("\\", "/");
