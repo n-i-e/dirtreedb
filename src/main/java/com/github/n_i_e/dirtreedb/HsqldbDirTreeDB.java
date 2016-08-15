@@ -56,16 +56,12 @@ public class HsqldbDirTreeDB extends CommonSqlDirTreeDb {
 				stmt.executeUpdate("CREATE INDEX directory_dedupablesize ON directory (dedupablesize)");
 
 				stmt.executeUpdate("CREATE TABLE upperlower (upper BIGINT NOT NULL, lower BIGINT NOT NULL, "
-						+ "distance INTEGER NOT NULL, PRIMARY KEY (upper, lower), "
-						+ "FOREIGN KEY (upper) REFERENCES directory (pathid), "
-						+ "FOREIGN KEY (lower) REFERENCES directory (pathid))");
+						+ "distance INTEGER NOT NULL, PRIMARY KEY (upper, lower))");
 				stmt.executeUpdate("CREATE INDEX upperlower_distance ON upperlower (distance)");
 
 				stmt.executeUpdate("CREATE TABLE equality (pathid1 BIGINT, pathid2 BIGINT, "
 						+ "size BIGINT NOT NULL, csum BIGINT NOT NULL, "
-						+ "datelasttested TIMESTAMP NOT NULL, PRIMARY KEY (pathid1, pathid2), "
-						+ "FOREIGN KEY (pathid1, size, csum) REFERENCES directory (pathid, size, csum), "
-						+ "FOREIGN KEY (pathid2, size, csum) REFERENCES directory (pathid, size, csum))");
+						+ "datelasttested TIMESTAMP NOT NULL, PRIMARY KEY (pathid1, pathid2))");
 
 				PreparedStatement ps = conn.prepareStatement("INSERT INTO directory (path, parentid, "
 						+ "datelastmodified, size, compressedsize, type, status, duplicate, dedupablesize) "

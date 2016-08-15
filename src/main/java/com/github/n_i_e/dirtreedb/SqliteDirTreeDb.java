@@ -59,14 +59,6 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 				Assertion.assertAssertionError(rs.getString("journal_mode").equals("persist"), "journal_mode="+rs.getString("journal_mode"));
 				rs.close();
 			}
-			stmt.execute("PRAGMA foreign_keys=ON");
-			{
-				ResultSet rs = stmt.executeQuery("PRAGMA foreign_keys");
-				Assertion.assertAssertionError(rs.next());
-				Assertion.assertAssertionError(rs.getInt("foreign_keys")==1, "foreign_keys=" + rs.getInt("foreign_keys"));
-				rs.close();
-			}
-			//stmt.execute("PRAGMA case_sensitive_like=ON;");
 
 			if (!fileExists) {
 				stmt.executeUpdate("CREATE TABLE IF NOT EXISTS directory (pathid INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -92,17 +84,13 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 						+ "VALUES ('C:\\', 0, '2000-01-01 00:00:00', 0, 0, 0, 1, 0, 0)");
 
 				stmt.executeUpdate("CREATE TABLE IF NOT EXISTS upperlower (upper INTEGER NOT NULL, "
-						+ "lower INTEGER NOT NULL, distance INTEGER NOT NULL, PRIMARY KEY (upper, lower), "
-						+ "FOREIGN KEY (upper) REFERENCES directory (pathid), "
-						+ "FOREIGN KEY (lower) REFERENCES directory (pathid))");
+						+ "lower INTEGER NOT NULL, distance INTEGER NOT NULL, PRIMARY KEY (upper, lower))");
 				stmt.executeUpdate("CREATE INDEX IF NOT EXISTS upperlower_distance ON upperlower (distance)");
 
 				stmt.executeUpdate("CREATE TABLE IF NOT EXISTS equality ("
 						+ "pathid1 INTEGER NOT NULL, pathid2 INTEGER NOT NULL, "
 						+ "size INTEGER NOT NULL, csum INTEGER NOT NULL, "
-						+ "datelasttested TEXT NOT NULL, PRIMARY KEY (pathid1, pathid2), "
-						+ "FOREIGN KEY (pathid1, size, csum) REFERENCES directory (pathid, size, csum), "
-						+ "FOREIGN KEY (pathid2, size, csum) REFERENCES directory (pathid, size, csum))");
+						+ "datelasttested TEXT NOT NULL, PRIMARY KEY (pathid1, pathid2))");
 			}
 			stmt.executeUpdate("UPDATE directory SET rootid=pathid WHERE rootid IS NULL AND pathid IS NOT NULL");
 		} finally {
