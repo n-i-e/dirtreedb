@@ -92,18 +92,15 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		Assertion.assertNullPointerException(newentry != null);
 		Assertion.assertAssertionError(oldentry.getPath().equals(newentry.getPath()),
 				"!! old and new entry paths do not match:\nold=" + oldentry.getPath() + "\nnew=" + newentry.getPath());
-		assert(oldentry.getType() == newentry.getType());
+		Assertion.assertAssertionError(oldentry.getType() == newentry.getType());
 
-		if (! dscMatch(oldentry, newentry)
-				|| oldentry.isCsumNull() != newentry.isCsumNull()
-				|| (!oldentry.isCsumNull() && !newentry.isCsumNull() && oldentry.getCsum() != newentry.getCsum())
-				) {
+		if ((!dscMatch(oldentry, newentry)) || (!csumMatch(oldentry, newentry))) {
 			deleteEquality(oldentry.getPathId());
 			threadHook();
 			parent.update(oldentry, newentry);
 		} else if (oldentry.getStatus() != newentry.getStatus()) {
 			threadHook();
-			parent.update(oldentry, newentry);
+			parent.updateStatus(oldentry, newentry.getStatus());
 		}
 	}
 
@@ -123,14 +120,16 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	@Override
-	public void delete(DbPathEntry entry) throws SQLException, InterruptedException {
-		deleteEquality(entry.getPathId());
-		deleteUpperLower(entry.getPathId());
+	public void delete(final DbPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 		parent.delete(entry);
 	}
 
-	protected void deleteLowPriority(DbPathEntry entry) throws SQLException, InterruptedException {
+	protected void deleteLowPriority(final DbPathEntry entry) throws SQLException, InterruptedException {
+		delete(entry);
+	}
+
+	protected void deleteLater(final DbPathEntry entry) throws SQLException, InterruptedException {
 		delete(entry);
 	}
 
@@ -454,7 +453,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 						writelog("cleanupOrphans: deleting now " + rsToPathEntry(rs).getPath());
 						delete(rsToPathEntry(rs));
 					} else {
-						deleteLowPriority(rsToPathEntry(rs));
+						deleteLater(rsToPathEntry(rs));
 					}
 					count++;
 					if (runnable != null) {
@@ -575,19 +574,8 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			while (rs.next()) {
 				DbPathEntry oldentry = rsToPathEntry(rs);
 				if (newentry.getPath().equals(oldentry.getPath())) {
-					if (oldentry.isFolder()) {
-						if (newentry.isClean()) {
-							updateStatus(oldentry, PathEntry.DIRTY);
-						}
-					} else {
-						if (!dscMatch(oldentry, newentry)
-								|| oldentry.getStatus() != newentry.getStatus()
-								|| newentry.isClean()) {
-						} else {
-							update(oldentry, newentry);
-						}
-
-					}
+					Assertion.assertSQLException(oldentry.getType() == newentry.getType());
+					update(oldentry, newentry);
 					updateParentId(oldentry, basedir.getPathId());
 					return 1;
 				}

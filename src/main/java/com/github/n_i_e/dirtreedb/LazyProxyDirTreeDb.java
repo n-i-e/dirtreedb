@@ -158,6 +158,20 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	}
 
 	/**
+	 * always pushes request on the updatequeue (i.e. lazy).
+	 * iAmLazyAccessorThread() or not is not considered.
+	 */
+	@Override
+	protected void deleteLater(final DbPathEntry entry) throws SQLException, InterruptedException {
+		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
+			public void run() throws SQLException, InterruptedException {
+				LazyProxyDirTreeDb.super.delete(entry);
+			}
+		});
+	}
+
+	/**
 	 * always pushes request on low priority updatequeue (i.e. lazy).
 	 * iAmLazyAccessorThread() or not is not considered.
 	 */
@@ -546,20 +560,22 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				isEol = true;
 				for (LazyQueueElement target: lazyqueue_insertable.values()) {
 					if (target.hasNext() && target.getThread() == null) {
-						target.setThread((LazyQueueRunnerThread)Thread.currentThread());
-						try {
-							while (target.hasNext()) {
-								threadHook();
-								target.next().run();
-								isEol = false;
+						if (target.setThread((LazyQueueRunnerThread)Thread.currentThread())) {
+							try {
+								while (target.hasNext()) {
+									Assertion.assertAssertionError(target.getThread() == Thread.currentThread());
+									threadHook();
+									target.next().run();
+									isEol = false;
+								}
+							} catch (InterruptedException e) {
+								return;
+							} catch (SQLException e) {
+								e.printStackTrace();
+								System.exit(0); // this must not happen
+							} finally {
+								target.setThread(null);
 							}
-						} catch (InterruptedException e) {
-							return;
-						} catch (SQLException e) {
-							e.printStackTrace();
-							System.exit(0); // this must not happen
-						} finally {
-							target.setThread(null);
 						}
 					}
 				}
@@ -570,20 +586,22 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					if (target.hasNext()
 							&& target.getThread() == null
 							&& lazyqueue_insertable.get(rootid).isEmpty()) {
-						target.setThread((LazyQueueRunnerThread)Thread.currentThread());
-						try {
-							while (target.hasNext() && lazyqueue_insertable.get(rootid).isEmpty()) {
-								threadHook();
-								target.next().run();
-								isEol = false;
+						if (target.setThread((LazyQueueRunnerThread)Thread.currentThread())) {
+							try {
+								while (target.hasNext() && lazyqueue_insertable.get(rootid).isEmpty()) {
+									Assertion.assertAssertionError(target.getThread() == Thread.currentThread());
+									threadHook();
+									target.next().run();
+									isEol = false;
+								}
+							} catch (InterruptedException e) {
+								return;
+							} catch (SQLException e) {
+								e.printStackTrace();
+								System.exit(0); // this must not happen
+							} finally {
+								target.setThread(null);
 							}
-						} catch (InterruptedException e) {
-							return;
-						} catch (SQLException e) {
-							e.printStackTrace();
-							System.exit(0); // this must not happen
-						} finally {
-							target.setThread(null);
 						}
 					}
 				}
@@ -594,8 +612,15 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	private class LazyQueueElement extends AsynchronousProducerConsumerIterator<LazyQueueableRunnable> {
 		LazyQueueRunnerThread thread = null;
 
-		public synchronized void setThread(LazyQueueRunnerThread thread) {
+		public synchronized boolean setThread(LazyQueueRunnerThread thread) {
+			if (thread == null && this.thread == null) {
+				return false;
+			}
+			if (thread != null && this.thread != null) {
+				return false;
+			}
 			this.thread = thread;
+			return true;
 		}
 
 		public synchronized LazyQueueRunnerThread getThread() {

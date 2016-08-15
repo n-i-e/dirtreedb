@@ -640,7 +640,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			consumeSomeUpdateQueue();
 
 			assert(roundrobinState >= 0);
-			assert(roundrobinState <= 7);
+			assert(roundrobinState <= 9);
 
 			if (roundrobinState == 0) {
 				writelog2("*** refresh upperlower entries (1/2) ***");
@@ -711,7 +711,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				if (doAllAtOnce) {
 					consumeSomeUpdateQueue();
 					roundrobinState++;
-				} else if (c>0  && repeatCounter < 10) {
+				} else if (c>0  && repeatCounter < 5) {
 					roundrobinState--;
 					repeatCounter++;
 				} else {
@@ -720,6 +720,28 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (roundrobinState == 6) {
+				writelog2("*** cleanup upperlower orphans ***");
+				int c = cleanupUpperLowerOrphans();
+				writelog2("*** cleanup upperlower orphans finished count=" + c + " ***");
+
+				if (doAllAtOnce) {
+					consumeSomeUpdateQueue();
+					roundrobinState++;
+				}
+			}
+
+			if (roundrobinState == 7) {
+				writelog2("*** cleanup equality orphans ***");
+				int c = cleanupEqualityOrphans();
+				writelog2("*** cleanup equality orphans finished count=" + c + " ***");
+
+				if (doAllAtOnce) {
+					consumeSomeUpdateQueue();
+					roundrobinState++;
+				}
+			}
+
+			if (roundrobinState == 8) {
 				if (getDb().getUpdateQueueSize(1) > 0) {
 					writelog2("*** SKIP cleanup orphans ***");
 				} else {
@@ -734,7 +756,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				}
 			}
 
-			if (roundrobinState == 7) {
+			if (roundrobinState == 9) {
 				int c = getDb().getUpdateQueueSize(1);
 				if (c>0) {
 					while (c <= getDb().getUpdateQueueSize(1)) {
@@ -754,7 +776,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				consumeSomeUpdateQueue();
 				roundrobinState++;
 			}
-			roundrobinState = roundrobinState % 8;
+			roundrobinState = roundrobinState % 10;
 		}
 
 		private int unlistDisabledExtensions()
@@ -798,7 +820,8 @@ public class StandardCrawler extends LazyAccessorThread {
 				new ProxyDirTreeDb.CleanupOrphansCallback() {
 			@Override
 			public boolean isEol() throws SQLException, InterruptedException {
-				if (getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_LIMIT) {
+				if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
+						|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_LIMIT) {
 					return true;
 				} else {
 					return false;
@@ -808,6 +831,51 @@ public class StandardCrawler extends LazyAccessorThread {
 
 		private int cleanupOrphans() throws SQLException, InterruptedException {
 			return getDb().cleanupOrphans(cleanupOrphansCallbackRunner);
+		}
+
+		private int cleanupUpperLowerOrphans()
+				throws SQLException, InterruptedException {
+			String sql = "SELECT * FROM upperlower "
+					+ "WHERE NOT EXISTS (SELECT * FROM directory WHERE upper=pathid) "
+					+ "OR NOT EXISTS (SELECT * FROM directory WHERE lower=pathid)";
+			PreparedStatement ps = getDb().prepareStatement(sql);
+			ResultSet rs = ps.executeQuery();
+			try {
+				int count = 0;
+				while (rs.next()) {
+					getDb().deleteUpperLower(rs.getLong("upper"), rs.getLong("lower"));
+					count ++;
+					if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT) {
+						break;
+					}
+				}
+				return count;
+			} finally {
+				rs.close();
+				ps.close();
+			}
+		}
+
+		private int cleanupEqualityOrphans() throws SQLException, InterruptedException {
+			String sql = "SELECT * FROM equality "
+					+ "WHERE NOT EXISTS (SELECT * FROM directory WHERE pathid1=pathid) "
+					+ "OR NOT EXISTS (SELECT * FROM directory WHERE pathid2=pathid)";
+			PreparedStatement ps = getDb().prepareStatement(sql);
+			ResultSet rs = ps.executeQuery();
+			try {
+				int count = 0;
+				while (rs.next()) {
+					getDb().deleteUpperLower(rs.getLong("pathid1"), rs.getLong("pathid2"));
+					count ++;
+					if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT) {
+						break;
+					}
+				}
+				return count;
+			} finally {
+				rs.close();
+				ps.close();
+			}
 		}
 
 		private int orphanizeOrphansChildren() throws SQLException, InterruptedException {
