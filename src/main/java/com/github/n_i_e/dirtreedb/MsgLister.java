@@ -26,12 +26,11 @@ import org.apache.poi.hsmf.datatypes.AttachmentChunks;
 import org.apache.poi.hsmf.exceptions.ChunkNotFoundException;
 
 public class MsgLister extends AbstractArchiveLister {
-	int count = 0;
-	int subjectFilenameCount = 1;
-	AttachmentChunks[] content = null;
-	long date = 0;
-	String subject = null;
-	InputStream inf, instream = null;
+	private int count = 0;
+	private AttachmentChunks[] content = null;
+	private long date = 0;
+	private String subject = null;
+	private InputStream inf, instream = null;
 
 	public MsgLister (PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
@@ -39,15 +38,14 @@ public class MsgLister extends AbstractArchiveLister {
 		this.inf = inf;
 	}
 
+	@Override
 	public InputStream getInputStream() {
 		Assertion.assertNullPointerException(instream != null);
 		return instream;
 	}
 
-	protected void getNext(boolean csum) throws IOException {
-		if (next_entry != null) {
-			return;
-		}
+	@Override
+	protected PathEntry getNext() throws IOException {
 		try {
 			if (content == null) {
 				MAPIMessage msg;
@@ -59,7 +57,7 @@ public class MsgLister extends AbstractArchiveLister {
 				String s = subjectToFilename(subject, "text/plain", 1);
 				s = s.replace("\\", "/");
 				Assertion.assertAssertionError(!s.equals(""));
-				next_entry = new PathEntry(basepath.getPath() + "/" + s, PathEntry.COMPRESSEDFILE);
+				PathEntry next_entry = new PathEntry(getBasePath().getPath() + "/" + s, PathEntry.COMPRESSEDFILE);
 				next_entry.setDateLastModified(date);
 				next_entry.setStatus(PathEntry.DIRTY);
 				byte[] body = getByteArrayWithBom(msg.getTextBody());
@@ -67,17 +65,17 @@ public class MsgLister extends AbstractArchiveLister {
 				next_entry.setSize(next_entry.getSize());
 
 				instream = new ByteArrayInputStreamWithCascadingClose(body);
-				if (csum) {
+				if (isCsumRequested()) {
 					next_entry.setCsumAndClose(instream);
 				}
 				content = msg.getAttachmentFiles();
-				return;
+				return next_entry;
 			} else {
 				AttachmentChunks part = null;
 				byte[] data = null;
 				while (data == null) {
 					if (count >= content.length) {
-						return;
+						return null;
 					}
 					part = content[count];
 					try {
@@ -99,26 +97,27 @@ public class MsgLister extends AbstractArchiveLister {
 					filename = String.valueOf(count);
 				}
 
-				next_entry = new PathEntry(basepath.getPath() + "/" + filename, PathEntry.COMPRESSEDFILE);
+				PathEntry next_entry = new PathEntry(getBasePath().getPath() + "/" + filename, PathEntry.COMPRESSEDFILE);
 				next_entry.setDateLastModified(date);
 				next_entry.setStatus(PathEntry.DIRTY);
 				next_entry.setCompressedSize(data.length);
 				next_entry.setSize(data.length);
 
 				instream = new ByteArrayInputStreamWithCascadingClose(data);
-				if (csum) {
+				if (isCsumRequested()) {
 					next_entry.setCsumAndClose(instream);
 				}
 				count++;
-				return;
+				return next_entry;
 			}
 		} catch (ChunkNotFoundException e) {
-			next_entry = null;
+			return null;
 		}
 	}
 
 	@Override
 	public void close() throws IOException {
+		super.close();
 		inf.close();
 	}
 

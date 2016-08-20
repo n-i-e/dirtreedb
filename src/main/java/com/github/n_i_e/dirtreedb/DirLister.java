@@ -26,33 +26,35 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-public class DirLister implements IDirArchiveLister {
-	DbPathEntry basepath;
-	Iterator<File> file_iter;
-	PathEntry next_entry;
+public class DirLister extends PathEntryLister {
+	private Iterator<File> file_iter;
+	private PathEntry current_entry = null;
+	private PathEntry next_entry = null;
 
-	DirLister(DbPathEntry entry, File fileobj) throws FileNotFoundException {
-		basepath = entry;
+	public DirLister(PathEntry basepath, File fileobj) throws FileNotFoundException {
+		super(basepath);
 		File[] f = fileobj.listFiles();
 		if (f == null) {
 			throw new FileNotFoundException("!! Folder not accessible");
 		}
 		file_iter = Arrays.asList(f).iterator();
-		next_entry = null;
 	}
 
-	DirLister(DbPathEntry entry) throws FileNotFoundException {
+	public DirLister(PathEntry entry) throws FileNotFoundException {
 		this(entry, new File(entry.getPath()));
 	}
 
-	private void getNext() throws IOException {
+	protected void getNext() throws IOException {
 		while (next_entry == null && file_iter.hasNext()) {
 			long t2 = new Date().getTime();
 			File f = file_iter.next();
-			Assertion.assertAssertionError(f.getPath().startsWith(basepath.getPath()));
-			Assertion.assertAssertionError(! f.getPath().equals(basepath.getPath() + "."));
-			Assertion.assertAssertionError(! f.getPath().equals(basepath.getPath() + ".."));
+			Assertion.assertAssertionError(f.getPath().startsWith(getBasePath().getPath()));
+			Assertion.assertAssertionError(! f.getPath().equals(getBasePath().getPath() + "."));
+			Assertion.assertAssertionError(! f.getPath().equals(getBasePath().getPath() + ".."));
 			next_entry = new PathEntry(f);
+			if (isCsumRequested() && next_entry.isFile()) {
+				next_entry.setCsumAndClose(next_entry.getInputStream());
+			}
 			long t3 = new Date().getTime();
 			if (t3-t2 > 1000) {
 				writelog("getNext() too long: " + (t3-t2) + ", path=<" + next_entry.getPath() + ">");
@@ -62,47 +64,59 @@ public class DirLister implements IDirArchiveLister {
 
 	private Set<String> pathnameUniquenessChecker = new HashSet<String> ();
 	private void getNextWithIntegrityCheck() throws IOException {
+		if (next_entry != null) { return; }
+		getNext();
 		if (next_entry != null) {
-			getNext();
-		} else {
-			getNext();
-			if (next_entry != null) {
-				Assertion.assertIOException(!pathnameUniquenessChecker.contains(next_entry.getPath()),
-						"!! duplicate pathname: " + next_entry.getPath()
-						);
-				pathnameUniquenessChecker.add(next_entry.getPath());
-			}
+			Assertion.assertIOException(!pathnameUniquenessChecker.contains(next_entry.getPath()),
+					"!! duplicate pathname: " + next_entry.getPath()
+					);
+			pathnameUniquenessChecker.add(next_entry.getPath());
 		}
 	}
 
-	public boolean hasNext() throws IOException {
-		getNextWithIntegrityCheck();
-		if (next_entry == null) {
+	@Override
+	public boolean hasNext() {
+		if (getExceptionCache() != null) { return false; }
+		try {
+			getNextWithIntegrityCheck();
+		} catch (IOException e) {
+			setExceptionCache(e);
 			return false;
-		} else {
-			return true;
 		}
+		return next_entry != null;
 	}
 
-	public PathEntry next() throws IOException {
-		getNextWithIntegrityCheck();
+	@Override
+	public PathEntry next() {
+		if (getExceptionCache() != null) { return null; }
+		try {
+			getNextWithIntegrityCheck();
+		} catch (IOException e) {
+			setExceptionCache(e);
+			return null;
+		}
 
-		PathEntry result = next_entry;
+		current_entry = next_entry;
 		next_entry = null;
-		return result;
+		return current_entry;
 	}
 
+	@Override
 	public InputStream getInputStream(PathEntry entry) throws IOException {
 		Assertion.assertAssertionError(entry.isFile());
-		Assertion.assertAssertionError(entry.getPath().startsWith(basepath.getPath()));
+		Assertion.assertAssertionError(entry.getPath().startsWith(getBasePath().getPath()));
 		return entry.getInputStream();
 	}
 
-	public InputStream getInputStream() {
-		return null;
+	@Override
+	public InputStream getInputStream() throws IOException {
+		Assertion.assertAssertionError(current_entry != null);
+		return getInputStream(current_entry);
 	}
 
-	public void close() throws IOException {
+	@Override
+	public Iterator<PathEntry> iterator() {
+		return this;
 	}
 
 	private static void writelog(final String message) {

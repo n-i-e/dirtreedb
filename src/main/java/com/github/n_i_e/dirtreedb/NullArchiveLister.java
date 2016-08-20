@@ -18,32 +18,36 @@ package com.github.n_i_e.dirtreedb;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Iterator;
 
-class NullArchiveLister implements IArchiveLister {
-	public boolean hasNext(boolean csum) {
+class NullArchiveLister extends PathEntryLister {
+
+	public NullArchiveLister() {
+		super(null);
+	}
+
+	@Override
+	public boolean hasNext() {
 		return false;
 	}
 
-	public PathEntry next(boolean csum) {
+	@Override
+	public PathEntry next() {
 		return null;
 	}
 
-	public boolean hasNext() {
-		return hasNext(false);
-	}
-
-	public PathEntry next() {
-		return next(false);
-	}
-
+	@Override
 	public InputStream getInputStream(PathEntry entry) throws IOException {
 		return null;
 	}
 
+	@Override
 	public InputStream getInputStream() {
 		return null;
 	}
 
-	public void close() throws IOException {
+	@Override
+	public Iterator<PathEntry> iterator() {
+		return this;
 	}
 }

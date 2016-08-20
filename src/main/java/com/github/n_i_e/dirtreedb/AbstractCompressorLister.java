@@ -19,12 +19,23 @@ package com.github.n_i_e.dirtreedb;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Iterator;
 
-public abstract class AbstractCompressorLister implements IArchiveLister {
-	protected PathEntry next_entry;
-	protected InputStream instream;
+public abstract class AbstractCompressorLister extends PathEntryLister {
+	private PathEntry next_entry;
 
-	AbstractCompressorLister(PathEntry basepath, InputStream inf) {
+	private InputStream instream = null;
+
+	protected InputStream getInstream() {
+		return instream;
+	}
+
+	protected void setInstream(InputStream instream) {
+		this.instream = instream;
+	}
+
+	public AbstractCompressorLister(PathEntry basepath, InputStream inf) {
+		super(basepath);
 		Assertion.assertNullPointerException(basepath != null);
 		Assertion.assertNullPointerException(inf != null);
 		String p = getBasename(basepath);
@@ -57,21 +68,27 @@ public abstract class AbstractCompressorLister implements IArchiveLister {
 		return p;
 	}
 
-	public boolean hasNext(boolean csum) {
-		if (next_entry == null) {
+	@Override
+	public boolean hasNext() {
+		if (getExceptionCache() != null || next_entry == null || getInstream() == null) {
 			return false;
 		} else {
 			return true;
 		}
 	}
 
-	public PathEntry next(boolean csum) throws IOException {
-		if (next_entry == null) {
-			close();
+	@Override
+	public PathEntry next() {
+		if (getExceptionCache() != null || next_entry == null || getInstream() == null) {
 			return null;
 		} else {
-			if (csum) {
-				next_entry.setCsum(instream);
+			if (isCsumRequested()) {
+				try {
+					next_entry.setCsum(getInputStream());
+				} catch (IOException e) {
+					setExceptionCache(e);
+					return null;
+				}
 			}
 			PathEntry result = next_entry;
 			next_entry = null;
@@ -79,14 +96,7 @@ public abstract class AbstractCompressorLister implements IArchiveLister {
 		}
 	}
 
-	public boolean hasNext() {
-		return hasNext(false);
-	}
-
-	public PathEntry next() throws IOException {
-		return next(false);
-	}
-
+	@Override
 	public InputStream getInputStream(PathEntry entry) throws IOException {
 		if (next_entry.getPath().equals(entry.getPath())) {
 			return new BufferedInputStream(instream); // BufferedInputStream is needed here, because I want markSupported() stream at ApacheCompressArchiveLister constructor.
@@ -95,13 +105,22 @@ public abstract class AbstractCompressorLister implements IArchiveLister {
 		}
 	}
 
+	@Override
 	public InputStream getInputStream() {
 		return new BufferedInputStream(instream);
 	}
 
+	@Override
 	public void close() throws IOException {
-		if (instream != null) {
-			instream.close();
+		super.close();
+		if (getInputStream() != null) {
+			getInputStream().close();
 		}
 	}
+
+	@Override
+	public Iterator<PathEntry> iterator() {
+		return this;
+	}
+
 }

@@ -372,7 +372,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				while (rs.next()) {
 					DbPathEntry f = getDb().rsToPathEntry(rs);
 					Assertion.assertAssertionError(f.isFolder()
-							|| ((f.isFile() || f.isCompressedFile()) && ArchiveListerFactory.isArchivable(f)),
+							|| ((f.isFile() || f.isCompressedFile()) && PathEntryListerFactory.isArchivable(f)),
 							"!! CANNOT LIST THIS ENTRY: " + f.getType() + " at " + f.getPath());
 					disp.dispatch(f);
 					count++;
@@ -906,7 +906,7 @@ public class StandardCrawler extends LazyAccessorThread {
 	private String getArchiveExtSubSql() {
 		ArrayList<String> p = new ArrayList<String>();
 		Map<String, Boolean> eal = getConf().getExtensionAvailabilityMap();
-		for (String ext: ArchiveListerFactory.getExtensionList()) {
+		for (String ext: PathEntryListerFactory.getExtensionList()) {
 			Boolean v = eal.get(ext);
 			if (v != null && v) {
 				p.add("path LIKE '%." + ext + "'");

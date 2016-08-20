@@ -24,7 +24,7 @@ import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
 
 public class SevenZipListerForFile extends AbstractArchiveLister {
-	SevenZFile sevenzfile;
+	private SevenZFile sevenzfile;
 
 	public SevenZipListerForFile(PathEntry basepath, File contentpath) throws IOException {
 		super(basepath);
@@ -36,33 +36,32 @@ public class SevenZipListerForFile extends AbstractArchiveLister {
 		Assertion.assertAssertionError(basepath.isFile());
 	}
 
+	@Override
 	public InputStream getInputStream() {
 		return new SevenZipInputStream();
 	}
 
-	protected void getNext(boolean csum) throws IOException {
-		if (next_entry != null) {
-			return;
-		}
+	@Override
+	protected PathEntry getNext() throws IOException {
 		SevenZArchiveEntry z = sevenzfile.getNextEntry();
 		if (z == null) {
-			return;
+			return null;
 		}
 		int newtype = z.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;
 		String s = z.getName();
 		if (s == null) {
-			s = AbstractCompressorLister.getBasename(basepath);
+			s = AbstractCompressorLister.getBasename(getBasePath());
 		};
 		s = s.replace("\\", "/");
 		if (z.isDirectory() && !s.endsWith("/")) {
 			s = s + "/";
 		}
-		next_entry = new PathEntry(basepath.getPath() + "/" + s, newtype);
+		PathEntry next_entry = new PathEntry(getBasePath().getPath() + "/" + s, newtype);
 		next_entry.setDateLastModified(z.getLastModifiedDate().getTime());
 		next_entry.setStatus(PathEntry.DIRTY);
 		next_entry.setSize(z.getSize());
 		next_entry.setCompressedSize(z.getSize());
-		if (csum && newtype == PathEntry.COMPRESSEDFILE) {
+		if (isCsumRequested() && newtype == PathEntry.COMPRESSEDFILE) {
 			next_entry.setCsum(new SevenZipInputStream());
 		}
 		if (next_entry.getSize() < 0) {
@@ -71,10 +70,12 @@ public class SevenZipListerForFile extends AbstractArchiveLister {
 		if (next_entry.getCompressedSize() < 0) {
 			next_entry.setCompressedSize(next_entry.getSize());
 		}
+		return next_entry;
 	}
 
 	@Override
 	public void close() throws IOException {
+		super.close();
 		sevenzfile.close();
 	}
 

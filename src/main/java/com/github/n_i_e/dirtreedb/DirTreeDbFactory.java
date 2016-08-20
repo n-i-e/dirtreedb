@@ -23,13 +23,13 @@ public class DirTreeDbFactory {
 
 	public static AbstractDirTreeDb getDirTreeDb(String dbfile) throws ClassNotFoundException, SQLException, IOException {
 		AbstractDirTreeDb result;
-		if (ArchiveListerFactory.fileExtensionMatches(dbfile, "sqlite")) {
+		if (PathEntryListerFactory.fileExtensionMatches(dbfile, "sqlite")) {
 			result = new SqliteDirTreeDb(dbfile);
-		} else if (ArchiveListerFactory.fileExtensionMatches(dbfile, "mdb")) {
+		} else if (PathEntryListerFactory.fileExtensionMatches(dbfile, "mdb")) {
 			result = new MdbDirTreeDb(dbfile);
-		} else if (ArchiveListerFactory.fileExtensionMatches(dbfile, "mv.db")) {
+		} else if (PathEntryListerFactory.fileExtensionMatches(dbfile, "mv.db")) {
 			result = new H2DirTreeDb(dbfile);
-		} else if (ArchiveListerFactory.fileExtensionMatches(dbfile, "script")) {
+		} else if (PathEntryListerFactory.fileExtensionMatches(dbfile, "script")) {
 			result = new HsqldbDirTreeDB(dbfile);
 		} else {
 			result = null;

@@ -23,14 +23,14 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
 public class TemporaryFileArchiveLister extends AbstractArchiveLister {
-	IArchiveLister baselister;
+	private PathEntryLister baselister;
 
 	public TemporaryFileArchiveLister(PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
 		Assertion.assertNullPointerException(inf != null);
 		if (basepath.isFile()) {
 			inf.close();
-			baselister = ArchiveListerFactory.getArchiveListerForFile(basepath);
+			baselister = PathEntryListerFactory.getInstance(basepath);
 		} else {
 			File toFile = File.createTempFile("DTDB", getBasenameWithSuffix(basepath));
 			Assertion.assertNullPointerException(toFile != null);
@@ -38,7 +38,7 @@ public class TemporaryFileArchiveLister extends AbstractArchiveLister {
 			toFile.deleteOnExit();
 			Files.copy(inf, toFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 			inf.close();
-			baselister = ArchiveListerFactory.getArchiveLister(basepath, toFile);
+			baselister = PathEntryListerFactory.getInstance(basepath, toFile);
 		}
 	}
 
@@ -51,23 +51,23 @@ public class TemporaryFileArchiveLister extends AbstractArchiveLister {
 		return basepath.getPath().substring(i1);
 	}
 
+	@Override
 	public InputStream getInputStream() throws IOException {
 		return baselister.getInputStream();
 	}
 
-	protected void getNext(boolean csum) throws IOException {
-		if (next_entry != null) {
-			return;
-		}
-		if (baselister.hasNext(csum)) {
-			next_entry = baselister.next(csum);
+	@Override
+	protected PathEntry getNext() throws IOException {
+		if (baselister.hasNext()) {
+			return baselister.next();
 		} else {
-			next_entry = null;
+			return null;
 		}
 	}
 
 	@Override
 	public void close() throws IOException {
+		super.close();
 		baselister.close();
 	}
 }

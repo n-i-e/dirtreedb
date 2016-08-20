@@ -24,7 +24,7 @@ import jp.gr.java_conf.dangan.util.lha.LhaInputStream;
 
 public class LzhLister extends AbstractArchiveLister
 {
-	LhaInputStream instream;
+	private LhaInputStream instream;
 
 	LzhLister (PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
@@ -32,27 +32,26 @@ public class LzhLister extends AbstractArchiveLister
 		instream = new LhaInputStream(inf);
 	}
 
+	@Override
 	public InputStream getInputStream() {
 		return instream;
 	}
 
-	protected void getNext(boolean csum) throws IOException {
-		if (next_entry != null) {
-			return;
-		}
+	@Override
+	protected PathEntry getNext() throws IOException {
 		LhaHeader z = instream.getNextEntry();
 		if (z == null) {
-			return;
+			return null;
 		}
 		String s = z.getPath();
 		s = s.replace("\\", "/");
 		int newtype = s.endsWith("/") ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;
-		next_entry = new PathEntry(basepath.getPath() + "/" + s, newtype);
+		PathEntry next_entry = new PathEntry(getBasePath().getPath() + "/" + s, newtype);
 		next_entry.setDateLastModified(z.getLastModified().getTime());
 		next_entry.setStatus(PathEntry.DIRTY);
 		next_entry.setSize(z.getOriginalSize());
 		next_entry.setCompressedSize(z.getCompressedSize());
-		if (csum && newtype == PathEntry.COMPRESSEDFILE) {
+		if (isCsumRequested() && newtype == PathEntry.COMPRESSEDFILE) {
 			next_entry.setCsum(instream);
 		}
 		if (next_entry.getSize() < 0) {
@@ -61,10 +60,12 @@ public class LzhLister extends AbstractArchiveLister
 		if (next_entry.getCompressedSize() < 0) {
 			next_entry.setCompressedSize(next_entry.getSize());
 		}
+		return next_entry;
 	}
 
 	@Override
 	public void close() throws IOException {
+		super.close();
 		instream.close();
 	}
 }

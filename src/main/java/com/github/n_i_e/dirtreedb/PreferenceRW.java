@@ -193,7 +193,7 @@ public class PreferenceRW {
 	private static final String[] disabledByDefaultExtensionList = {"jar"};
 
 	public static HashMap<String, Boolean> getExtensionAvailabilityMap() {
-		Set<String> d1 = ArchiveListerFactory.getExtensionList();
+		Set<String> d1 = PathEntryListerFactory.getExtensionList();
 		Assertion.assertNullPointerException(d1 != null);
 		Assertion.assertNullPointerException(disabledByDefaultExtensionList != null);
 		for (String d2: disabledByDefaultExtensionList) {
@@ -208,7 +208,7 @@ public class PreferenceRW {
 		}
 
 		HashMap<String, Boolean> result = new HashMap<String, Boolean>();
-		for (String k: ArchiveListerFactory.getExtensionList()) {
+		for (String k: PathEntryListerFactory.getExtensionList()) {
 			if (r2.contains(k)) {
 				result.put(k, true);
 			} else {

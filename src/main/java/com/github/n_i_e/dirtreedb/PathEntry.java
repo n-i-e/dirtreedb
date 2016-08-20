@@ -253,11 +253,11 @@ public class PathEntry {
 			assert(parent.isFile());
 			InputStream parentStream = null;
 			while (true) {
-				IArchiveLister lister;
+				PathEntryLister lister;
 				if (parent.isFile()) {
-					lister = ArchiveListerFactory.getArchiveListerForFile(parent);
+					lister = PathEntryListerFactory.getInstance(parent);
 				} else {
-					lister = ArchiveListerFactory.getArchiveLister(parent, parentStream);
+					lister = PathEntryListerFactory.getInstance(parent, parentStream);
 				}
 				while (lister.hasNext()) {
 					PathEntry p = lister.next();

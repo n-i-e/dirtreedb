@@ -25,7 +25,7 @@ import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 
 public class ApacheCompressArchiveLister extends AbstractArchiveLister {
-	ArchiveInputStream instream;
+	private ArchiveInputStream instream;
 
 	public ApacheCompressArchiveLister(PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
@@ -38,27 +38,26 @@ public class ApacheCompressArchiveLister extends AbstractArchiveLister {
 		}
 	}
 
+	@Override
 	public InputStream getInputStream() {
 		return instream;
 	}
 
-	protected void getNext(boolean csum) throws IOException {
-		if (next_entry != null) {
-			return;
-		}
+	@Override
+	protected PathEntry getNext() throws IOException {
 		ArchiveEntry z = instream.getNextEntry();
 		if (z == null) {
-			return;
+			return null;
 		}
 		int newtype = z.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;
 		String s = z.getName();
 		s = s.replace("\\", "/");
-		next_entry = new PathEntry(basepath.getPath() + "/" + s, newtype);
+		PathEntry next_entry = new PathEntry(getBasePath().getPath() + "/" + s, newtype);
 		next_entry.setDateLastModified(z.getLastModifiedDate().getTime());
 		next_entry.setStatus(PathEntry.DIRTY);
 		next_entry.setSize(z.getSize());
 		next_entry.setCompressedSize(z.getSize());
-		if (csum && newtype == PathEntry.COMPRESSEDFILE) {
+		if (isCsumRequested() && newtype == PathEntry.COMPRESSEDFILE) {
 			next_entry.setCsum(instream);
 		}
 		if (next_entry.getSize() < 0) {
@@ -67,10 +66,12 @@ public class ApacheCompressArchiveLister extends AbstractArchiveLister {
 		if (next_entry.getCompressedSize() < 0) {
 			next_entry.setCompressedSize(next_entry.getSize());
 		}
+		return next_entry;
 	}
 
 	@Override
 	public void close() throws IOException {
+		super.close();
 		instream.close();
 	}
 }

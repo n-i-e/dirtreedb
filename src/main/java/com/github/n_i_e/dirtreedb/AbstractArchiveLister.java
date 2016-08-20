@@ -21,27 +21,26 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
-public abstract class AbstractArchiveLister implements IArchiveLister {
-	protected PathEntry basepath;
-	protected PathEntry next_entry;
+public abstract class AbstractArchiveLister extends PathEntryLister {
 
-	AbstractArchiveLister(PathEntry basepath) {
+	private PathEntry next_entry;
+
+	public AbstractArchiveLister(PathEntry basepath) {
+		super(basepath);
 		Assertion.assertNullPointerException(basepath != null);
 		Assertion.assertAssertionError(basepath.isFile() || basepath.isCompressedFile());
-		this.basepath = basepath;
 		next_entry = null;
 	}
 
-	protected abstract void getNext(boolean csum) throws IOException;
+	protected abstract PathEntry getNext() throws IOException;
 
 	private Set<String> pathnameUniquenessChecker = new HashSet<String> ();
-	private void getNextWithIntegrityCheck(boolean csum) throws IOException {
-		if (next_entry != null) {
-			getNext(csum);
-		} else {
-			getNext(csum);
+	private void getNextWithIntegrityCheck() throws IOException {
+		if (next_entry == null) {
+			next_entry = getNext();
 			if (next_entry != null) {
 				Assertion.assertIOException(!pathnameUniquenessChecker.contains(next_entry.getPath()),
 						"!! duplicate pathname: " + next_entry.getPath()
@@ -51,8 +50,15 @@ public abstract class AbstractArchiveLister implements IArchiveLister {
 		}
 	}
 
-	public boolean hasNext(boolean csum) throws IOException {
-		getNextWithIntegrityCheck(csum);
+	@Override
+	public boolean hasNext() {
+		if (getExceptionCache() != null) { return false; }
+		try {
+			getNextWithIntegrityCheck();
+		} catch (IOException e) {
+			setExceptionCache(e);
+			return false;
+		}
 		if (next_entry == null) {
 			return false;
 		} else {
@@ -60,34 +66,36 @@ public abstract class AbstractArchiveLister implements IArchiveLister {
 		}
 	}
 
-	public PathEntry next(boolean csum) throws IOException {
-		getNextWithIntegrityCheck(csum);
-
+	@Override
+	public PathEntry next() {
+		if (getExceptionCache() != null) { return null; }
+		try {
+			getNextWithIntegrityCheck();
+		} catch (IOException e) {
+			setExceptionCache(e);
+			return null;
+		}
 		PathEntry result = next_entry;
 		next_entry = null;
 		return result;
 	}
 
-	public boolean hasNext() throws IOException {
-		return hasNext(false);
-	}
-
-	public PathEntry next() throws IOException {
-		return next(false);
-	}
-
+	@Override
 	public InputStream getInputStream(PathEntry entry) throws IOException {
-		while (hasNext(false)) {
-			PathEntry p = next(false);
+		while (hasNext()) {
+			PathEntry p = next();
 			if (p.getPath().equals(entry.getPath())) {
 				return new BufferedInputStream(getInputStream());
 				// BufferedInputStream here, because I want markSupported() stream at ApacheCompressArchiveLister constructor.
 			}
 		}
 		throw new FileNotFoundException(String.format("!! Archive file not found for path %s at basepath %s",
-				entry.getPath(), basepath.getPath()));
+				entry.getPath(), getBasePath().getPath()));
 	}
 
-	public abstract void close() throws IOException;
+	@Override
+	public Iterator<PathEntry> iterator() {
+		return this;
+	}
 
 }

@@ -22,16 +22,13 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipException;
 
 public class GzLister extends AbstractCompressorLister {
-	GzLister (PathEntry basepath, InputStream inf) throws IOException
-	{
+	public GzLister (PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath, inf);
-
 		try {
-			instream = new GZIPInputStream(inf);
+			setInstream(new GZIPInputStream(inf));
 		} catch (ZipException e) {
 			inf.close();
-			instream = null;
-			next_entry = null;
+			setInstream(null);
 		}
 	}
 }

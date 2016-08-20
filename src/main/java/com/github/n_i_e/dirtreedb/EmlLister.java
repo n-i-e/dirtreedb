@@ -31,13 +31,13 @@ import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeUtility;
 
 public class EmlLister extends AbstractArchiveLister {
-	int count = 0;
-	boolean eof = false;
-	int subjectFilenameCount = 1;
-	Multipart content = null;
-	long date = 0;
-	String subject = null;
-	InputStream inf, instream = null;
+	private int count = 0;
+	private boolean eof = false;
+	private int subjectFilenameCount = 1;
+	private Multipart content = null;
+	private long date = 0;
+	private String subject = null;
+	private InputStream inf, instream = null;
 
 	public EmlLister (PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath);
@@ -45,17 +45,15 @@ public class EmlLister extends AbstractArchiveLister {
 		this.inf = inf;
 	}
 
+	@Override
 	public InputStream getInputStream() {
 		Assertion.assertNullPointerException(instream != null);
 		return instream;
 	}
 
-	protected void getNext(boolean csum) throws IOException {
-		if (next_entry != null) {
-			return;
-		} else if (eof) {
-			return;
-		}
+	@Override
+	protected PathEntry getNext() throws IOException {
+		if (eof) { return null; }
 		try {
 			if (content == null) {
 				Message msg = new MimeMessage(null, inf);
@@ -69,7 +67,7 @@ public class EmlLister extends AbstractArchiveLister {
 				} else {
 					String s = subjectToFilename(subject, msgtype, 1);
 					s = s.replace("\\", "/");
-					next_entry = new PathEntry(basepath.getPath() + "/" + s, PathEntry.COMPRESSEDFILE);
+					PathEntry next_entry = new PathEntry(getBasePath().getPath() + "/" + s, PathEntry.COMPRESSEDFILE);
 					next_entry.setDateLastModified(date);
 					next_entry.setStatus(PathEntry.DIRTY);
 					next_entry.setCompressedSize(msg.getSize());
@@ -80,11 +78,11 @@ public class EmlLister extends AbstractArchiveLister {
 					} else {
 						instream = binaryContentToInputStream(msg.getContent());
 					}
-					if (csum) {
+					if (isCsumRequested()) {
 						next_entry.setCsum(instream);
 					}
 					eof = true;
-					return;
+					return next_entry;
 				}
 			}
 
@@ -97,7 +95,7 @@ public class EmlLister extends AbstractArchiveLister {
 				filename = MimeUtility.decodeText(filename);
 			}
 			filename = filename.replace("\\", "/");
-			next_entry = new PathEntry(basepath.getPath() + "/" + filename, PathEntry.COMPRESSEDFILE);
+			PathEntry next_entry = new PathEntry(getBasePath().getPath() + "/" + filename, PathEntry.COMPRESSEDFILE);
 			next_entry.setDateLastModified(date);
 			next_entry.setStatus(PathEntry.DIRTY);
 			next_entry.setCompressedSize(part.getSize());
@@ -108,21 +106,23 @@ public class EmlLister extends AbstractArchiveLister {
 			} else {
 				instream = binaryContentToInputStream(part.getContent());
 			}
-			if (csum) {
+			if (isCsumRequested()) {
 				next_entry.setCsum(instream);
 			}
 
 			if (++count >= content.getCount()) {
 				eof = true;
 			}
+			return next_entry;
 		} catch (MessagingException e) {
 			eof = true;
+			return null;
 		}
-		return;
 	}
 
 	@Override
 	public void close() throws IOException {
+		super.close();
 		inf.close();
 	}
 

@@ -60,33 +60,33 @@ public class ZipLister extends AbstractArchiveLister {
 		ZipLister.charset = charset;
 	}
 
+	@Override
 	public InputStream getInputStream() {
 		return instream;
 	}
 
-	protected void getNext(boolean csum) throws IOException {
-		if (next_entry != null) {
-			return;
-		}
+	@Override
+	protected PathEntry getNext() throws IOException {
 		ZipEntry z;
 		try {
 			z = instream.getNextEntry();
 		} catch (ZipException e) {
-			return;
+			return null;
 		}
 		if (z == null) {
 			close();
-			return;
+			return null;
 		}
 		int newtype = z.isDirectory() ? PathEntry.COMPRESSEDFOLDER : PathEntry.COMPRESSEDFILE;
 		String s = z.getName();
 		s = s.replace("\\", "/");
-		next_entry = new PathEntry(basepath.getPath() + "/" + s, newtype);
+
+		PathEntry next_entry = new PathEntry(getBasePath().getPath() + "/" + s, newtype);
 		next_entry.setDateLastModified(z.getTime());
 		next_entry.setStatus(PathEntry.DIRTY);
 		next_entry.setSize(z.getSize());
 		next_entry.setCompressedSize(z.getCompressedSize());
-		if (csum && newtype == PathEntry.COMPRESSEDFILE) {
+		if (isCsumRequested() && newtype == PathEntry.COMPRESSEDFILE) {
 			try {
 				next_entry.setCsum(instream);
 			} catch (IOException e) { // possibly encrypted zip
@@ -99,10 +99,12 @@ public class ZipLister extends AbstractArchiveLister {
 		if (next_entry.getCompressedSize() < 0) {
 			next_entry.setCompressedSize(next_entry.getSize());
 		}
+		return next_entry;
 	}
 
 	@Override
 	public void close() throws IOException {
+		super.close();
 		instream.close();
 	}
 

@@ -23,10 +23,10 @@ import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 
 public class ApacheCompressCompressorLister extends AbstractCompressorLister {
-	ApacheCompressCompressorLister (PathEntry basepath, InputStream inf) throws IOException {
+	public ApacheCompressCompressorLister (PathEntry basepath, InputStream inf) throws IOException {
 		super(basepath, inf);
 		try {
-			instream = new CompressorStreamFactory().createCompressorInputStream(inf);
+			setInstream(new CompressorStreamFactory().createCompressorInputStream(inf));
 		} catch (CompressorException e) {
 			throw new IOException(e.toString());
 		}

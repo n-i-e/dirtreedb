@@ -643,7 +643,6 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 		public LazyQueue() {
 			super();
-			put(0L, new LazyQueueElement());
 		}
 
 		@Override
@@ -859,8 +858,8 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 								newentry.setStatus(PathEntry.DIRTY);
 							}
 						} else { // isList()
-							final IArchiveLister newfolderIter;
-							newfolderIter = ArchiveListerFactory.getArchiveListerForFile(entry);
+							final PathEntryLister newfolderIter;
+							newfolderIter = PathEntryListerFactory.getInstance(entry);
 							dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 						}
 						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
@@ -899,11 +898,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				{
 					PathEntry newentry = new PathEntry(entry);
 					try {
-						IArchiveLister newfolderIter;
+						PathEntryLister newfolderIter;
 						InputStream inf;
 
 						if (oldfolder != null) {
-							newfolderIter = ArchiveListerFactory.getArchiveLister(entry, getInputStream(stack));
+							newfolderIter = PathEntryListerFactory.getInstance(entry, getInputStream(stack));
 							dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 						} else {
 							newfolderIter = null;
@@ -1020,8 +1019,8 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 								newentry.setStatus(PathEntry.DIRTY);
 							}
 						} else {
-							final IArchiveLister newfolderIter;
-							newfolderIter = ArchiveListerFactory.getArchiveListerForFile(entry);
+							final PathEntryLister newfolderIter;
+							newfolderIter = PathEntryListerFactory.getInstance(entry);
 							dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 						}
 						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
@@ -1090,11 +1089,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				{
 					PathEntry newentry = new PathEntry(entry);
 					try {
-						IArchiveLister newfolderIter;
+						PathEntryLister newfolderIter;
 						InputStream inf;
 
 						if (oldfolder != null) {
-							newfolderIter = ArchiveListerFactory.getArchiveLister(entry, getInputStream(stack));
+							newfolderIter = PathEntryListerFactory.getInstance(entry, getInputStream(stack));
 							dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 						} else {
 							newfolderIter = null;

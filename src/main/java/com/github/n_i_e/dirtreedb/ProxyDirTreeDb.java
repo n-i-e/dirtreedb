@@ -378,11 +378,11 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					entry = stack.get(i);
 					Assertion.assertAssertionError(entry.isCompressedFile(),
 							"wrong element " + stack.get(i).getPath() + ", type=" + entry.getType());
-					IDirArchiveLister z;
+					PathEntryLister z;
 					if (parent.isFile()) {
-						z = ArchiveListerFactory.getArchiveListerForFile(parent);
+						z = PathEntryListerFactory.getInstance(parent);
 					} else {
-						z = ArchiveListerFactory.getArchiveLister(parent, parentStream);
+						z = PathEntryListerFactory.getInstance(parent, parentStream);
 					}
 					result = z.getInputStream(entry);
 					Assertion.assertAssertionError(result != null);
@@ -966,9 +966,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			}
 
 			try {
-				final IArchiveLister newfolderIter;
+				final PathEntryLister newfolderIter;
 				if (isList() && (!entry.isClean() || !dscMatch(entry, newentry))) {
-					newfolderIter = ArchiveListerFactory.getArchiveListerForFile(entry);
+					newfolderIter = PathEntryListerFactory.getInstance(entry);
 				} else {
 					newfolderIter = null;
 				}
@@ -1011,9 +1011,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			if (stack == null) { return newentry; } // orphan
 			try {
 				if (isList()) {
-					final IArchiveLister newfolderIter;
+					final PathEntryLister newfolderIter;
 					if (!entry.isClean()) {
-						newfolderIter = ArchiveListerFactory.getArchiveLister(entry, getInputStream(stack));
+						newfolderIter = PathEntryListerFactory.getInstance(entry, getInputStream(stack));
 					} else {
 						newfolderIter = null;
 					}
@@ -1140,13 +1140,13 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				DbPathEntry entry,
 				HashMap<String, DbPathEntry> oldfolder,
 				PathEntry newentry,
-				IArchiveLister newfolderIter
+				PathEntryLister newfolderIter
 				) throws InterruptedException, SQLException, IOException {
 			long t0 = new Date().getTime();
 			long count=0;
-			while (newfolderIter.hasNext(ArchiveListerFactory.isCsumRecommended(entry))) {
+			while (newfolderIter.hasNext()) {
 				Thread.sleep(0);
-				PathEntry newchild = newfolderIter.next(true);
+				PathEntry newchild = newfolderIter.next();
 				Assertion.assertAssertionError(newchild.isCompressedFolder() || newchild.isCompressedFile());
 
 				count++;
