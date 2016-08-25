@@ -125,10 +125,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		parent.delete(entry);
 	}
 
+	@Deprecated
 	protected void deleteLowPriority(final DbPathEntry entry) throws SQLException, InterruptedException {
 		delete(entry);
 	}
 
+	@Deprecated
 	protected void deleteLater(final DbPathEntry entry) throws SQLException, InterruptedException {
 		delete(entry);
 	}
@@ -335,10 +337,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return result;
 	}
 
-	public HashMap<String, DbPathEntry> childrenList(DbPathEntry entry) throws SQLException, InterruptedException {
+	public Map<String, DbPathEntry> childrenList(DbPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 
-		HashMap<String, DbPathEntry> result = new HashMap<String, DbPathEntry>();
+		Map<String, DbPathEntry> result = new HashMap<String, DbPathEntry>();
 
 		PreparedStatement ps = prepareStatement("SELECT * FROM directory WHERE parentid=?");
 		ps.setLong(1, entry.getPathId());
@@ -436,12 +438,8 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	/*
 	 * An orphan entry is a DIRECTORY entry with invalid PARENTID (there is no row with PATHID of that number).
 	 */
-	public static interface CleanupOrphansCallback {
-		public boolean isEol() throws SQLException, InterruptedException;
-	}
-
 	private int cleanupOrphans(PreparedStatement ps,
-			CleanupOrphansCallback runnable, boolean noLazy)
+			IsEol isEol, boolean noLazy)
 					throws SQLException, InterruptedException {
 		try {
 			ResultSet rs = ps.executeQuery();
@@ -456,8 +454,8 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 						deleteLater(rsToPathEntry(rs));
 					}
 					count++;
-					if (runnable != null) {
-						if (runnable.isEol()) {
+					if (isEol != null) {
+						if (isEol.isEol()) {
 							return count;
 						}
 					}
@@ -471,8 +469,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		}
 	}
 
-	private int cleanupOrphans(String path,
-			CleanupOrphansCallback runnable, boolean noLazy)
+	private int cleanupOrphans(String path, IsEol isEol, boolean noLazy)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		Assertion.assertNullPointerException(path != null);
@@ -480,7 +477,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
 		ps = prepareStatement(sql);
 		ps.setString(1, path);
-		return cleanupOrphans(ps, runnable, noLazy);
+		return cleanupOrphans(ps, isEol, noLazy);
 	}
 
 	public int cleanupOrphansNow(String path) throws SQLException, InterruptedException {
@@ -491,7 +488,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return cleanupOrphans(path, null, false);
 	}
 
-	private int cleanupOrphans(int type, boolean hasChildren, CleanupOrphansCallback runnable, boolean noLazy)
+	private int cleanupOrphans(int type, boolean hasChildren, IsEol isEol, boolean noLazy)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		Assertion.assertAssertionError(type >= 0 && type <= 3);
@@ -500,56 +497,56 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				+ (hasChildren ? " AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)" : "");
 		ps = prepareStatement(sql);
 		ps.setInt(1, type);
-		return cleanupOrphans(ps, runnable, noLazy);
+		return cleanupOrphans(ps, isEol, noLazy);
 	}
 
-	public int cleanupOrphansWithChildren(int type, CleanupOrphansCallback runnable)
+	public int cleanupOrphansWithChildren(int type, IsEol isEol)
 					throws SQLException, InterruptedException {
-		return cleanupOrphans(type, true, runnable, false);
+		return cleanupOrphans(type, true, isEol, false);
 	}
 
 	public int cleanupOrphans(int type) throws SQLException, InterruptedException {
 		return cleanupOrphans(type, false, null, false);
 	}
 
-	private int cleanupOrphansWithoutChildren(CleanupOrphansCallback runnable, boolean noLazy)
+	private int cleanupOrphansWithoutChildren(IsEol isEol, boolean noLazy)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 "
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid) "
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)";
 		ps = prepareStatement(sql);
-		return cleanupOrphans(ps, runnable, noLazy);
+		return cleanupOrphans(ps, isEol, noLazy);
 	}
 
-	public int cleanupOrphansWithoutChildren(CleanupOrphansCallback runnable)
+	public int cleanupOrphansWithoutChildren(IsEol isEol)
 			throws SQLException, InterruptedException {
-		return cleanupOrphansWithoutChildren(runnable, false);
+		return cleanupOrphansWithoutChildren(isEol, false);
 	}
 
-	private int cleanupOrphans(boolean hasChildren, CleanupOrphansCallback runnable, boolean noLazy)
+	private int cleanupOrphans(boolean hasChildren, IsEol isEol, boolean noLazy)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 "
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)"
 				+ (hasChildren ? " AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)" : "");
 		ps = prepareStatement(sql);
-		return cleanupOrphans(ps, runnable, noLazy);
+		return cleanupOrphans(ps, isEol, noLazy);
 	}
 
-	public int cleanupOrphansWithChildren(CleanupOrphansCallback runnable)
+	public int cleanupOrphansWithChildren(IsEol isEol)
 			throws SQLException, InterruptedException {
-		return cleanupOrphans(true, runnable, false);
+		return cleanupOrphans(true, isEol, false);
 	}
 
-	public int cleanupOrphansWithChildrenNow(CleanupOrphansCallback runnable)
+	public int cleanupOrphansWithChildrenNow(IsEol isEol)
 			throws SQLException, InterruptedException {
-		return cleanupOrphans(true, runnable, true);
+		return cleanupOrphans(true, isEol, true);
 	}
 
-	public int cleanupOrphans(CleanupOrphansCallback runnable)
+	public int cleanupOrphans(IsEol isEol)
 			throws SQLException, InterruptedException {
-		return cleanupOrphans(false, runnable, false);
+		return cleanupOrphans(false, isEol, false);
 	}
 
 	public int cleanupOrphans() throws SQLException, InterruptedException {
@@ -588,20 +585,19 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	public int refreshDirectUpperLower() throws SQLException, InterruptedException {
-		return refreshDirectUpperLower((RunnableWithException2<SQLException, InterruptedException>)null);
+		return refreshDirectUpperLower((IsEol)null);
 	}
 
-	public int refreshDirectUpperLower(RunnableWithException2<SQLException, InterruptedException> runnable)
+	public int refreshDirectUpperLower(IsEol isEol)
 			throws SQLException, InterruptedException {
-		return refreshDirectUpperLower(null, runnable);
+		return refreshDirectUpperLower(null, isEol);
 	}
 
 	public int refreshDirectUpperLower(Set<Long> dontListRootIds) throws SQLException, InterruptedException {
 		return refreshDirectUpperLower(dontListRootIds, null);
 	}
 
-	public int refreshDirectUpperLower(Set<Long> dontListRootIds,
-			RunnableWithException2<SQLException, InterruptedException> runnable)
+	public int refreshDirectUpperLower(Set<Long> dontListRootIds, IsEol isEol)
 			throws SQLException, InterruptedException {
 		threadHook();
 		Statement stmt = createStatement();
@@ -616,10 +612,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				while (rs.next()) {
 					threadHook();
 					insertUpperLower(rs.getLong("parentid"), rs.getLong("pathid"), 1);
-					if (runnable != null) {
-						runnable.run();
-					}
 					count++;
+					if (isEol != null) {
+						if (isEol.isEol()) {
+							return count;
+						}
+					}
 				}
 			} finally {
 				rs.close();
@@ -627,27 +625,23 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		} finally {
 			stmt.close();
 		}
-		if (count == 0 && runnable != null) {
-			runnable.run();
-		}
 		return count;
 	}
 
 	public int refreshIndirectUpperLower() throws SQLException, InterruptedException {
-		return refreshIndirectUpperLower((RunnableWithException2<SQLException, InterruptedException>)null);
+		return refreshIndirectUpperLower((IsEol)null);
 	}
 
-	public int refreshIndirectUpperLower(RunnableWithException2<SQLException, InterruptedException> runnable)
+	public int refreshIndirectUpperLower(IsEol isEol)
 					throws SQLException, InterruptedException {
-		return refreshIndirectUpperLower(null, runnable);
+		return refreshIndirectUpperLower(null, isEol);
 	}
 
 	public int refreshIndirectUpperLower(Set<Long> dontListRootIds) throws SQLException, InterruptedException {
 		return refreshIndirectUpperLower(dontListRootIds, null);
 	}
 
-	public int refreshIndirectUpperLower(Set<Long> dontListRootIds,
-			RunnableWithException2<SQLException, InterruptedException> runnable)
+	public int refreshIndirectUpperLower(Set<Long> dontListRootIds, IsEol isEol)
 					throws SQLException, InterruptedException {
 		Statement stmt = createStatement();
 		int count = 0;
@@ -671,19 +665,18 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 						threadHook();
 						insertUpperLower(u, l, rs.getInt("distance"));
 					}
-					if (runnable != null) {
-						runnable.run();
-					}
 					count++;
+					if (isEol != null) {
+						if (isEol.isEol()) {
+							return count;
+						}
+					}
 				}
 			} finally {
 				rs.close();
 			}
 		} finally {
 			stmt.close();
-		}
-		if (count == 0 && runnable != null) {
-			runnable.run();
 		}
 		return count;
 	}
@@ -712,7 +705,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return refreshFolderSizes(null);
 	}
 
-	public int refreshFolderSizes(RunnableWithException2<SQLException, InterruptedException> runnable)
+	public int refreshFolderSizes(IsEol isEol)
 			throws SQLException, InterruptedException {
 		Statement stmt = createStatement();
 		ResultSet rs = stmt.executeQuery("SELECT d1.*, newsize, newcompressedsize FROM "
@@ -729,13 +722,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				newentry.setSize(rs.getLong("newsize"));
 				newentry.setCompressedSize(rs.getLong("newcompressedsize"));
 				update(entry, newentry);
-				if (runnable != null) {
-					runnable.run();
-				}
 				count++;
-			}
-			if (count == 0 && runnable != null) {
-				runnable.run();
+				if (isEol != null) {
+					if (isEol.isEol()) {
+						return count;
+					}
+				}
 			}
 			return count;
 		} finally {
@@ -744,11 +736,11 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		}
 	}
 
-	public void refreshDuplicateFields() throws InterruptedException, SQLException {
-		refreshDuplicateFields(null);
+	public int refreshDuplicateFields() throws InterruptedException, SQLException {
+		return refreshDuplicateFields(null);
 	}
 
-	public int refreshDuplicateFields(RunnableWithException2<SQLException, InterruptedException> runnable)
+	public int refreshDuplicateFields(IsEol isEol)
 			throws InterruptedException, SQLException {
 		threadHook();
 
@@ -769,10 +761,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				while (rs.next()) {
 					threadHook();
 					updateDuplicateFields(rs.getLong("pathid"), rs.getLong("newduplicate"), rs.getLong("newdedupablesize"));
-					if (runnable != null) {
-						runnable.run();
-					}
 					count++;
+					if (isEol != null) {
+						if (isEol.isEol()) {
+							return count;
+						}
+					}
 				}
 			} finally {
 				rs.close();
@@ -789,19 +783,18 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				while (rs.next()) {
 					threadHook();
 					updateDuplicateFields(rs.getLong("pathid"), 0, 0);
-					if (runnable != null) {
-						runnable.run();
-					}
 					count++;
+					if (isEol != null) {
+						if (isEol.isEol()) {
+							return count;
+						}
+					}
 				}
 			} finally {
 				rs.close();
 			}
 		} finally {
 			stmt2.close();
-		}
-		if (count == 0 && runnable != null) {
-			runnable.run();
 		}
 		return count;
 	}
@@ -969,11 +962,13 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				final PathEntryLister newfolderIter;
 				if (isList() && (!entry.isClean() || !dscMatch(entry, newentry))) {
 					newfolderIter = PathEntryListerFactory.getInstance(entry);
+					newfolderIter.setCsumRequested(PathEntryListerFactory.isCsumRecommended(entry));
+
 				} else {
 					newfolderIter = null;
 				}
 
-				final HashMap<String, DbPathEntry> oldfolder;
+				final Map<String, DbPathEntry> oldfolder;
 				if (!isList() || newfolderIter == null) {
 					oldfolder = null;
 				} else if (isNoChildInDb()) {
@@ -1014,11 +1009,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					final PathEntryLister newfolderIter;
 					if (!entry.isClean()) {
 						newfolderIter = PathEntryListerFactory.getInstance(entry, getInputStream(stack));
+						newfolderIter.setCsumRequested(PathEntryListerFactory.isCsumRecommended(entry));
 					} else {
 						newfolderIter = null;
 					}
 
-					final HashMap<String, DbPathEntry> oldfolder;
+					final Map<String, DbPathEntry> oldfolder;
 					if (newfolderIter == null) {
 						oldfolder = null;
 					} else if (isNoChildInDb()) {
@@ -1138,7 +1134,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 
 		protected void dispatchFileListCore(
 				DbPathEntry entry,
-				HashMap<String, DbPathEntry> oldfolder,
+				Map<String, DbPathEntry> oldfolder,
 				PathEntry newentry,
 				PathEntryLister newfolderIter
 				) throws InterruptedException, SQLException, IOException {
@@ -1147,7 +1143,9 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			while (newfolderIter.hasNext()) {
 				Thread.sleep(0);
 				PathEntry newchild = newfolderIter.next();
-				Assertion.assertAssertionError(newchild.isCompressedFolder() || newchild.isCompressedFile());
+				Assertion.assertNullPointerException(newchild != null, "newchild is null, entry=" + entry.getPath());
+				Assertion.assertAssertionError(newchild.isCompressedFolder() || newchild.isCompressedFile(),
+						"newchild type error: " + newchild.getType() + " is not CompressedFolder nor CompressedFile, entry=" + entry.getPath());
 
 				count++;
 				long t1 = new Date().getTime();
@@ -1272,31 +1270,21 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				} else {
 					if (!isEqual) {
 						writelog("!! WARNING NOT EQUAL");
+						if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
+							deleteEquality(entry1.getPathId(), entry2.getPathId());
+						}
 					} else {
 						writelog("!! EQUAL, BUT SIZE CHANGED "+entry1.getSize()+"->"+count);
 					}
-					writelog(entry1.getPath());
-					writelog(entry2.getPath());
-					if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
-						deleteEquality(entry1.getPathId(), entry2.getPathId());
-					}
-					re = entry1;
-					PathEntry newentry1 = getNewPathEntry(entry1);
-					stream1 = getInputStream(stack1);
-					newentry1.setCsumAndClose(stream1);
-					if (newentry1.isNoAccess()) {
-						newentry1.setStatus(PathEntry.DIRTY);
-					}
-					update(entry1, newentry1);
 
+					writelog(entry1.getPath());
+					re = entry1;
+					unsetClean(entry1.getParentId());
+
+					writelog(entry2.getPath());
 					re = entry2;
-					PathEntry newentry2 = getNewPathEntry(entry2);
-					stream2 = getInputStream(stack2);
-					newentry2.setCsumAndClose(stream2);
-					if (newentry2.isNoAccess()) {
-						newentry2.setStatus(PathEntry.DIRTY);
-					}
-					update(entry2, newentry2);
+					unsetClean(entry2.getParentId());
+
 					re = null;
 					return false;
 				}

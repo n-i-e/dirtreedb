@@ -42,11 +42,7 @@ public abstract class PathEntryLister implements Iterator<PathEntry>, Iterable<P
 
 	public PathEntryLister(PathEntry basepath) {
 		setBasePath(basepath);
-		if (basepath == null) {
-			setCsumRequested(false);
-		} else if (basepath.isFile() || basepath.isCompressedFile()) {
-			setCsumRequested(PathEntryListerFactory.isCsumRecommended(basepath));
-		}
+		setCsumRequested(false);
 	}
 
 	private IOException exceptionCache = null;

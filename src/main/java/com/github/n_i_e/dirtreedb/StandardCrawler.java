@@ -162,6 +162,19 @@ public class StandardCrawler extends LazyAccessorThread {
 		return result;
 	}
 
+	private final IsEol isEol =
+			new IsEol() {
+		@Override
+		public boolean isEol() throws SQLException, InterruptedException {
+			if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
+					|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_LIMIT) {
+				return true;
+			} else {
+				return false;
+			}
+		}
+	};
+
 	private interface Scheduler {
 		abstract void init();
 		abstract void schedule(boolean doAllAtOnce) throws SQLException, InterruptedException, IOException;
@@ -379,9 +392,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					if (useLastPathId) {
 						lastPathId = f.getPathId();
 					}
-					if (getDb().getInsertableQueueSize() >= insertableQueueSizeLimit
-							|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
-							) {
+					if (getDb().getInsertableQueueSize() >= insertableQueueSizeLimit || isEol.isEol()) {
 						return count;
 					}
 				}
@@ -545,8 +556,7 @@ public class StandardCrawler extends LazyAccessorThread {
 						lastPathId = f.getPathId();
 					}
 					if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD
-							|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
-							) {
+							|| isEol.isEol()) {
 						break;
 					}
 				}
@@ -575,7 +585,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					count++;
 					lastPathId = f.getPathId();
 					if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD
-							|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
+							|| isEol.isEol()
 							) {
 						break;
 					}
@@ -604,7 +614,7 @@ public class StandardCrawler extends LazyAccessorThread {
 					disp.checkEquality(p1, p2, disp.CHECKEQUALITY_UPDATE);
 					count++;
 					if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD
-							|| getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
+							|| isEol.isEol()
 							) {
 						break;
 					}
@@ -621,13 +631,6 @@ public class StandardCrawler extends LazyAccessorThread {
 	private class ScheduleUpdates implements Scheduler {
 		private int roundrobinState = 0;
 		private int repeatCounter = 0;
-		private final RunnableWithException2<SQLException, InterruptedException> consumeSomeUpdateQueueRunner =
-				new RunnableWithException2<SQLException, InterruptedException>() {
-			@Override
-			public void run() throws InterruptedException, SQLException {
-				consumeSomeUpdateQueue();
-			}
-		};
 
 		@Override
 		public void init() {
@@ -644,7 +647,7 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (roundrobinState == 0) {
 				writelog2("*** refresh upperlower entries (1/2) ***");
-				int c = getDb().refreshDirectUpperLower(consumeSomeUpdateQueueRunner);
+				int c = getDb().refreshDirectUpperLower(isEol);
 				writelog2("*** refresh upperlower entries (1/2) finished count=" + c + " ***");
 
 				if (doAllAtOnce) {
@@ -655,7 +658,7 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (roundrobinState == 1) {
 				writelog2("*** refresh upperlower entries (2/2) ***");
-				int c = getDb().refreshIndirectUpperLower(consumeSomeUpdateQueueRunner);
+				int c = getDb().refreshIndirectUpperLower(isEol);
 				writelog2("*** refresh upperlower entries (2/2) finished count=" + c + " ***");
 				if (doAllAtOnce) {
 					consumeSomeUpdateQueue();
@@ -693,7 +696,7 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (roundrobinState == 4) {
 				writelog2("*** refresh duplicate fields ***");
-				int c = getDb().refreshDuplicateFields(consumeSomeUpdateQueueRunner);
+				int c = getDb().refreshDuplicateFields(isEol);
 				writelog2("*** refresh duplicate fields finished count=" + c + " ***");
 
 				if (doAllAtOnce) {
@@ -705,7 +708,7 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (roundrobinState == 5) {
 				writelog2("*** refresh directory sizes ***");
-				int c = getDb().refreshFolderSizes(consumeSomeUpdateQueueRunner);
+				int c = getDb().refreshFolderSizes(isEol);
 				writelog2("*** refresh directory sizes finished count=" + c + " ***");
 
 				if (doAllAtOnce) {
@@ -720,13 +723,18 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 
 			if (roundrobinState == 6) {
-				writelog2("*** cleanup upperlower orphans ***");
-				int c = cleanupUpperLowerOrphans();
-				writelog2("*** cleanup upperlower orphans finished count=" + c + " ***");
+				writelog2("*** cleanup orphans ***");
+				int c = cleanupOrphans();
+				writelog2("*** cleanup orphans finished count=" + c + " ***");
 
 				if (doAllAtOnce) {
 					consumeSomeUpdateQueue();
 					roundrobinState++;
+				} else if (c>0  && repeatCounter < 10) {
+					roundrobinState--;
+					repeatCounter++;
+				} else {
+					repeatCounter = 0;
 				}
 			}
 
@@ -738,21 +746,25 @@ public class StandardCrawler extends LazyAccessorThread {
 				if (doAllAtOnce) {
 					consumeSomeUpdateQueue();
 					roundrobinState++;
+				} else if (c>0) {
+					roundrobinState--;
+				} else {
+					repeatCounter = 0;
 				}
 			}
 
 			if (roundrobinState == 8) {
-				if (getDb().getUpdateQueueSize(1) > 0) {
-					writelog2("*** SKIP cleanup orphans ***");
-				} else {
-					writelog2("*** cleanup orphans ***");
-					int c = cleanupOrphans();
-					writelog2("*** cleanup orphans finished count=" + c + " ***");
-				}
+				writelog2("*** cleanup upperlower orphans ***");
+				int c = cleanupUpperLowerOrphans();
+				writelog2("*** cleanup upperlower orphans finished count=" + c + " ***");
 
 				if (doAllAtOnce) {
 					consumeSomeUpdateQueue();
 					roundrobinState++;
+				} else if (c>0) {
+					roundrobinState--;
+				} else {
+					repeatCounter = 0;
 				}
 			}
 
@@ -807,6 +819,9 @@ public class StandardCrawler extends LazyAccessorThread {
 						getDb().updateStatus(f, PathEntry.DIRTY);
 						getDb().orphanizeChildren(f);
 						count++;
+						if (isEol.isEol()) {
+							return count;
+						}
 					}
 				} finally {
 					rs.close();
@@ -816,21 +831,8 @@ public class StandardCrawler extends LazyAccessorThread {
 			}
 		}
 
-		private final ProxyDirTreeDb.CleanupOrphansCallback cleanupOrphansCallbackRunner =
-				new ProxyDirTreeDb.CleanupOrphansCallback() {
-			@Override
-			public boolean isEol() throws SQLException, InterruptedException {
-				if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
-						|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_LIMIT) {
-					return true;
-				} else {
-					return false;
-				}
-			}
-		};
-
 		private int cleanupOrphans() throws SQLException, InterruptedException {
-			return getDb().cleanupOrphans(cleanupOrphansCallbackRunner);
+			return getDb().cleanupOrphans(isEol);
 		}
 
 		private int cleanupUpperLowerOrphans()
@@ -845,9 +847,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				while (rs.next()) {
 					getDb().deleteUpperLower(rs.getLong("upper"), rs.getLong("lower"));
 					count ++;
-					if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT) {
-						break;
-					}
+					if (isEol.isEol()) { break; }
 				}
 				return count;
 			} finally {
@@ -867,9 +867,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				while (rs.next()) {
 					getDb().deleteUpperLower(rs.getLong("pathid1"), rs.getLong("pathid2"));
 					count ++;
-					if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT) {
-						break;
-					}
+					if (isEol.isEol()) { break; }
 				}
 				return count;
 			} finally {
@@ -888,11 +886,9 @@ public class StandardCrawler extends LazyAccessorThread {
 				int count = 0;
 				while (rs.next()) {
 					DbPathEntry entry = getDb().rsToPathEntry(rs);
-					getDb().orphanizeLater(entry);
+					getDb().orphanize(entry);
 					count ++;
-					if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT) {
-						break;
-					}
+					if (isEol.isEol()) { break; }
 				}
 				return count;
 			} finally {
