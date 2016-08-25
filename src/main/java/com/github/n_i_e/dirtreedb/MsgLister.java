@@ -66,7 +66,7 @@ public class MsgLister extends AbstractArchiveLister {
 
 				instream = new ByteArrayInputStreamWithCascadingClose(body);
 				if (isCsumRequested()) {
-					next_entry.setCsumAndClose(instream);
+					next_entry.setCsum(instream);
 				}
 				content = msg.getAttachmentFiles();
 				return next_entry;
