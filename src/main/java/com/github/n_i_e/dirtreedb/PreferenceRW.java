@@ -20,16 +20,16 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.prefs.Preferences;
 
 public class PreferenceRW {
 
-	private static Set<IPreferenceSyncUpdate> updaters = new HashSet<IPreferenceSyncUpdate>();
-	public static synchronized void regist(IPreferenceSyncUpdate updater) {
+	private static Set<IPreferenceSyncUpdate> updaters = new CopyOnWriteArraySet<IPreferenceSyncUpdate>();
+	public static void regist(IPreferenceSyncUpdate updater) {
 		Assertion.assertNullPointerException(updater != null);
 		updaters.add(updater);
 		updater.setDbFilePath(getDbFilePath());
@@ -38,7 +38,7 @@ public class PreferenceRW {
 		updater.setWindowsIdleSeconds(getWindowsIdleSeconds());
 	}
 
-	public static synchronized boolean unregist(IPreferenceSyncUpdate updater) {
+	public static boolean unregist(IPreferenceSyncUpdate updater) {
 		Assertion.assertNullPointerException(updater != null);
 		return updaters.remove(updater);
 	}
