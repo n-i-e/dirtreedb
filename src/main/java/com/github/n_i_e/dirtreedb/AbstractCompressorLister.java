@@ -31,7 +31,16 @@ public abstract class AbstractCompressorLister extends PathEntryLister {
 	}
 
 	protected void setInstream(InputStream instream) {
+		Assertion.assertNullPointerException(instream != null);
 		this.instream = instream;
+
+		if (isCsumRequested()) {
+			try {
+				next_entry.setCsum(getInputStream());
+			} catch (IOException e) {
+				setExceptionCache(e);
+			}
+		}
 	}
 
 	public AbstractCompressorLister(PathEntry basepath, InputStream inf) {
@@ -82,14 +91,6 @@ public abstract class AbstractCompressorLister extends PathEntryLister {
 		if (getExceptionCache() != null || next_entry == null || getInstream() == null) {
 			return null;
 		} else {
-			if (isCsumRequested()) {
-				try {
-					next_entry.setCsum(getInputStream());
-				} catch (IOException e) {
-					setExceptionCache(e);
-					return null;
-				}
-			}
 			PathEntry result = next_entry;
 			next_entry = null;
 			return result;
