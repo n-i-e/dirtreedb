@@ -740,7 +740,7 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (roundrobinState == 7) {
 				writelog2("*** cleanup equality orphans ***");
-				int c = cleanupEqualityOrphans();
+				int c = getDb().cleanupEqualityOrphans(isEol);
 				writelog2("*** cleanup equality orphans finished count=" + c + " ***");
 
 				if (doAllAtOnce) {
@@ -755,7 +755,7 @@ public class StandardCrawler extends LazyAccessorThread {
 
 			if (roundrobinState == 8) {
 				writelog2("*** cleanup upperlower orphans ***");
-				int c = cleanupUpperLowerOrphans();
+				int c = getDb().cleanupEqualityOrphans(isEol);
 				writelog2("*** cleanup upperlower orphans finished count=" + c + " ***");
 
 				if (doAllAtOnce) {
@@ -833,47 +833,6 @@ public class StandardCrawler extends LazyAccessorThread {
 
 		private int cleanupOrphans() throws SQLException, InterruptedException {
 			return getDb().cleanupOrphans(isEol);
-		}
-
-		private int cleanupUpperLowerOrphans()
-				throws SQLException, InterruptedException {
-			String sql = "SELECT * FROM upperlower "
-					+ "WHERE NOT EXISTS (SELECT * FROM directory WHERE upper=pathid) "
-					+ "OR NOT EXISTS (SELECT * FROM directory WHERE lower=pathid)";
-			PreparedStatement ps = getDb().prepareStatement(sql);
-			ResultSet rs = ps.executeQuery();
-			try {
-				int count = 0;
-				while (rs.next()) {
-					getDb().deleteUpperLower(rs.getLong("upper"), rs.getLong("lower"));
-					count ++;
-					if (isEol.isEol()) { break; }
-				}
-				return count;
-			} finally {
-				rs.close();
-				ps.close();
-			}
-		}
-
-		private int cleanupEqualityOrphans() throws SQLException, InterruptedException {
-			String sql = "SELECT * FROM equality "
-					+ "WHERE NOT EXISTS (SELECT * FROM directory WHERE pathid1=pathid) "
-					+ "OR NOT EXISTS (SELECT * FROM directory WHERE pathid2=pathid)";
-			PreparedStatement ps = getDb().prepareStatement(sql);
-			ResultSet rs = ps.executeQuery();
-			try {
-				int count = 0;
-				while (rs.next()) {
-					getDb().deleteUpperLower(rs.getLong("pathid1"), rs.getLong("pathid2"));
-					count ++;
-					if (isEol.isEol()) { break; }
-				}
-				return count;
-			} finally {
-				rs.close();
-				ps.close();
-			}
 		}
 
 		private int orphanizeOrphansChildren() throws SQLException, InterruptedException {
