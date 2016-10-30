@@ -435,6 +435,47 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return null;
 	}
 
+	public int cleanupEqualityOrphans(IsEol isEol) throws SQLException, InterruptedException {
+		String sql = "SELECT * FROM equality "
+				+ "WHERE NOT EXISTS (SELECT * FROM directory WHERE pathid1=pathid) "
+				+ "OR NOT EXISTS (SELECT * FROM directory WHERE pathid2=pathid)";
+		PreparedStatement ps = prepareStatement(sql);
+		ResultSet rs = ps.executeQuery();
+		try {
+			int count = 0;
+			while (rs.next()) {
+				deleteUpperLower(rs.getLong("pathid1"), rs.getLong("pathid2"));
+				count ++;
+				if (isEol.isEol()) { break; }
+			}
+			return count;
+		} finally {
+			rs.close();
+			ps.close();
+		}
+	}
+
+	public int cleanupUpperLowerOrphans(IsEol isEol)
+			throws SQLException, InterruptedException {
+		String sql = "SELECT * FROM upperlower "
+				+ "WHERE NOT EXISTS (SELECT * FROM directory WHERE upper=pathid) "
+				+ "OR NOT EXISTS (SELECT * FROM directory WHERE lower=pathid)";
+		PreparedStatement ps = prepareStatement(sql);
+		ResultSet rs = ps.executeQuery();
+		try {
+			int count = 0;
+			while (rs.next()) {
+				deleteUpperLower(rs.getLong("upper"), rs.getLong("lower"));
+				count ++;
+				if (isEol.isEol()) { break; }
+			}
+			return count;
+		} finally {
+			rs.close();
+			ps.close();
+		}
+	}
+
 	/*
 	 * An orphan entry is a DIRECTORY entry with invalid PARENTID (there is no row with PATHID of that number).
 	 */
@@ -480,10 +521,12 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return cleanupOrphans(ps, isEol, noLazy);
 	}
 
+	@Deprecated
 	public int cleanupOrphansNow(String path) throws SQLException, InterruptedException {
 		return cleanupOrphans(path, null, true);
 	}
 
+	@Deprecated
 	public int cleanupOrphans(String path) throws SQLException, InterruptedException {
 		return cleanupOrphans(path, null, false);
 	}
@@ -500,11 +543,13 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return cleanupOrphans(ps, isEol, noLazy);
 	}
 
+	@Deprecated
 	public int cleanupOrphansWithChildren(int type, IsEol isEol)
 					throws SQLException, InterruptedException {
 		return cleanupOrphans(type, true, isEol, false);
 	}
 
+	@Deprecated
 	public int cleanupOrphans(int type) throws SQLException, InterruptedException {
 		return cleanupOrphans(type, false, null, false);
 	}
@@ -539,6 +584,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return cleanupOrphans(true, isEol, false);
 	}
 
+	@Deprecated
 	public int cleanupOrphansWithChildrenNow(IsEol isEol)
 			throws SQLException, InterruptedException {
 		return cleanupOrphans(true, isEol, true);
