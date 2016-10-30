@@ -113,12 +113,6 @@ public abstract class LazyAccessorThread {
 		return getConf().getLazyDirTreeDb();
 	}
 
-	// old-fashioned, but not deprecated yet; modern LazyProxyDirTreeDb is not lazy when iAmLazyAccessorThread()
-	protected AbstractDirTreeDb getSingleThreadDB() {
-		Assertion.assertAssertionError((LazyAccessorThread.RunnerThread)Thread.currentThread() != null);
-		return getConf().getLazyDirTreeDb();
-	}
-
 	protected StackingLock getLock() {
 		Assertion.assertAssertionError((LazyAccessorThread.RunnerThread)Thread.currentThread() != null);
 		return getConf().getLock();
