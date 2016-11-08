@@ -165,7 +165,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	 * always pushes request on the updatequeue (i.e. lazy).
 	 * iAmLazyAccessorThread() or not is not considered.
 	 */
-	@Deprecated @Override
+	@Override
 	protected void deleteLater(final DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
 		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
@@ -179,7 +179,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	 * always pushes request on low priority updatequeue (i.e. lazy).
 	 * iAmLazyAccessorThread() or not is not considered.
 	 */
-	@Deprecated @Override
+	@Override
 	protected void deleteLowPriority(final DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
 		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {

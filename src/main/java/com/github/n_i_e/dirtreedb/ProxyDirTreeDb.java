@@ -125,12 +125,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		parent.delete(entry);
 	}
 
-	@Deprecated
 	protected void deleteLowPriority(final DbPathEntry entry) throws SQLException, InterruptedException {
 		delete(entry);
 	}
 
-	@Deprecated
 	protected void deleteLater(final DbPathEntry entry) throws SQLException, InterruptedException {
 		delete(entry);
 	}
@@ -479,8 +477,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	/*
 	 * An orphan entry is a DIRECTORY entry with invalid PARENTID (there is no row with PATHID of that number).
 	 */
-	private int cleanupOrphans(PreparedStatement ps,
-			IsEol isEol, boolean noLazy)
+	private int cleanupOrphans(PreparedStatement ps, IsEol isEol)
 					throws SQLException, InterruptedException {
 		try {
 			ResultSet rs = ps.executeQuery();
@@ -488,12 +485,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				int count = 0;
 				while (rs.next()) {
 					threadHook();
-					if (noLazy) {
-						writelog("cleanupOrphans: deleting now " + rsToPathEntry(rs).getPath());
-						delete(rsToPathEntry(rs));
-					} else {
-						deleteLater(rsToPathEntry(rs));
-					}
+					deleteLater(rsToPathEntry(rs));
 					count++;
 					if (isEol != null) {
 						if (isEol.isEol()) {
@@ -510,7 +502,8 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		}
 	}
 
-	private int cleanupOrphans(String path, IsEol isEol, boolean noLazy)
+	@Deprecated
+	private int cleanupOrphans(String path, IsEol isEol)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		Assertion.assertNullPointerException(path != null);
@@ -518,85 +511,46 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
 		ps = prepareStatement(sql);
 		ps.setString(1, path);
-		return cleanupOrphans(ps, isEol, noLazy);
-	}
-
-	@Deprecated
-	public int cleanupOrphansNow(String path) throws SQLException, InterruptedException {
-		return cleanupOrphans(path, null, true);
+		return cleanupOrphans(ps, isEol);
 	}
 
 	@Deprecated
 	public int cleanupOrphans(String path) throws SQLException, InterruptedException {
-		return cleanupOrphans(path, null, false);
-	}
-
-	private int cleanupOrphans(int type, boolean hasChildren, IsEol isEol, boolean noLazy)
-					throws SQLException, InterruptedException {
-		PreparedStatement ps;
-		Assertion.assertAssertionError(type >= 0 && type <= 3);
-		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 AND type=? "
-				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)"
-				+ (hasChildren ? " AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)" : "");
-		ps = prepareStatement(sql);
-		ps.setInt(1, type);
-		return cleanupOrphans(ps, isEol, noLazy);
+		return cleanupOrphans(path, null);
 	}
 
 	@Deprecated
-	public int cleanupOrphansWithChildren(int type, IsEol isEol)
-					throws SQLException, InterruptedException {
-		return cleanupOrphans(type, true, isEol, false);
-	}
-
-	@Deprecated
-	public int cleanupOrphans(int type) throws SQLException, InterruptedException {
-		return cleanupOrphans(type, false, null, false);
-	}
-
-	private int cleanupOrphansWithoutChildren(IsEol isEol, boolean noLazy)
+	public int cleanupOrphansWithoutChildren(IsEol isEol)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 "
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid) "
 				+ "AND NOT EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)";
 		ps = prepareStatement(sql);
-		return cleanupOrphans(ps, isEol, noLazy);
+		return cleanupOrphans(ps, isEol);
 	}
 
-	public int cleanupOrphansWithoutChildren(IsEol isEol)
-			throws SQLException, InterruptedException {
-		return cleanupOrphansWithoutChildren(isEol, false);
-	}
-
-	private int cleanupOrphans(boolean hasChildren, IsEol isEol, boolean noLazy)
+	public int cleanupOrphans(IsEol isEol)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;
 		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 "
-				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)"
-				+ (hasChildren ? " AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)" : "");
+				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
 		ps = prepareStatement(sql);
-		return cleanupOrphans(ps, isEol, noLazy);
+		return cleanupOrphans(ps, isEol);
 	}
 
 	public int cleanupOrphansWithChildren(IsEol isEol)
 			throws SQLException, InterruptedException {
-		return cleanupOrphans(true, isEol, false);
-	}
-
-	@Deprecated
-	public int cleanupOrphansWithChildrenNow(IsEol isEol)
-			throws SQLException, InterruptedException {
-		return cleanupOrphans(true, isEol, true);
-	}
-
-	public int cleanupOrphans(IsEol isEol)
-			throws SQLException, InterruptedException {
-		return cleanupOrphans(false, isEol, false);
+		PreparedStatement ps;
+		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 "
+				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid) "
+				+ "AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)";
+		ps = prepareStatement(sql);
+		return cleanupOrphans(ps, isEol);
 	}
 
 	public int cleanupOrphans() throws SQLException, InterruptedException {
-		return cleanupOrphans(false, null, false);
+		return cleanupOrphans((IsEol)null);
 	}
 
 	public void cleanupOrphansAll() throws SQLException, InterruptedException {
