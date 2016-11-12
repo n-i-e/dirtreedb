@@ -124,10 +124,10 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 			}
 		} catch (SQLException e) {
 			if (sql != null) {
-				writelog("!! SQL insert failed at CommonSqlDirTreeDB for: " + sql);
-				writelog("newentry.path = " + newentry.getPath());
+				Debug.writelog("!! SQL insert failed at CommonSqlDirTreeDB for: " + sql);
+				Debug.writelog("newentry.path = " + newentry.getPath());
 				if (basedir != null) {
-					writelog("basedir.path = " + basedir.getPath());
+					Debug.writelog("basedir.path = " + basedir.getPath());
 				}
 			}
 			throw e;
@@ -252,7 +252,7 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 		try {
 			ps.executeUpdate();
 		} catch (SQLException e) {
-			writelog("SQLException at addUpperLower: upper=" + upper + ", lower=" + lower);
+			Debug.writelog("SQLException at addUpperLower: upper=" + upper + ", lower=" + lower);
 			throw e;
 		} finally {
 			ps.close();
@@ -290,7 +290,7 @@ public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
 			ps.setTimestamp(5, new Timestamp(new Date().getTime()));
 			ps.executeUpdate();
 		} catch (SQLException e) {
-			writelog("SQLException at addEquality: pathid1=" + pathid1 + ", pathid2=" + pathid2);
+			Debug.writelog("SQLException at addEquality: pathid1=" + pathid1 + ", pathid2=" + pathid2);
 			throw e;
 		} finally {
 			ps.close();

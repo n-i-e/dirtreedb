@@ -211,10 +211,10 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 			}
 		} catch (SQLException e) {
 			if (sql != null) {
-				writelog("!! SQL insert failed at CommonSqlDirTreeDB for: " + sql);
-				writelog("newentry.path = " + newentry.getPath());
+				Debug.writelog("!! SQL insert failed at CommonSqlDirTreeDB for: " + sql);
+				Debug.writelog("newentry.path = " + newentry.getPath());
 				if (basedir != null) {
-					writelog("basedir.path = " + basedir.getPath());
+					Debug.writelog("basedir.path = " + basedir.getPath());
 				}
 			}
 			throw e;
@@ -262,7 +262,7 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 			ps.setString(5, sdf.format(d));
 			ps.executeUpdate();
 		} catch (SQLException e) {
-			writelog("SQLException at addEquality: pathid1=" + pathid1 + ", pathid2=" + pathid2);
+			Debug.writelog("SQLException at addEquality: pathid1=" + pathid1 + ", pathid2=" + pathid2);
 			throw e;
 		} finally {
 			ps.close();

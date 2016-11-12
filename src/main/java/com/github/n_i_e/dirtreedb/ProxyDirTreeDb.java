@@ -49,7 +49,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		long n = (new Date()).getTime();
 		if (_threadHookInterval != 0 && n - _threadHookInterval > 30*1000) {
 			long d = n - _threadHookInterval;
-			writelog("threadHookInterval too long: " + d);
+			Debug.writelog("threadHookInterval too long: " + d);
 		}
 		_threadHookInterval = n;
 		Thread.sleep(0); // throw InterruptedException if interrupted
@@ -94,7 +94,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				"!! old and new entry paths do not match:\nold=" + oldentry.getPath() + "\nnew=" + newentry.getPath());
 		Assertion.assertAssertionError(oldentry.getType() == newentry.getType());
 
-		if ((!dscMatch(oldentry, newentry)) || (!csumMatch(oldentry, newentry))) {
+		if ((!PathEntry.dscMatch(oldentry, newentry)) || (!PathEntry.csumMatch(oldentry, newentry))) {
 			deleteEquality(oldentry.getPathId());
 			threadHook();
 			parent.update(oldentry, newentry);
@@ -839,14 +839,14 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			if (entry.isFolder()) {
 				result.setSize(entry.getSize());
 				result.setCompressedSize(entry.getCompressedSize());
-				if (dMatch(entry, result)) {
+				if (PathEntry.dMatch(entry, result)) {
 					result.setStatus(entry.getStatus());
 				}
 			} else { // isFile
 				if (entry.getSize() < 0) { // size is sometimes <0; JavaVM bug?
 					entry.setCsumAndClose(entry.getInputStream());
 				}
-				if (dscMatch(entry, result)) {
+				if (PathEntry.dscMatch(entry, result)) {
 					if (!entry.isCsumNull()) {
 						result.setCsum(entry.getCsum());
 					}
@@ -860,7 +860,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	public Dispatcher getDispatcher() {
-		writelog("This is SingleThread Dispatcher");
+		Debug.writelog("This is SingleThread Dispatcher");
 		return new Dispatcher();
 	}
 
@@ -904,7 +904,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 			newentry.setSize(entry.getSize());
 			newentry.setCompressedSize(entry.getCompressedSize());
 
-			if (entry.isClean() && dMatch(entry, newentry)) {
+			if (entry.isClean() && PathEntry.dMatch(entry, newentry)) {
 				return newentry; // no change
 			}
 
@@ -926,7 +926,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				}
 
 				if (!isList()) {
-					if (!entry.isDirty() && !dMatch(entry, newentry)) {
+					if (!entry.isDirty() && !PathEntry.dMatch(entry, newentry)) {
 						updateStatus(entry, PathEntry.DIRTY);
 					}
 				} else if (isList() && newfolderIter != null && oldfolder != null) {
@@ -951,7 +951,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				return null;
 			}
 
-			if (dscMatch(entry, newentry)) {
+			if (PathEntry.dscMatch(entry, newentry)) {
 				if (!entry.isCsumNull()) {
 					newentry.setCsum(entry.getCsum());
 				}
@@ -960,7 +960,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 
 			try {
 				final PathEntryLister newfolderIter;
-				if (isList() && (!entry.isClean() || !dscMatch(entry, newentry))) {
+				if (isList() && (!entry.isClean() || !PathEntry.dscMatch(entry, newentry))) {
 					newfolderIter = PathEntryListerFactory.getInstance(entry);
 					newfolderIter.setCsumRequested(PathEntryListerFactory.isCsumRecommended(entry));
 
@@ -978,14 +978,14 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				}
 
 				if (oldfolder == null) { // not isList()
-					if (!entry.isDirty() && !dscMatch(entry, newentry)) {
+					if (!entry.isDirty() && !PathEntry.dscMatch(entry, newentry)) {
 						newentry.setStatus(PathEntry.DIRTY);
 					}
 				} else {
 					assert(newfolderIter != null);
 					dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 				}
-				if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
+				if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !PathEntry.dscMatch(entry, newentry)))) {
 					newentry.setCsumAndClose(newentry.getInputStream());
 					if (newentry.isNoAccess()) {
 						newentry.setStatus(PathEntry.DIRTY);
@@ -1029,7 +1029,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					}
 				}
 
-				if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
+				if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !PathEntry.dscMatch(entry, newentry)))) {
 					assert(stack != null);
 					newentry.setCsumAndClose(getInputStream(stack));
 					if (newentry.isNoAccess()) {
@@ -1064,7 +1064,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				count++;
 				long t1 = new Date().getTime();
 				if (t1-t0 > 2*60*1000) {
-					writelog("dispatchFolderListCore loop too long, still ongoing: basedir=<" + entry.getPath() + ">, "
+					Debug.writelog("dispatchFolderListCore loop too long, still ongoing: basedir=<" + entry.getPath() + ">, "
 							+ "current child=<" + newchild.getPath() + ">, count=" + count + ", "
 							+ "isListCsum=" + isListCsum() + ", oldfoldersize=" + oldfolder.size());
 					t0 = t1;
@@ -1073,7 +1073,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				DbPathEntry oldchild = oldfolder.get(newchild.getPath());
 				if (oldchild != null) { // exists in oldfolder - update
 					if (newchild.isFolder()) {
-						if (oldchild.isClean() && !dMatch(oldchild, newchild)) {
+						if (oldchild.isClean() && !PathEntry.dMatch(oldchild, newchild)) {
 							updatedfolders.add(oldchild);
 						}
 						if (oldchild.getSize() >= 0) {
@@ -1082,14 +1082,14 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 						}
 					} else { // FILE
 						assert(newchild.isFile());
-						if (isListCsumForce() || (isListCsum() && (oldchild.isCsumNull() || !dscMatch(oldchild, newchild)))) {
+						if (isListCsumForce() || (isListCsum() && (oldchild.isCsumNull() || !PathEntry.dscMatch(oldchild, newchild)))) {
 							try {
 								newchild.setCsumAndClose(newchild.getInputStream());
 							} catch (IOException e) {
 								newchild.setStatus(PathEntry.NOACCESS);
 							}
 							update(oldchild, newchild);
-						} else if (!dscMatch(oldchild, newchild)) {
+						} else if (!PathEntry.dscMatch(oldchild, newchild)) {
 							update(oldchild, newchild);
 						} else if (oldchild.isNoAccess() != newchild.isNoAccess()) {
 							updateStatus(oldchild, newchild.getStatus());
@@ -1150,14 +1150,14 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				count++;
 				long t1 = new Date().getTime();
 				if (t1-t0 > 2*60*1000) {
-					writelog("dispatchFileListCore loop too long, still ongoing: basedir=<" + entry.getPath() + ">, "
+					Debug.writelog("dispatchFileListCore loop too long, still ongoing: basedir=<" + entry.getPath() + ">, "
 							+ "current child=<" + newchild.getPath() + ">, count=" + count + ", "
 							+ "isListCsum=" + isListCsum() + ", oldfoldersize=" + oldfolder.size());
 					t0 = t1;
 				}
 				DbPathEntry oldchild = oldfolder.get(newchild.getPath());
 				if (oldchild != null) {
-					if (!dscMatch(oldchild, newchild)) {
+					if (!PathEntry.dscMatch(oldchild, newchild)) {
 						update(oldchild, newchild);
 					} else if (oldchild.isNoAccess() != newchild.isNoAccess()) {
 						updateStatus(oldchild, newchild.getStatus());
@@ -1269,19 +1269,19 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 					return true;
 				} else {
 					if (!isEqual) {
-						writelog("!! WARNING NOT EQUAL");
+						Debug.writelog("!! WARNING NOT EQUAL");
 						if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
 							deleteEquality(entry1.getPathId(), entry2.getPathId());
 						}
 					} else {
-						writelog("!! EQUAL, BUT SIZE CHANGED "+entry1.getSize()+"->"+count);
+						Debug.writelog("!! EQUAL, BUT SIZE CHANGED "+entry1.getSize()+"->"+count);
 					}
 
-					writelog(entry1.getPath());
+					Debug.writelog(entry1.getPath());
 					re = entry1;
 					unsetClean(entry1.getParentId());
 
-					writelog(entry2.getPath());
+					Debug.writelog(entry2.getPath());
 					re = entry2;
 					unsetClean(entry2.getParentId());
 

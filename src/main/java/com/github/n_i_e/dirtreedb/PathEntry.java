@@ -283,6 +283,39 @@ public class PathEntry {
 		return csumIsNull;
 	}
 
+	public static boolean dscMatch(PathEntry entry1, PathEntry entry2) {
+		if (entry1.getDateLastModified() == entry2.getDateLastModified()
+				&& entry1.getSize() == entry2.getSize()
+				&& entry1.getCompressedSize() == entry2.getCompressedSize()
+				) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	public static boolean dMatch(PathEntry entry1, PathEntry entry2) {
+		if (entry1.getDateLastModified() == entry2.getDateLastModified()) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	public static boolean csumMatch(PathEntry entry1, PathEntry entry2) {
+		if (entry1.isCsumNull() != entry2.isCsumNull()) {
+			return false;
+		} else if (entry1.isCsumNull() && entry2.isCsumNull()) {
+			return true;
+		} else if (entry1.getCsum() == entry2.getCsum()) {
+			Assertion.assertAssertionError(entry1.isFile() || entry1.isCompressedFile());
+			Assertion.assertAssertionError(entry2.isFile() || entry2.isCompressedFile());
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 	private static synchronized long win32_GetCompressedSize(String path) throws GetCompressedFileSizeException
 	{
 		Kernel32 kernel32 = Kernel32.INSTANCE;

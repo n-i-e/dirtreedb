@@ -60,15 +60,15 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 	@Override
 	public void close() throws SQLException {
-		writelog("Really closing DB");
+		Debug.writelog("Really closing DB");
 		super.close();
-		writelog("Closing lazyqueue_thread DB");
+		Debug.writelog("Closing lazyqueue_thread DB");
 		lazyqueue_thread.close();
-		writelog("Closing lazyqueue_insertable DB");
+		Debug.writelog("Closing lazyqueue_insertable DB");
 		lazyqueue_insertable.close();
-		writelog("Closing lazyqueue_dontinsert DB");
+		Debug.writelog("Closing lazyqueue_dontinsert DB");
 		lazyqueue_dontinsert.close();
-		writelog("LazyProxyDirTreeDb close finished");
+		Debug.writelog("LazyProxyDirTreeDb close finished");
 	}
 
 	@Override
@@ -115,7 +115,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				"!! old and new entry paths do not match:\nold=" + oldentry.getPath() + "\nnew=" + newentry.getPath());
 		Assertion.assertAssertionError(oldentry.getType() == newentry.getType());
 
-		if (! dscMatch(oldentry, newentry)
+		if (! PathEntry.dscMatch(oldentry, newentry)
 				|| oldentry.isCsumNull() != newentry.isCsumNull()
 				|| (!oldentry.isCsumNull() && !newentry.isCsumNull() && oldentry.getCsum() != newentry.getCsum())
 				|| oldentry.getStatus() != newentry.getStatus()
@@ -814,7 +814,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				long t2 = (new Date()).getTime();
 				if (t2 - t1 > 30*1000) {
 					long d = t2 - t1;
-					writelog("dispatch time too long: " + d + " at " + entry.getPath());
+					Debug.writelog("dispatch time too long: " + d + " at " + entry.getPath());
 				}
 			}
 		}
@@ -843,7 +843,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					}
 
 					if (oldfolder == null) { // not isList()
-						if (!entry.isDirty() && !dMatch(entry, newentry)) {
+						if (!entry.isDirty() && !PathEntry.dMatch(entry, newentry)) {
 							updateStatus(entry, PathEntry.DIRTY);
 						}
 					} else { // isList()
@@ -890,12 +890,12 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 					}
 
 					try {
-						if (!dscMatch(entry, newentry)) {
+						if (!PathEntry.dscMatch(entry, newentry)) {
 							unsetClean(entry.getParentId());
 						}
 
 						if (oldfolder == null) { // not isList()
-							if ((!entry.isDirty() && !dscMatch(entry, newentry)) || entry.isNoAccess()) {
+							if ((!entry.isDirty() && !PathEntry.dscMatch(entry, newentry)) || entry.isNoAccess()) {
 								newentry.setStatus(PathEntry.DIRTY);
 							}
 						} else { // isList()
@@ -904,7 +904,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							newfolderIter.setCsumRequested(PathEntryListerFactory.isCsumRecommended(entry));
 							dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 						}
-						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
+						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !PathEntry.dscMatch(entry, newentry)))) {
 							newentry.setCsumAndClose(newentry.getInputStream());
 							if (newentry.isNoAccess()) {
 								newentry.setStatus(PathEntry.DIRTY);
@@ -950,7 +950,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 						} else {
 							newfolderIter = null;
 						}
-						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
+						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !PathEntry.dscMatch(entry, newentry)))) {
 							assert(stack != null);
 							inf = getInputStream(stack);
 							if (newentry.isNoAccess()) {
@@ -992,7 +992,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			newentry.setSize(entry.getSize());
 			newentry.setCompressedSize(entry.getCompressedSize());
 
-			if (entry.isClean() && dMatch(entry, newentry)) {
+			if (entry.isClean() && PathEntry.dMatch(entry, newentry)) {
 				return newentry; // no change
 			}
 
@@ -1010,7 +1010,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				public void run() throws SQLException, InterruptedException
 				{
 					if (!isList()) {
-						if (!entry.isDirty() && !dMatch(entry, newentry)) {
+						if (!entry.isDirty() && !PathEntry.dMatch(entry, newentry)) {
 							updateStatus(entry, PathEntry.DIRTY);
 						}
 					} else if (isList() && oldfolder != null) {
@@ -1053,12 +1053,12 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				public void run() throws SQLException, InterruptedException
 				{
 					try {
-						if (!dscMatch(entry, newentry)) {
+						if (!PathEntry.dscMatch(entry, newentry)) {
 							unsetClean(entry.getParentId());
 						}
 
 						if (oldfolder == null) {
-							if (!entry.isDirty() && !dscMatch(entry, newentry)) {
+							if (!entry.isDirty() && !PathEntry.dscMatch(entry, newentry)) {
 								newentry.setStatus(PathEntry.DIRTY);
 							}
 						} else {
@@ -1067,7 +1067,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 							newfolderIter.setCsumRequested(PathEntryListerFactory.isCsumRecommended(entry));
 							dispatchFileListCore(entry, oldfolder, newentry, newfolderIter);
 						}
-						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
+						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !PathEntry.dscMatch(entry, newentry)))) {
 							newentry.setCsumAndClose(newentry.getInputStream());
 							if (newentry.isNoAccess()) {
 								newentry.setStatus(PathEntry.DIRTY);
@@ -1091,7 +1091,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			try {
 				DbPathEntry p1 = stack.get(stack.size()-1);
 				PathEntry p2 = getNewPathEntry(p1);
-				if (!dscMatch(p1, p2)) {
+				if (!PathEntry.dscMatch(p1, p2)) {
 					updateStatus(p1, PathEntry.DIRTY);
 				}
 			} catch (IOException e) {
@@ -1110,7 +1110,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			try {
 				DbPathEntry p1 = stack.get(stack.size()-1);
 				PathEntry p2 = getNewPathEntry(p1);
-				if (!dscMatch(p1, p2)) {
+				if (!PathEntry.dscMatch(p1, p2)) {
 					updateStatus(p1, PathEntry.DIRTY);
 				}
 			} catch (IOException e) {
@@ -1143,7 +1143,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 						} else {
 							newfolderIter = null;
 						}
-						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !dscMatch(entry, newentry)))) {
+						if (isCsumForce() || (isCsum() && (entry.isCsumNull() || !PathEntry.dscMatch(entry, newentry)))) {
 							assert(stack != null);
 							inf = getInputStream(stack);
 							if (newentry.isNoAccess()) {
