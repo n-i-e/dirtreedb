@@ -31,11 +31,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
-public class ProxyDirTreeDb extends AbstractDirTreeDb {
-	protected AbstractDirTreeDb parent;
+public class ProxyDirTreeDb implements IDirTreeDb {
+	protected IDirTreeDb parent;
 
-	public ProxyDirTreeDb (AbstractDirTreeDb parent) {
+	public ProxyDirTreeDb (IDirTreeDb parent) {
 		this.parent = parent;
 	}
 
@@ -71,6 +72,10 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	public DbPathEntry rsToPathEntry(ResultSet rs, String prefix) throws SQLException, InterruptedException {
 		threadHook();
 		return parent.rsToPathEntry(rs, prefix);
+	}
+
+	public DbPathEntry rsToPathEntry(ResultSet rs) throws SQLException, InterruptedException {
+		return rsToPathEntry(rs, "");
 	}
 
 	@Override
@@ -860,9 +865,71 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		return new Dispatcher();
 	}
 
-	public class Dispatcher extends AbstractDirTreeDb.Dispatcher {
+	public class Dispatcher {
+		public static final int NONE = 0;
 
-		@Override
+		public static final int LIST = 1;
+		public static final int LIST_CSUM = 2;
+		public static final int LIST_CSUM_FORCE = 3;
+
+		protected int _list = NONE;
+		public void setList(int listflag) { _list = listflag; }
+		public boolean isList() { return _list == NONE ? false : true; }
+		public boolean isListCsum() { return _list == LIST_CSUM || _list == LIST_CSUM_FORCE ? true : false; }
+		public boolean isListCsumForce() { return _list == LIST_CSUM_FORCE ? true : false; }
+
+		public static final int CSUM = 1;
+		public static final int CSUM_FORCE = 2;
+
+		protected int _csum = NONE;
+
+		public void setCsum(int csumflag) { _csum = csumflag; }
+		public boolean isCsum() { return _csum == NONE ? false : true; }
+		public boolean isCsumForce() { return _csum == CSUM_FORCE ? true : false; }
+
+		protected boolean _noChildInDb = false;
+		public void setNoChildInDb(boolean noChildInDb) { _noChildInDb = noChildInDb; }
+		public boolean isNoChildInDb() { return _noChildInDb; }
+
+		protected Map<Long, String> reachableRoots = null;
+		public Map<Long, String> getReachableRoots() { return reachableRoots; }
+		public void setReachableRoots(Set<DbPathEntry> roots) {
+			reachableRoots = new ConcurrentHashMap<Long, String>();
+			if (roots != null) {
+				for (DbPathEntry e: roots) {
+					reachableRoots.put(e.getPathId(), e.getPath());
+				}
+			}
+		}
+		public void deleteReachableRoot(long rootid) {
+			reachableRoots.remove(rootid);
+		}
+		public boolean isReachableRoot(long rootid) {
+			if (reachableRoots == null) {
+				return true; // always true when reachableRoots is undefined
+			}
+			return reachableRoots.containsKey(rootid);
+		}
+		public String getReachableRootPath(long rootid) {
+			if (reachableRoots == null) { return null; }
+			return reachableRoots.get(rootid);
+		}
+		public void checkRootAndDisable(final DbPathEntry entry) throws SQLException, InterruptedException {
+			Assertion.assertNullPointerException(entry != null);
+			if (isReachableRoot(entry.getRootId())) {
+				String s = getReachableRootPath(entry.getRootId());
+				if (s == null) {
+					disable(entry);
+				} else {
+					if ((new File(s)).exists()) {
+						disable(entry);
+					} else {
+						deleteReachableRoot(entry.getRootId());
+					}
+				}
+			}
+		}
+
 		public PathEntry dispatch(final DbPathEntry entry) throws IOException, InterruptedException, SQLException {
 			threadHook();
 			if (entry == null || !isReachableRoot(entry.getRootId())) {

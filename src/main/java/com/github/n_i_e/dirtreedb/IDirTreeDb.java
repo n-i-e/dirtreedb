@@ -16,17 +16,12 @@
 
 package com.github.n_i_e.dirtreedb;
 
-import java.io.File;
-import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
-public abstract class AbstractDirTreeDb {
+public interface IDirTreeDb {
 	public abstract Statement createStatement() throws SQLException, InterruptedException;
 	public abstract PreparedStatement prepareStatement(final String sql) throws SQLException, InterruptedException;
 	public abstract void close() throws SQLException;
@@ -46,78 +41,5 @@ public abstract class AbstractDirTreeDb {
 	public abstract void deleteEquality(long pathid1, long pathid2) throws InterruptedException, SQLException;
 	public abstract void updateEquality(long pathid1, long pathid2) throws InterruptedException, SQLException;
 	public abstract void updateDuplicateFields(long pathid, long duplicate, long dedupablesize) throws InterruptedException, SQLException;
-
-	public DbPathEntry rsToPathEntry(ResultSet rs) throws SQLException, InterruptedException {
-		return rsToPathEntry(rs, "");
-	}
-
-
-	public abstract class Dispatcher {
-		public static final int NONE = 0;
-
-		public static final int LIST = 1;
-		public static final int LIST_CSUM = 2;
-		public static final int LIST_CSUM_FORCE = 3;
-
-		protected int _list = NONE;
-		public void setList(int listflag) { _list = listflag; }
-		public boolean isList() { return _list == NONE ? false : true; }
-		public boolean isListCsum() { return _list == LIST_CSUM || _list == LIST_CSUM_FORCE ? true : false; }
-		public boolean isListCsumForce() { return _list == LIST_CSUM_FORCE ? true : false; }
-
-		public static final int CSUM = 1;
-		public static final int CSUM_FORCE = 2;
-
-		protected int _csum = NONE;
-
-		public void setCsum(int csumflag) { _csum = csumflag; }
-		public boolean isCsum() { return _csum == NONE ? false : true; }
-		public boolean isCsumForce() { return _csum == CSUM_FORCE ? true : false; }
-
-		protected boolean _noChildInDb = false;
-		public void setNoChildInDb(boolean noChildInDb) { _noChildInDb = noChildInDb; }
-		public boolean isNoChildInDb() { return _noChildInDb; }
-
-		protected Map<Long, String> reachableRoots = null;
-		public Map<Long, String> getReachableRoots() { return reachableRoots; }
-		public void setReachableRoots(Set<DbPathEntry> roots) {
-			reachableRoots = new ConcurrentHashMap<Long, String>();
-			if (roots != null) {
-				for (DbPathEntry e: roots) {
-					reachableRoots.put(e.getPathId(), e.getPath());
-				}
-			}
-		}
-		public void deleteReachableRoot(long rootid) {
-			reachableRoots.remove(rootid);
-		}
-		public boolean isReachableRoot(long rootid) {
-			if (reachableRoots == null) {
-				return true; // always true when reachableRoots is undefined
-			}
-			return reachableRoots.containsKey(rootid);
-		}
-		public String getReachableRootPath(long rootid) {
-			if (reachableRoots == null) { return null; }
-			return reachableRoots.get(rootid);
-		}
-		public void checkRootAndDisable(final DbPathEntry entry) throws SQLException, InterruptedException {
-			Assertion.assertNullPointerException(entry != null);
-			if (isReachableRoot(entry.getRootId())) {
-				String s = getReachableRootPath(entry.getRootId());
-				if (s == null) {
-					disable(entry);
-				} else {
-					if ((new File(s)).exists()) {
-						disable(entry);
-					} else {
-						deleteReachableRoot(entry.getRootId());
-					}
-				}
-			}
-		}
-
-		public abstract PathEntry dispatch(final DbPathEntry entry) throws IOException, InterruptedException, SQLException;
-	}
 
 }

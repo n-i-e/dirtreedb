@@ -54,7 +54,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 		LazyProxyDirTreeDb.numCrawlingThreads = numCrawlingThreads;
 	}
 
-	public LazyProxyDirTreeDb (AbstractDirTreeDb parent) {
+	public LazyProxyDirTreeDb (IDirTreeDb parent) {
 		super(parent);
 	}
 

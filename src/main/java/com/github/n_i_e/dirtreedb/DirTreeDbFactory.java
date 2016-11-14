@@ -21,8 +21,8 @@ import java.sql.SQLException;
 
 public class DirTreeDbFactory {
 
-	public static AbstractDirTreeDb getDirTreeDb(String dbfile) throws ClassNotFoundException, SQLException, IOException {
-		AbstractDirTreeDb result;
+	public static IDirTreeDb getDirTreeDb(String dbfile) throws ClassNotFoundException, SQLException, IOException {
+		IDirTreeDb result;
 		if (PathEntryListerFactory.fileExtensionMatches(dbfile, "sqlite")) {
 			result = new SqliteDirTreeDb(dbfile);
 		} else if (PathEntryListerFactory.fileExtensionMatches(dbfile, "mdb")) {

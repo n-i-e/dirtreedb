@@ -76,7 +76,7 @@ public class LazyAccessorThreadRunningConfig implements IPreferenceSyncUpdate {
 		writelog("DB file is: " + dbFilePath);
 
 		try {
-			AbstractDirTreeDb singlethreaddb = DirTreeDbFactory.getDirTreeDb(dbFilePath);
+			IDirTreeDb singlethreaddb = DirTreeDbFactory.getDirTreeDb(dbFilePath);
 			if (singlethreaddb == null) {
 				final String errmsg = String.format("Cannot determine DB type for this file name: %s", dbFilePath);
 				writelog(errmsg);

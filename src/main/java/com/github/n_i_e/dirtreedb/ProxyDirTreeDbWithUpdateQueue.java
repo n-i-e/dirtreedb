@@ -21,7 +21,7 @@ import java.util.Set;
 
 public class ProxyDirTreeDbWithUpdateQueue extends ProxyDirTreeDb {
 
-	public ProxyDirTreeDbWithUpdateQueue(AbstractDirTreeDb parent) {
+	public ProxyDirTreeDbWithUpdateQueue(IDirTreeDb parent) {
 		super(parent);
 	}
 

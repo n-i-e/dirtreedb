@@ -25,7 +25,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.Date;
 
-public abstract class CommonSqlDirTreeDb extends AbstractDirTreeDb {
+public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 	Connection conn;
 
 	@Override
