@@ -30,7 +30,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
+public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 
 	private static int numCrawlingThreads = 1;
 
@@ -78,365 +78,85 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	}
 
 	@Override
-	public int refreshIndirectUpperLower(IsEol isEol)
+	public int refreshIndirectUpperLower(Set<Long> dontListRootIds, IsEol isEol)
 			throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(iAmLazyAccessorThread());
 		Assertion.assertAssertionError(! isConsumeUpdateQueueMode());
-		return refreshIndirectUpperLower(getInsertableRootIdSet(), isEol);
-	}
-
-	@Override
-	public int refreshIndirectUpperLower() throws SQLException, InterruptedException {
-		Assertion.assertAssertionError(iAmLazyAccessorThread());
-		Assertion.assertAssertionError(! isConsumeUpdateQueueMode());
-		return refreshIndirectUpperLower(getInsertableRootIdSet());
+		return super.refreshDirectUpperLower(dontListRootIds, isEol);
 	}
 
 	@Override
 	public void insert(final DbPathEntry basedir, final PathEntry newentry) throws SQLException, InterruptedException {
-		Assertion.assertNullPointerException(newentry != null);
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.insert(basedir, newentry);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.insert(basedir, newentry);
-				}
-			});
-		}
-	}
-
-	@Override
-	public void update(final DbPathEntry oldentry, final PathEntry newentry) throws SQLException, InterruptedException {
-		Assertion.assertNullPointerException(oldentry != null);
-		Assertion.assertNullPointerException(newentry != null);
-		Assertion.assertAssertionError(oldentry.getPath().equals(newentry.getPath()),
-				"!! old and new entry paths do not match:\nold=" + oldentry.getPath() + "\nnew=" + newentry.getPath());
-		Assertion.assertAssertionError(oldentry.getType() == newentry.getType());
-
-		if (! PathEntry.dscMatch(oldentry, newentry)
-				|| oldentry.isCsumNull() != newentry.isCsumNull()
-				|| (!oldentry.isCsumNull() && !newentry.isCsumNull() && oldentry.getCsum() != newentry.getCsum())
-				|| oldentry.getStatus() != newentry.getStatus()
-				) {
-			if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-				LazyProxyDirTreeDb.super.update(oldentry, newentry);
-			} else {
-				updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-					public void run() throws SQLException, InterruptedException {
-						LazyProxyDirTreeDb.super.update(oldentry, newentry);
-					}
-				});
-			}
-		}
-	}
-
-	@Override
-	public void updateStatus(final DbPathEntry entry, final int newstatus)
-			throws SQLException, InterruptedException {
-		Assertion.assertNullPointerException(entry != null);
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.updateStatus(entry, newstatus);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.updateStatus(entry, newstatus);
-				}
-			});
-		}
+		super.insert(basedir, newentry);
 	}
 
 	@Override
 	public void delete(final DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.delete(entry);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.delete(entry);
-				}
-			});
-		}
+		super.delete(entry);
 	}
 
-	/**
-	 * always pushes request on the updatequeue (i.e. lazy).
-	 * iAmLazyAccessorThread() or not is not considered.
-	 */
-	@Override
-	protected void deleteLater(final DbPathEntry entry) throws SQLException, InterruptedException {
-		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.delete(entry);
-			}
-		});
-	}
-
-	/**
-	 * always pushes request on low priority updatequeue (i.e. lazy).
-	 * iAmLazyAccessorThread() or not is not considered.
-	 */
-	@Override
-	protected void deleteLowPriority(final DbPathEntry entry) throws SQLException, InterruptedException {
-		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.delete(entry);
-			}
-		}, 1);
-	}
-
-	@Override
+	@Deprecated @Override
 	public void deleteChildren(final DbPathEntry entry) throws SQLException, InterruptedException {
-		Assertion.assertNullPointerException(entry != null);
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		if (iAmLazyAccessorThread()) {
-			Assertion.assertAssertionError(! isConsumeUpdateQueueMode());
-			LazyProxyDirTreeDb.super.deleteChildren(entry);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.deleteChildren(entry);
-				}
-			});
-		}
-	}
-
-	@Override
-	public void unsetClean(long pathid) throws SQLException, InterruptedException {
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.unsetClean(pathid);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.unsetClean(pathid);
-				}
-			});
-		}
-
-	}
-
-	@Deprecated
-	public void unsetCleanLater(long pathid) throws InterruptedException {
-		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.unsetClean(pathid);
-			}
-		});
-	}
-
-	@Override
-	public void disable(final DbPathEntry entry) throws SQLException, InterruptedException {
-		Assertion.assertNullPointerException(entry != null);
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.disable(entry);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.disable(entry);
-				}
-			});
-		}
-	}
-
-	@Override
-	public void disable(final DbPathEntry entry, final PathEntry newentry) throws SQLException, InterruptedException {
-		Assertion.assertNullPointerException(entry != null);
-		Assertion.assertNullPointerException(newentry != null);
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.disable(entry, newentry);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.disable(entry, newentry);
-				}
-			});
-		}
-	}
-
-	@Override
-	public void updateParentId(final DbPathEntry entry, final long newparentid) throws SQLException, InterruptedException {
-		Assertion.assertNullPointerException(entry != null);
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.updateParentId(entry, newparentid);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.updateParentId(entry, newparentid);
-				}
-			});
-		}
-	}
-
-	@Override
-	public void orphanize(final DbPathEntry entry) throws SQLException, InterruptedException {
-		Assertion.assertNullPointerException(entry != null);
-		Assertion.assertAssertionError(entry.getParentId() != 0);
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.orphanize(entry);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.orphanize(entry);
-				}
-			});
-		}
-	}
-
-	@Deprecated
-	public void orphanizeLater(final DbPathEntry entry) throws InterruptedException {
-		Assertion.assertNullPointerException(entry != null);
-		Assertion.assertAssertionError(entry.getParentId() != 0);
-		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-			public void run() throws SQLException, InterruptedException {
-				LazyProxyDirTreeDb.super.orphanize(entry);
-			}
-		});
+		super.deleteChildren(entry);
 	}
 
 	@Override
 	public void orphanizeChildren(final DbPathEntry entry) throws SQLException, InterruptedException {
-		Assertion.assertNullPointerException(entry != null);
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		if (iAmLazyAccessorThread()) {
-			Assertion.assertAssertionError(! isConsumeUpdateQueueMode());
-			LazyProxyDirTreeDb.super.orphanizeChildren(entry);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.orphanizeChildren(entry);
-				}
-			});
-		}
-	}
-
-	public void noop() throws InterruptedException {
-		updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-			public void run() throws SQLException, InterruptedException {
-				// noop
-			}
-		});
+		super.orphanizeChildren(entry);
 	}
 
 	@Override
 	public void insertUpperLower(final long upper, final long lower, final int distance)
 			throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.insertUpperLower(upper, lower, distance);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.insertUpperLower(upper, lower, distance);
-				}
-			});
-		}
+		super.insertUpperLower(upper, lower, distance);
 	}
 
 	@Override
 	public void deleteUpperLower(final long upper, final long lower) throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.deleteUpperLower(upper, lower);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.deleteUpperLower(upper, lower);
-				}
-			});
-		}
-	}
-
-	@Override
-	public void deleteUpperLower(final long pathid) throws SQLException, InterruptedException {
-		if (iAmLazyAccessorThread()) {
-			Assertion.assertAssertionError(! isConsumeUpdateQueueMode());
-			LazyProxyDirTreeDb.super.deleteUpperLower(pathid);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.deleteUpperLower(pathid);
-				}
-			});
-		}
+		super.deleteUpperLower(upper, lower);
 	}
 
 	@Override
 	public void insertEquality(final long pathid1, final long pathid2, final long size, final int csum)
 			throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.insertEquality(pathid1, pathid2, size, csum);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.insertEquality(pathid1, pathid2, size, csum);
-				}
-			});
-		}
+		super.insertEquality(pathid1, pathid2, size, csum);
 	}
 
 	@Override
-	public void deleteEquality(final long pathid1, final long pathid2) throws InterruptedException, SQLException {
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.deleteEquality(pathid1, pathid2);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.deleteEquality(pathid1, pathid2);
-				}
-			});
+	public void consumeOneUpdateQueue() throws InterruptedException, SQLException {
+		Assertion.assertAssertionError(iAmLazyAccessorThread());
+		super.consumeOneUpdateQueue();
+	}
+
+	public void consumeSomeUpdateQueue() throws InterruptedException, SQLException {
+		threadHook();
+		while ((lazyqueue_insertable.size() > 0 || lazyqueue_dontinsert.size() > 0) && getUpdateQueueSize() > 0) {
+			consumeOneUpdateQueue();
 		}
 	}
 
-	@Override
-	public void updateEquality(final long pathid1, final long pathid2) throws InterruptedException, SQLException {
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.updateEquality(pathid1, pathid2);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.updateEquality(pathid1, pathid2);
-				}
-			});
-		}
-	}
-
-	@Override
-	public void updateDuplicateFields(final long pathid, final long duplicate, final long dedupablesize)
-			throws InterruptedException, SQLException {
-		if (iAmLazyAccessorThread() && isConsumeUpdateQueueMode()) {
-			LazyProxyDirTreeDb.super.updateDuplicateFields(pathid, duplicate, dedupablesize);
-		} else {
-			updatequeue.execute(new RunnableWithException2<SQLException, InterruptedException> () {
-				public void run() throws SQLException, InterruptedException {
-					LazyProxyDirTreeDb.super.updateDuplicateFields(pathid, duplicate, dedupablesize);
-				}
-			});
-		}
-	}
-
-	public class UpdateQueue extends AsynchronousProducerConsumerIteratorWithPriority<RunnableWithException2<SQLException, InterruptedException>> {
-		public UpdateQueue() {
-			super(2);
-		}
-
-		public void execute(RunnableWithException2<SQLException, InterruptedException> newtodo) throws InterruptedException {
-			add(newtodo);
-		}
-
-		public void execute(RunnableWithException2<SQLException, InterruptedException> newtodo, int priority) throws InterruptedException {
-			add(newtodo, priority);
+	public void consumeSomeUpdateQueueWithTimeLimit(long milliseconds) throws InterruptedException, SQLException {
+		long t1 = new Date().getTime();
+		threadHook();
+		while ((lazyqueue_insertable.size() > 0 || lazyqueue_dontinsert.size() > 0) && getUpdateQueueSize() > 0) {
+			consumeOneUpdateQueue();
+			long t2 = new Date().getTime();
+			if (t2 - t1 > milliseconds) {
+				return;
+			}
 		}
 	}
 
 	private LazyQueue lazyqueue_insertable = new LazyQueue();
 	private LazyQueue lazyqueue_dontinsert = new LazyQueue();
 	private LazyQueueRunnerThreadPool lazyqueue_thread = new LazyQueueRunnerThreadPool();
-	private UpdateQueue updatequeue = new UpdateQueue();
 
 	public int getInsertableQueueSize() {
 		return lazyqueue_insertable.size();
@@ -444,14 +164,6 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 	public int getDontInsertQueueSize() {
 		return lazyqueue_dontinsert.size();
-	}
-
-	public int getUpdateQueueSize() {
-		return updatequeue.size();
-	}
-
-	public int getUpdateQueueSize(int priority) {
-		return updatequeue.size(priority);
 	}
 
 	public Set<Long> getInsertableRootIdSet() {
@@ -462,93 +174,20 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		return lazyqueue_dontinsert.getRootIdSet();
 	}
 
+	@Override
 	public void discardAllQueueItems() {
 		lazyqueue_thread.close();
 		lazyqueue_insertable.discardAllItems();
 		lazyqueue_dontinsert.discardAllItems();
-		while (updatequeue.size() > 0) {
-			updatequeue.next();
-		}
+		super.discardAllQueueItems();
 	}
 
+	@Deprecated
 	private boolean iAmLazyAccessorThread() {
 		try {
 			return (LazyAccessorThread.RunnerThread)Thread.currentThread() != null;
 		} catch (ClassCastException e) {
 			return false;
-		}
-	}
-
-	private boolean consumeUpdateQueueMode = false;
-
-	private static class ConsumeUpdateQueueModeException extends Exception {
-	}
-
-	public boolean isConsumeUpdateQueueMode() {
-		Assertion.assertAssertionError(iAmLazyAccessorThread());
-		return consumeUpdateQueueMode;
-	}
-
-	private void setConsumeUpdateQueueMode(boolean consumeUpdateQueueMode) {
-		Assertion.assertAssertionError(iAmLazyAccessorThread());
-		this.consumeUpdateQueueMode = consumeUpdateQueueMode;
-	}
-
-	public void beginConsumeUpdateQueueMode() throws ConsumeUpdateQueueModeException {
-		if (isConsumeUpdateQueueMode()) {
-			throw new ConsumeUpdateQueueModeException();
-		}
-		setConsumeUpdateQueueMode(true);
-	}
-
-	public void endConsumeUpdateQueueMode() {
-		setConsumeUpdateQueueMode(false);
-	}
-
-	public void consumeOneUpdateQueue() throws InterruptedException, SQLException {
-		Assertion.assertAssertionError(iAmLazyAccessorThread());
-		threadHook();
-		if (updatequeue.hasNext()) {
-			try {
-				beginConsumeUpdateQueueMode();
-				updatequeue.next().run();
-			} catch (ConsumeUpdateQueueModeException e) {
-			} finally {
-				endConsumeUpdateQueueMode();
-			}
-		}
-	}
-
-	public void consumeUpdateQueue() throws InterruptedException, SQLException {
-		threadHook();
-		while (updatequeue.size() > 0) {
-			consumeOneUpdateQueue();
-		}
-	}
-
-	public void consumeUpdateQueue(int priority) throws InterruptedException, SQLException {
-		threadHook();
-		while (updatequeue.size(priority) > 0) {
-			consumeOneUpdateQueue();
-		}
-	}
-
-	public void consumeSomeUpdateQueue() throws InterruptedException, SQLException {
-		threadHook();
-		while ((lazyqueue_insertable.size() > 0 || lazyqueue_dontinsert.size() > 0) && updatequeue.size() > 0) {
-			consumeOneUpdateQueue();
-		}
-	}
-
-	public void consumeSomeUpdateQueueWithTimeLimit(long milliseconds) throws InterruptedException, SQLException {
-		long t1 = new Date().getTime();
-		threadHook();
-		while ((lazyqueue_insertable.size() > 0 || lazyqueue_dontinsert.size() > 0) && updatequeue.size() > 0) {
-			consumeOneUpdateQueue();
-			long t2 = new Date().getTime();
-			if (t2 - t1 > milliseconds) {
-				return;
-			}
 		}
 	}
 
@@ -672,7 +311,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			return size()==0 && getThread() == null;
 		}
 
-		public void execute(LazyQueueableRunnable newtodo) throws InterruptedException {
+		public void enqueue(LazyQueueableRunnable newtodo) throws InterruptedException {
 			add(newtodo);
 			if (getThread() == null) {
 				lazyqueue_thread.wakeupThreadIfPossible();
@@ -717,19 +356,19 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			}
 		}
 
-		public void execute(DbPathEntry entry, LazyQueueableRunnable newtodo) throws InterruptedException {
+		public void enqueue(DbPathEntry entry, LazyQueueableRunnable newtodo) throws InterruptedException {
 			long root;
 			if (entry == null) {
 				root = 0L;
 			} else {
 				root = entry.getRootId();
 			}
-			get(root).execute(newtodo);
+			get(root).enqueue(newtodo);
 		}
 
 		public void noop() throws InterruptedException {
 			for (LazyQueueElement element: values()) {
-				element.execute(new LazyQueueableRunnable() {
+				element.enqueue(new LazyQueueableRunnable() {
 					public void run() throws InterruptedException {
 						LazyProxyDirTreeDb.this.noop();
 					}
@@ -774,13 +413,16 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 	}
 
 	public class Dispatcher extends ProxyDirTreeDb.Dispatcher {
-		protected boolean _noReturn = false;
+		private boolean _noReturn = false;
 		public void setNoReturn(boolean noReturn) { _noReturn = noReturn; }
 		public boolean isNoReturn() { return _noReturn; }
 
 		@Override
 		public PathEntry dispatch(final DbPathEntry entry) throws IOException, InterruptedException, SQLException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
 			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
 			long t1 = (new Date()).getTime();
 			try {
 				if (entry == null) {
@@ -820,6 +462,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 
 		private void dispatchFolderNoReturn(final DbPathEntry entry) throws InterruptedException, SQLException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
 			threadHook();
 
 			final Map<String, DbPathEntry> oldfolder;
@@ -832,7 +478,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			}
 
 			LazyQueue lq = (oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable;
-			lq.execute(entry, new LazyQueueableRunnable() {
+			lq.enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException {
 					final PathEntry newentry;
 					try {
@@ -867,6 +513,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 
 		private void dispatchFileNoReturn(final DbPathEntry entry) throws InterruptedException, SQLException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
 			threadHook();
 
 			final Map<String, DbPathEntry> oldfolder;
@@ -879,7 +529,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			}
 
 			LazyQueue lq = (oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable;
-			lq.execute(entry, new LazyQueueableRunnable() {
+			lq.enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException {
 					final PathEntry newentry;
 					try {
@@ -920,6 +570,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 
 		private void dispatchCompressedFileNoReturn(final DbPathEntry entry) throws SQLException, InterruptedException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
 			threadHook();
 
 			final Map<String, DbPathEntry> oldfolder;
@@ -935,7 +589,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			final List<DbPathEntry> stack = getCompressionStack(entry);
 			if (stack == null) { return; /* orphan */ }
 
-			lq.execute(entry, new LazyQueueableRunnable() {
+			lq.enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException
 				{
 					PathEntry newentry = new PathEntry(entry);
@@ -973,6 +627,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 
 		protected PathEntry dispatchFolder(final DbPathEntry entry) throws InterruptedException, SQLException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
 			threadHook();
 
 			final File fileobj = getFileIfExists(entry);
@@ -1006,7 +664,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			}
 
 			LazyQueue lq = (oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable;
-			lq.execute(entry, new LazyQueueableRunnable() {
+			lq.enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException
 				{
 					if (!isList()) {
@@ -1029,6 +687,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 
 		protected PathEntry dispatchFile(final DbPathEntry entry) throws InterruptedException, SQLException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
 			threadHook();
 
 			final PathEntry newentry;
@@ -1049,7 +711,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 			}
 
 			LazyQueue lq = (oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable;
-			lq.execute(entry, new LazyQueueableRunnable() {
+			lq.enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException
 				{
 					try {
@@ -1084,6 +746,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 
 		protected PathEntry dispatchCompressedFolder(final DbPathEntry entry) throws SQLException, InterruptedException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
 			threadHook();
 
 			final List<DbPathEntry> stack = getCompressionStack(entry);
@@ -1103,6 +769,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		}
 
 		protected PathEntry dispatchCompressedFile(final DbPathEntry entry) throws SQLException, InterruptedException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
 			threadHook();
 
 			final List<DbPathEntry> stack = getCompressionStack(entry);
@@ -1128,7 +798,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				oldfolder = childrenList(entry);
 			}
 
-			lq.execute(entry, new LazyQueueableRunnable() {
+			lq.enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException
 				{
 					PathEntry newentry = new PathEntry(entry);
@@ -1169,6 +839,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 		@Override
 		public boolean checkEquality(final DbPathEntry entry1, final DbPathEntry entry2, final int dbAccessMode)
 				throws SQLException, InterruptedException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
 			if (isNoReturn()) {
 				checkEqualityNoReturn(entry1, entry2, dbAccessMode);
 				return true;
@@ -1179,6 +853,8 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 		protected void checkEqualityNoReturn(final DbPathEntry entry1, final DbPathEntry entry2, final int dbAccessMode)
 				throws SQLException, InterruptedException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
 			Assertion.assertAssertionError(iAmLazyAccessorThread());
 
 			if (entry1 == null || ! isReachableRoot(entry1.getRootId())) { return; }
@@ -1207,6 +883,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				final List<DbPathEntry> stack2,
 				final int dbAccessMode
 				) throws SQLException, InterruptedException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
 			if (isNoReturn()) {
 				checkEqualityNoReturn(stack1, stack2, dbAccessMode);
 				return true;
@@ -1220,6 +900,10 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				final List<DbPathEntry> stack2,
 				final int dbAccessMode
 				) throws SQLException, InterruptedException {
+			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+			Assertion.assertAssertionError(iAmLazyAccessorThread());
+
 			if (dbAccessMode == CHECKEQUALITY_NONE) { return; }
 			if (stack1 == null || stack2 == null) { return; /* orphan */ }
 			final DbPathEntry entry1 = stack1.get(0);
@@ -1236,7 +920,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 
 			DbPathEntry p = (entry1.getRootId() == entry2.getRootId()) ? entry1 : null;
 			LazyQueue lq = dbAccessMode == CHECKEQUALITY_INSERT ? lazyqueue_insertable : lazyqueue_dontinsert;
-			lq.execute(p, new LazyQueueableRunnable() {
+			lq.enqueue(p, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException {
 					Dispatcher.super.checkEquality(stack1, stack2, dbAccessMode);
 				}
@@ -1266,8 +950,8 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDb {
 				iss,
 				lazyqueue_dontinsert.size(),
 				dss,
-				updatequeue.size(0),
-				updatequeue.size(1),
+				getUpdateQueueSize(0),
+				getUpdateQueueSize(1),
 				lazyqueue_thread.size(),
 				message));
 	}

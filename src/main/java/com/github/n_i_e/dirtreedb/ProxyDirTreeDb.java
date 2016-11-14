@@ -49,7 +49,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 		long n = (new Date()).getTime();
 		if (_threadHookInterval != 0 && n - _threadHookInterval > 30*1000) {
 			long d = n - _threadHookInterval;
-			Debug.writelog("threadHookInterval too long: " + d);
+			Debug.writelog("ProxyDirTreeDb threadHookInterval too long: " + d);
 		}
 		_threadHookInterval = n;
 		Thread.sleep(0); // throw InterruptedException if interrupted
@@ -126,10 +126,6 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 	}
 
 	protected void deleteLowPriority(final DbPathEntry entry) throws SQLException, InterruptedException {
-		delete(entry);
-	}
-
-	protected void deleteLater(final DbPathEntry entry) throws SQLException, InterruptedException {
 		delete(entry);
 	}
 
@@ -485,7 +481,7 @@ public class ProxyDirTreeDb extends AbstractDirTreeDb {
 				int count = 0;
 				while (rs.next()) {
 					threadHook();
-					deleteLater(rsToPathEntry(rs));
+					delete(rsToPathEntry(rs));
 					count++;
 					if (isEol != null) {
 						if (isEol.isEol()) {
