@@ -16,6 +16,7 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -191,7 +192,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 		}
 	}
 
-	private class LazyQueueRunnerThreadPool extends ArrayList<LazyQueueRunnerThread> {
+	private class LazyQueueRunnerThreadPool extends ArrayList<LazyQueueRunnerThread> implements Closeable {
 
 		public synchronized void wakeupThreadIfPossible() {
 			// cleanup dead threads
@@ -208,6 +209,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 			}
 		}
 
+		@Override
 		public synchronized void close() {
 			for (int i = size()-1; i >= 0; i--) {
 				if (get(i).isAlive()) {
@@ -319,7 +321,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 		}
 	}
 
-	public class LazyQueue extends ConcurrentHashMap<Long, LazyQueueElement> {
+	public class LazyQueue extends ConcurrentHashMap<Long, LazyQueueElement> implements Closeable {
 
 		public LazyQueue() {
 			super();
@@ -376,6 +378,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 			}
 		}
 
+		@Override
 		public void close() {
 			for (LazyQueueElement element: values()) {
 				element.close();
@@ -477,8 +480,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 				oldfolder = childrenList(entry);
 			}
 
-			LazyQueue lq = (oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable;
-			lq.enqueue(entry, new LazyQueueableRunnable() {
+			((oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable).enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException {
 					final PathEntry newentry;
 					try {
@@ -528,8 +530,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 				oldfolder = childrenList(entry);
 			}
 
-			LazyQueue lq = (oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable;
-			lq.enqueue(entry, new LazyQueueableRunnable() {
+			((oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable).enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException {
 					final PathEntry newentry;
 					try {
@@ -577,7 +578,6 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 			threadHook();
 
 			final Map<String, DbPathEntry> oldfolder;
-			LazyQueue lq = isList() ? lazyqueue_insertable : lazyqueue_dontinsert;
 			if (!isList()) {
 				oldfolder = null;
 			} else if (isNoChildInDb()) {
@@ -589,7 +589,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 			final List<DbPathEntry> stack = getCompressionStack(entry);
 			if (stack == null) { return; /* orphan */ }
 
-			lq.enqueue(entry, new LazyQueueableRunnable() {
+			(isList() ? lazyqueue_insertable : lazyqueue_dontinsert).enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException
 				{
 					PathEntry newentry = new PathEntry(entry);
@@ -663,8 +663,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 				oldfolder = childrenList(entry);
 			}
 
-			LazyQueue lq = (oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable;
-			lq.enqueue(entry, new LazyQueueableRunnable() {
+			((oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable).enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException
 				{
 					if (!isList()) {
@@ -710,8 +709,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 				oldfolder = childrenList(entry);
 			}
 
-			LazyQueue lq = (oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable;
-			lq.enqueue(entry, new LazyQueueableRunnable() {
+			((oldfolder == null) ? lazyqueue_dontinsert : lazyqueue_insertable).enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException
 				{
 					try {
@@ -789,7 +787,6 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 			}
 
 			final Map<String, DbPathEntry> oldfolder;
-			LazyQueue lq = isList() ? lazyqueue_insertable : lazyqueue_dontinsert;
 			if (!isList()) {
 				oldfolder = null;
 			} else if (isNoChildInDb()) {
@@ -798,7 +795,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 				oldfolder = childrenList(entry);
 			}
 
-			lq.enqueue(entry, new LazyQueueableRunnable() {
+			(isList() ? lazyqueue_insertable : lazyqueue_dontinsert).enqueue(entry, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException
 				{
 					PathEntry newentry = new PathEntry(entry);
@@ -919,8 +916,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 			Assertion.assertAssertionError(entry1.getCsum() == entry2.getCsum());
 
 			DbPathEntry p = (entry1.getRootId() == entry2.getRootId()) ? entry1 : null;
-			LazyQueue lq = dbAccessMode == CHECKEQUALITY_INSERT ? lazyqueue_insertable : lazyqueue_dontinsert;
-			lq.enqueue(p, new LazyQueueableRunnable() {
+			(dbAccessMode == CHECKEQUALITY_INSERT ? lazyqueue_insertable : lazyqueue_dontinsert).enqueue(p, new LazyQueueableRunnable() {
 				public void run() throws SQLException, InterruptedException {
 					Dispatcher.super.checkEquality(stack1, stack2, dbAccessMode);
 				}
