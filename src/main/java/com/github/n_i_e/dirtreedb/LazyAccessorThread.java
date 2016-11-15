@@ -16,12 +16,12 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.lang.Thread.State;
 import java.sql.SQLException;
-import java.util.Date;
 
 public abstract class LazyAccessorThread {
 
-	public class RunnerThread extends Thread {
+	protected class RunnerThread extends Thread {
 
 		RunnerThread() {
 			super();
@@ -29,15 +29,15 @@ public abstract class LazyAccessorThread {
 
 		public void run() {
 			try {
-				writelog("--- Start Scenario (1/2) ---");
+				Debug.writelog("--- Start Scenario (1/2) ---");
 				startingHook1();
 				getConf().regist();
 				startingHook2();
-				writelog("--- Start Scenario (2/2) ---");
+				Debug.writelog("--- Start Scenario (2/2) ---");
 				try {
 					LazyAccessorThread.this.run();
 				} catch (SQLException e) {
-					writelog("STDS Reached thread bottom due to SQLException: " + e.toString());
+					Debug.writelog("STDS Reached thread bottom due to SQLException: " + e.toString());
 					writeWarning("SQLException",
 							"SQLException caught. This might be a program bug, but usually you can ignore.\n" + e.toString());
 					e.printStackTrace();
@@ -46,13 +46,13 @@ public abstract class LazyAccessorThread {
 					} catch (InterruptedException e1) {}
 				}
 			} catch (InterruptedException e) {
-				writelog("--- Interrupted ---");
+				Debug.writelog("--- Interrupted ---");
 			} catch (Exception e) {
-				writelog("Reached DirTreeDbAccessorThread bottom due to Exception: " + e.toString());
+				Debug.writelog("Reached DirTreeDbAccessorThread bottom due to Exception: " + e.toString());
 				writeError("Exception", e.toString());
 				e.printStackTrace();
 			} finally {
-				writelog("--- End Scenario (1/2) ---");
+				Debug.writelog("--- End Scenario (1/2) ---");
 				endingHook1();
 				try {
 					getConf().unregist();
@@ -62,7 +62,7 @@ public abstract class LazyAccessorThread {
 					System.exit(1);
 				}
 				endingHook2();
-				writelog("--- End Scenario (2/2) ---");
+				Debug.writelog("--- End Scenario (2/2) ---");
 			}
 		}
 
@@ -82,8 +82,18 @@ public abstract class LazyAccessorThread {
 		this.conf = conf;
 	}
 
+	private RunnerThread thread = null;
+
 	public void start(RunnerThread thread) {
+		this.thread = thread;
 		thread.start();
+	}
+
+	public State getState() {
+		if (thread == null) {
+			return State.NEW;
+		}
+		return thread.getState();
 	}
 
 	public void start() {
@@ -123,13 +133,6 @@ public abstract class LazyAccessorThread {
 			throw new InterruptedException("!! DirTreeDBAccessibleThread interrupted");
 		}
 		getLock().lock();
-	}
-
-	protected static void writelog(final String message) {
-		Date now = new Date();
-		System.out.print(now);
-		System.out.print(" ");
-		System.out.println(message);
 	}
 
 	protected void writeMessage(String title, String message) {
