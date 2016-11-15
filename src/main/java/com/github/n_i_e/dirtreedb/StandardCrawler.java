@@ -47,33 +47,33 @@ public class StandardCrawler extends LazyAccessorThread {
 						}
 						writelog2("--- Crawler End Sleep ---");
 					}
-					writelog("--- Crawler Start Scenario (1/2) ---");
+					Debug.writelog("--- Crawler Start Scenario (1/2) ---");
 					startingHook1();
 					getConf().registLowPriority();
 					startingHook2();
-					writelog("--- Crawler Start Scenario (2/2) ---");
+					Debug.writelog("--- Crawler Start Scenario (2/2) ---");
 					threadHook();
 					StandardCrawler.this.run();
 				} catch (InterruptedException e) {
-					writelog("--- Crawler Interrupted ---");
+					Debug.writelog("--- Crawler Interrupted ---");
 				} catch (Throwable e) {
-					writelog("Crawler Reached StandardCrawler bottom due to Exception: " + e.toString());
+					Debug.writelog("Crawler Reached StandardCrawler bottom due to Exception: " + e.toString());
 					writeError("Exception", "This may be a fatal trouble. Exiting.\n" + e.toString());
 					e.printStackTrace();
 					System.exit(1);
 				} finally {
-					writelog("--- Crawler End Scenario (1/2) ---");
+					Debug.writelog("--- Crawler End Scenario (1/2) ---");
 					endingHook1();
 					try {
 						getConf().unregist();
 					} catch (Throwable e) {
-						writelog("Failed closeing DB file");
-						writeError("Error", "Failed closeing DB file. This is may be a fatal trouble. Exiting.\n" + e.toString());
+						Debug.writelog("Failed closing DB file");
+						writeError("Error", "Failed closing DB file. This is may be a fatal trouble. Exiting.\n" + e.toString());
 						e.printStackTrace();
 						System.exit(1);
 					}
 					endingHook2();
-					writelog("--- Crawler End Scenario (2/2) ---");
+					Debug.writelog("--- Crawler End Scenario (2/2) ---");
 				}
 			}
 		}
