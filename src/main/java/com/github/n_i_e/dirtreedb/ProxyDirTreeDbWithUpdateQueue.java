@@ -247,16 +247,6 @@ public class ProxyDirTreeDbWithUpdateQueue extends ProxyDirTreeDb {
 
 	}
 
-	@Deprecated
-	public void unsetCleanLater(long pathid) throws InterruptedException {
-		Assertion.assertAssertionError(! isConsumeUpdateQueueMode());
-		enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
-			public void run() throws SQLException, InterruptedException {
-				ProxyDirTreeDbWithUpdateQueue.super.unsetClean(pathid);
-			}
-		});
-	}
-
 	@Override
 	public void disable(final DbPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
