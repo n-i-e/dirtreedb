@@ -21,7 +21,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-public interface IDirTreeDb {
+public interface IDirTreeDb extends AutoCloseable {
 	public abstract Statement createStatement() throws SQLException, InterruptedException;
 	public abstract PreparedStatement prepareStatement(final String sql) throws SQLException, InterruptedException;
 	public abstract void close() throws SQLException;
