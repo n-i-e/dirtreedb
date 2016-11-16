@@ -39,7 +39,7 @@ public class ZipListerForFile extends AbstractArchiveLister {
 			@Override public void setNumCrawlingThreads(int numCrawlingThreads) {}
 			@Override public void setWindowsIdleSeconds(int windowsIdleSeconds) {}
 			@Override public void setCharset(String newvalue) {
-				ZipLister.setCharset(newvalue);
+				ZipListerForFile.setCharset(newvalue);
 			}
 		});
 	}

@@ -36,6 +36,7 @@ public class PreferenceRW {
 		updater.setExtensionAvailabilityMap(getExtensionAvailabilityMap());
 		updater.setNumCrawlingThreads(getNumCrawlingThreads());
 		updater.setWindowsIdleSeconds(getWindowsIdleSeconds());
+		updater.setCharset(getZipListerCharset());
 	}
 
 	public static boolean unregist(IPreferenceSyncUpdate updater) {
