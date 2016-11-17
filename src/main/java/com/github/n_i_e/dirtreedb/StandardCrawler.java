@@ -31,6 +31,7 @@ import java.util.Set;
 
 import com.github.n_i_e.dirtreedb.LazyProxyDirTreeDb.Dispatcher;
 
+@Deprecated
 public class StandardCrawler extends LazyAccessorThread {
 
 	class RunnerThread extends LazyAccessorThread.RunnerThread {
@@ -102,29 +103,23 @@ public class StandardCrawler extends LazyAccessorThread {
 		scheduleInsertables.init();
 		ScheduleUpdates scheduleUpdates = new ScheduleUpdates();
 		scheduleUpdates.init();
-		try {
-			while (true) {
-				if (getDb().getInsertableQueueSize() < INSERTABLE_QUEUE_LOW_THRESHOLD) {
-					writelog2("--- scuedule layer 1 ---");
-					scheduleInsertables.schedule(false);
-				} else {
-					writelog2("--- SKIP scuedule layer 1 ---");
-				}
-
-				if (getDb().getDontInsertQueueSize() < DONT_INSERT_QUEUE_SIZE_LOW_THRESHOLD) {
-					writelog2("--- scuedule layer 2 ---");
-					scheduleDontInserts.schedule(false);
-				} else {
-					writelog2("--- SKIP scuedule layer 2 ---");
-				}
-
-				writelog2("--- scuedule layer 3 ---");
-				scheduleUpdates.schedule(false);
+		while (true) {
+			if (getDb().getInsertableQueueSize() < INSERTABLE_QUEUE_LOW_THRESHOLD) {
+				writelog2("--- scuedule layer 1 ---");
+				scheduleInsertables.schedule(false);
+			} else {
+				writelog2("--- SKIP scuedule layer 1 ---");
 			}
-		} catch (SQLException e) {
-			writeError("Error", "Caught SQLException, possibly fatal.  Quitting.");
-			writelog2("Crawler caught SQLException");
-			e.printStackTrace();
+
+			if (getDb().getDontInsertQueueSize() < DONT_INSERT_QUEUE_SIZE_LOW_THRESHOLD) {
+				writelog2("--- scuedule layer 2 ---");
+				scheduleDontInserts.schedule(false);
+			} else {
+				writelog2("--- SKIP scuedule layer 2 ---");
+			}
+
+			writelog2("--- scuedule layer 3 ---");
+			scheduleUpdates.schedule(false);
 		}
 	}
 
