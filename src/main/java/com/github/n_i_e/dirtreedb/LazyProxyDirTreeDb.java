@@ -75,7 +75,9 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 	@Override
 	public void threadHook() throws InterruptedException {
 		super.threadHook();
-		((LazyAccessorThread.RunnerThread)Thread.currentThread()).threadHook();
+		try {
+			((LazyAccessorThread.RunnerThread)Thread.currentThread()).threadHook();
+		} catch (ClassCastException e) {}
 	}
 
 	@Override
@@ -177,14 +179,6 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 		return lazyqueue_dontinsert.getRootIdSet();
 	}
 
-	@Override
-	public void discardAllQueueItems() {
-		lazyqueue_thread.close();
-		lazyqueue_insertable.discardAllItems();
-		lazyqueue_dontinsert.discardAllItems();
-		super.discardAllQueueItems();
-	}
-
 	private class LazyQueueRunnerThreadPool extends ArrayList<LazyQueueRunnerThread> implements Closeable {
 
 		public synchronized void wakeupThreadIfPossible() {
@@ -225,8 +219,11 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 
 	private class LazyQueueRunnerThread extends Thread {
 
-		public void threadHook() throws InterruptedException {
-			Thread.sleep(0); // throw InterruptedException if interrupted
+		private void threadHook() throws InterruptedException {
+			Assertion.assertAssertionError(this == Thread.currentThread());
+			if (Thread.currentThread().isInterrupted()) {
+				throw new InterruptedException();
+			}
 		}
 
 		public void run() {

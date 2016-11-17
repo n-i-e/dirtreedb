@@ -122,12 +122,9 @@ public class StandardCrawler extends LazyAccessorThread {
 				scheduleUpdates.schedule(false);
 			}
 		} catch (SQLException e) {
-			writeWarning("Warning", "Caught SQLException, trying to recover (this is usually OK)");
-			writelog2("Crawler WARNING caught SQLException, trying to recover");
+			writeError("Error", "Caught SQLException, possibly fatal.  Quitting.");
+			writelog2("Crawler caught SQLException");
 			e.printStackTrace();
-			getDb().discardAllQueueItems();
-			getDb().cleanupOrphans();
-			getDb().consumeUpdateQueue();
 		}
 	}
 

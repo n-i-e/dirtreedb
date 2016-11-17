@@ -25,6 +25,12 @@ public class ProxyDirTreeDbWithUpdateQueue extends ProxyDirTreeDb {
 		super(parent);
 	}
 
+	@Override
+	public void close() throws SQLException {
+		super.close();
+		updatequeue.close();
+	}
+
 	/*
 	 * UpdateQueue entity and related methods
 	 */
@@ -62,13 +68,6 @@ public class ProxyDirTreeDbWithUpdateQueue extends ProxyDirTreeDb {
 	public int getUpdateQueueSize(int priority) {
 		return updatequeue.size(priority);
 	}
-
-	public void discardAllQueueItems() {
-		while (updatequeue.size() > 0) {
-			updatequeue.next();
-		}
-	}
-
 
 	/*
 	 * consumeOneUpdateQueue() and related

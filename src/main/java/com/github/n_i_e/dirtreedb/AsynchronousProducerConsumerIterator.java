@@ -16,10 +16,11 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-public class AsynchronousProducerConsumerIterator<T> implements Iterator<T>, Iterable<T> {
+public class AsynchronousProducerConsumerIterator<T> implements Iterator<T>, Iterable<T>, Closeable {
 
 	private ArrayList<T> buffer = new ArrayList<T>();
 	private boolean isOpen = true;
@@ -53,6 +54,9 @@ public class AsynchronousProducerConsumerIterator<T> implements Iterator<T>, Ite
 
 	public synchronized void close() {
 		isOpen = false;
+		while (hasNext()) {
+			next();
+		}
 	}
 
 }
