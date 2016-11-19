@@ -81,9 +81,6 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 	@Override
 	public void threadHook() throws InterruptedException {
 		super.threadHook();
-		try {
-			((LazyAccessorThread.RunnerThread)Thread.currentThread()).threadHook();
-		} catch (ClassCastException e) {}
 	}
 
 	@Override
