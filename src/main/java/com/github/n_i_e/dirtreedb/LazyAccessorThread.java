@@ -19,6 +19,7 @@ package com.github.n_i_e.dirtreedb;
 import java.lang.Thread.State;
 import java.sql.SQLException;
 
+@Deprecated
 public abstract class LazyAccessorThread {
 
 	protected class RunnerThread extends Thread {

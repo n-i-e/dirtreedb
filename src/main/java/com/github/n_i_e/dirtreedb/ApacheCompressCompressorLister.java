@@ -16,6 +16,7 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -28,7 +29,9 @@ public class ApacheCompressCompressorLister extends AbstractCompressorLister {
 		try {
 			setInstream(new CompressorStreamFactory().createCompressorInputStream(inf));
 		} catch (CompressorException e) {
-			throw new IOException(e.toString());
+			inf.close();
+			byte[] buf = {};
+			setInstream(new ByteArrayInputStream(buf));
 		}
 	}
 }

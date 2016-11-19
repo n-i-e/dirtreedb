@@ -61,14 +61,20 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 
 	@Override
 	public void close() throws SQLException {
+		Debug.writelog("Consuming remaining queue elements");
+		try {
+			consumeUpdateQueueWithTimelimit(1000);
+		} catch (InterruptedException e) {}
 		Debug.writelog("Really closing DB");
-		super.close();
+		super.closeDb();
 		Debug.writelog("Closing lazyqueue_thread DB");
 		lazyqueue_thread.close();
 		Debug.writelog("Closing lazyqueue_insertable DB");
 		lazyqueue_insertable.close();
 		Debug.writelog("Closing lazyqueue_dontinsert DB");
 		lazyqueue_dontinsert.close();
+		Debug.writelog("Closing lazyqueue");
+		super.closeQueue();
 		Debug.writelog("LazyProxyDirTreeDb close finished");
 	}
 
@@ -137,23 +143,23 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 	public void consumeOneUpdateQueue() throws InterruptedException, SQLException {
 		Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+		threadHook();
 		super.consumeOneUpdateQueue();
 	}
 
 	public void consumeSomeUpdateQueue() throws InterruptedException, SQLException {
-		threadHook();
+		consumeOneUpdateQueue();
 		while ((lazyqueue_insertable.size() > 0 || lazyqueue_dontinsert.size() > 0) && getUpdateQueueSize() > 0) {
 			consumeOneUpdateQueue();
 		}
 	}
 
-	public void consumeSomeUpdateQueueWithTimeLimit(long milliseconds) throws InterruptedException, SQLException {
-		long t1 = new Date().getTime();
-		threadHook();
-		while ((lazyqueue_insertable.size() > 0 || lazyqueue_dontinsert.size() > 0) && getUpdateQueueSize() > 0) {
+	public void consumeUpdateQueueWithTimelimit(long milliseconds) throws InterruptedException, SQLException {
+		long t1 = new Date().getTime() + milliseconds;
+		while (getUpdateQueueSize() > 0) {
 			consumeOneUpdateQueue();
 			long t2 = new Date().getTime();
-			if (t2 - t1 > milliseconds) {
+			if (t2 > t1) {
 				return;
 			}
 		}
@@ -217,12 +223,14 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 		abstract void run() throws SQLException, InterruptedException;
 	}
 
-	private class LazyQueueRunnerThread extends Thread {
+	private class LazyQueueRunnerThread extends ThreadWithInterruptHook {
 
 		private void threadHook() throws InterruptedException {
 			Assertion.assertAssertionError(this == Thread.currentThread());
-			if (Thread.currentThread().isInterrupted()) {
-				throw new InterruptedException();
+			try {
+				((ThreadWithInterruptHook)Thread.currentThread()).interruptHook();
+			} catch (ClassCastException e) {
+				Thread.sleep(0);
 			}
 		}
 

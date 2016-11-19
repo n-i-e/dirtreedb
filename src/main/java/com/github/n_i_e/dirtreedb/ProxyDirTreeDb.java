@@ -53,8 +53,10 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			Debug.writelog("ProxyDirTreeDb threadHookInterval too long: " + d);
 		}
 		_threadHookInterval = n;
-		if (Thread.currentThread().isInterrupted()) {
-			throw new InterruptedException();
+		try {
+			((ThreadWithInterruptHook)Thread.currentThread()).interruptHook();
+		} catch (ClassCastException e) {
+			Thread.sleep(0);
 		}
 	}
 

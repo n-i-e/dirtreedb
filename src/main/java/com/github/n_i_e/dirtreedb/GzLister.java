@@ -16,6 +16,7 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
@@ -28,7 +29,8 @@ public class GzLister extends AbstractCompressorLister {
 			setInstream(new GZIPInputStream(inf));
 		} catch (ZipException e) {
 			inf.close();
-			setInstream(null);
+			byte[] buf = {};
+			setInstream(new ByteArrayInputStream(buf));
 		}
 	}
 }

@@ -28,6 +28,13 @@ public class ProxyDirTreeDbWithUpdateQueue extends ProxyDirTreeDb {
 	@Override
 	public void close() throws SQLException {
 		super.close();
+	}
+
+	public void closeDb() throws SQLException {
+		super.close();
+	}
+
+	public void closeQueue() {
 		updatequeue.close();
 	}
 
@@ -101,7 +108,6 @@ public class ProxyDirTreeDbWithUpdateQueue extends ProxyDirTreeDb {
 	}
 
 	public synchronized void consumeOneUpdateQueue() throws InterruptedException, SQLException {
-		threadHook();
 		if (updatequeue.hasNext()) {
 			try {
 				beginConsumeUpdateQueueMode();
@@ -113,15 +119,15 @@ public class ProxyDirTreeDbWithUpdateQueue extends ProxyDirTreeDb {
 	}
 
 	public void consumeUpdateQueue() throws InterruptedException, SQLException {
-		threadHook();
 		while (updatequeue.size() > 0) {
+			threadHook();
 			consumeOneUpdateQueue();
 		}
 	}
 
 	public void consumeUpdateQueue(int priority) throws InterruptedException, SQLException {
-		threadHook();
 		while (updatequeue.size(priority) > 0) {
+			threadHook();
 			consumeOneUpdateQueue();
 		}
 	}

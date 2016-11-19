@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import java.util.Date;
 import java.util.Map;
 
+@Deprecated
 public class LazyAccessorThreadRunningConfig implements IPreferenceSyncUpdate {
 
 	private StackingLock lock = new StackingLock();

@@ -432,7 +432,7 @@ public class StandardCrawler extends LazyAccessorThread {
 			consumeSomeUpdateQueue();
 
 			assert(roundrobinState >= 0);
-			assert(roundrobinState <= 4);
+			assert(roundrobinState <= 3);
 
 			if (roundrobinState == 0) {
 				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD) {
@@ -495,7 +495,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				}
 			}
 
-			if (roundrobinState == 4) {
+			if (roundrobinState == 3) {
 				if (getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD) {
 					writelog2("--- SKIP touch ---");
 					if (!doAllAtOnce) { roundrobinState--; }
@@ -525,7 +525,7 @@ public class StandardCrawler extends LazyAccessorThread {
 				consumeSomeUpdateQueue();
 				roundrobinState++;
 			}
-			roundrobinState = roundrobinState % 5;
+			roundrobinState = roundrobinState % 4;
 		}
 
 		private int csum(PreparedStatement ps, Set<DbPathEntry> reachableRoots, boolean useLastPathId)
