@@ -397,10 +397,17 @@ public class ProxyDirTreeDbWithUpdateQueue extends ProxyDirTreeDb {
 	}
 
 	@Override
-	public int refreshIndirectUpperLower(Set<Long> dontListRootIds, IsEol isEol)
+	public int refreshDirectUpperLower(Set<Long> dontListRootIds, IsEol isEol)
 			throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! isConsumeUpdateQueueMode());
 		return super.refreshDirectUpperLower(dontListRootIds, isEol);
+	}
+
+	@Override
+	public int refreshIndirectUpperLower(Set<Long> dontListRootIds, IsEol isEol)
+			throws SQLException, InterruptedException {
+		Assertion.assertAssertionError(! isConsumeUpdateQueueMode());
+		return super.refreshIndirectUpperLower(dontListRootIds, isEol);
 	}
 
 	@Override

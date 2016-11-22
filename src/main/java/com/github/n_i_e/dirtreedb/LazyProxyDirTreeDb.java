@@ -84,12 +84,19 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 	}
 
 	@Override
+	public int refreshDirectUpperLower(Set<Long> dontListRootIds, IsEol isEol)
+			throws SQLException, InterruptedException {
+		Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
+		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
+		return super.refreshDirectUpperLower(dontListRootIds, isEol);
+	}
+
+	@Override
 	public int refreshIndirectUpperLower(Set<Long> dontListRootIds, IsEol isEol)
 			throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		Assertion.assertAssertionError(! isConsumeUpdateQueueMode());
-		return super.refreshDirectUpperLower(dontListRootIds, isEol);
+		return super.refreshIndirectUpperLower(dontListRootIds, isEol);
 	}
 
 	@Override
