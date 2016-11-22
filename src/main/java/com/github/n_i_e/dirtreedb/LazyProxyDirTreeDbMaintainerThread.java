@@ -46,7 +46,6 @@ public class LazyProxyDirTreeDbMaintainerThread extends StackingNonPreemptiveThr
 						target.run();
 					} catch (InterruptedException e) {
 						Debug.writelog("--- Maintainer Interrupted ---");
-						return;
 					} catch (Throwable e) {
 						Debug.writelog("Crawler Reached StandardCrawler bottom due to Exception: " + e.toString());
 						prov.getMessageWriter().writeError("Exception", "This may be a fatal trouble. Exiting.\n" + e.toString());
