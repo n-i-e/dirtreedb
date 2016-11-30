@@ -34,8 +34,12 @@ public class StackingNonPreemptiveThread extends ThreadWithInterruptHook {
 	}
 
 	public void setTopPriority() {
+		Assertion.assertAssertionError(Thread.currentThread() == this);
+		Debug.writelog("--- Set Top Priority (1/3) ---");
 		lock.unregist();
+		Debug.writelog("--- Set Top Priority (2/3) ---");
 		lock.regist();
+		Debug.writelog("--- Set Top Priority (3/3) ---");
 	}
 
 	@Override
@@ -69,12 +73,14 @@ public class StackingNonPreemptiveThread extends ThreadWithInterruptHook {
 	}
 
 	@Override
-	public synchronized void interruptHook() throws InterruptedException {
-		if (isInterrupted) {
-			isInterrupted = false;
-			throw new InterruptedException();
+	public void interruptHook() throws InterruptedException {
+		synchronized(this) {
+			if (isInterrupted) {
+				isInterrupted = false;
+				throw new InterruptedException();
+			}
 		}
-		lock.lock();
+		lock.keep();
 	}
 
 	protected static void threadHook() throws InterruptedException {

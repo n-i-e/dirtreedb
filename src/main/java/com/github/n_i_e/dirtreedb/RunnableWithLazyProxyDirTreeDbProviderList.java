@@ -17,13 +17,13 @@
 package com.github.n_i_e.dirtreedb;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class RunnableWithLazyProxyDirTreeDbProviderList extends RunnableWithLazyProxyDirTreeDbProvider {
 
 	private List<RunnableWithLazyProxyDirTreeDbProvider> list =
-			new ArrayList<RunnableWithLazyProxyDirTreeDbProvider> ();
+			new CopyOnWriteArrayList<RunnableWithLazyProxyDirTreeDbProvider> ();
 
 	private boolean isOpeningHookFinished = false;
 
@@ -44,6 +44,7 @@ public class RunnableWithLazyProxyDirTreeDbProviderList extends RunnableWithLazy
 		while (list.size() > 0) {
 			RunnableWithLazyProxyDirTreeDbProvider r = list.get(0);
 			try {
+				((StackingNonPreemptiveThread)Thread.currentThread()).setTopPriority();
 				closingHook();
 				r.setProv(getProv());
 				if (isOpeningHookFinished) {
