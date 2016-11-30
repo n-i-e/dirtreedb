@@ -66,15 +66,13 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 			consumeUpdateQueueWithTimelimit(1000);
 		} catch (InterruptedException e) {}
 		Debug.writelog("Really closing DB");
-		super.closeDb();
-		Debug.writelog("Closing lazyqueue_thread DB");
+		super.close();
+		Debug.writelog("Closing lazyqueue_thread");
 		lazyqueue_thread.close();
-		Debug.writelog("Closing lazyqueue_insertable DB");
+		Debug.writelog("Closing lazyqueue_insertable");
 		lazyqueue_insertable.close();
-		Debug.writelog("Closing lazyqueue_dontinsert DB");
+		Debug.writelog("Closing lazyqueue_dontinsert");
 		lazyqueue_dontinsert.close();
-		Debug.writelog("Closing lazyqueue");
-		super.closeQueue();
 		Debug.writelog("LazyProxyDirTreeDb close finished");
 	}
 
@@ -211,13 +209,6 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 			for (int i = size()-1; i >= 0; i--) {
 				if (get(i).isAlive()) {
 					get(i).interrupt();
-				}
-			}
-			for (int i = size()-1; i >= 0; i--) {
-				if (get(i).isAlive()) {
-					try {
-						get(i).join();
-					} catch (InterruptedException e) {}
 				}
 			}
 		}
