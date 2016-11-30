@@ -19,13 +19,10 @@ package com.github.n_i_e.dirtreedb;
 import java.util.Iterator;
 import java.util.Stack;
 
-public class StackingLock extends BinaryStateReentrantLock
-{
-	Stack<Thread> stack = new Stack<Thread> ();
+public class StackingLock {
 
-	StackingLock() {
-		super(true); // fair
-	}
+	BinaryStateReentrantLock lock = new BinaryStateReentrantLock(true); // fair
+	Stack<Thread> stack = new Stack<Thread> ();
 
 	private synchronized boolean isInStack() {
 		Iterator<Thread> iter = stack.iterator();
@@ -35,7 +32,7 @@ public class StackingLock extends BinaryStateReentrantLock
 			if (Thread.currentThread() == i) {
 				result = true;
 			} else if (i.getState() == Thread.State.TERMINATED) {
-				assert(this.getOwner() != i);
+				Assertion.assertAssertionError(!lock.isOwner(i));
 				iter.remove();
 			}
 		}
@@ -47,7 +44,7 @@ public class StackingLock extends BinaryStateReentrantLock
 		while (iter.hasNext()) {
 			Thread i = iter.next();
 			if (i.getState() == Thread.State.TERMINATED) {
-				assert(this.getOwner() != i);
+				Assertion.assertAssertionError(!lock.isOwner(i));
 				iter.remove();
 			}
 		}
@@ -55,19 +52,19 @@ public class StackingLock extends BinaryStateReentrantLock
 	}
 
 	public void regist() {
-		super.lock();
+		lock.lock();
 		if (!isInStack()) {
 			stack.push(Thread.currentThread());
 		}
-		super.unlock();
+		lock.unlock();
 	}
 
 	public void registLowPriority() {
-		super.lock();
+		lock.lock();
 		while (true) {
 			if (isInStack()) {
-				super.unlock();
-				super.lock();
+				lock.unlock();
+				lock.lock();
 				if (Thread.currentThread() == stack.peek()) {
 					return;
 				}
@@ -90,26 +87,20 @@ public class StackingLock extends BinaryStateReentrantLock
 		}
 	}
 
-	@Override
 	public void lock() {
-		super.lock();
+		lock.lock();
 		while (true) {
-			if (isInStack()) {
-				super.unlock();
-				super.lock();
-				if (Thread.currentThread() == stack.peek()) {
-					return;
-				}
-			} else {
-				stack.push(Thread.currentThread());
+			Assertion.assertAssertionError(isInStack());
+			lock.unlock();
+			lock.lock();
+			if (Thread.currentThread() == stack.peek()) {
 				return;
 			}
 		}
 	}
 
-	@Override
 	public void unlock() {
-		super.unlock();
+		lock.unlock();
 	}
 
 	public void keep() {
