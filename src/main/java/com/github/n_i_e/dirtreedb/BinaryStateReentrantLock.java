@@ -25,7 +25,7 @@ public class BinaryStateReentrantLock extends ReentrantLock {
 	}
 
 	BinaryStateReentrantLock(boolean fair) {
-		super(fair);	
+		super(fair);
 	}
 
 	@Override
@@ -40,5 +40,9 @@ public class BinaryStateReentrantLock extends ReentrantLock {
 		while (isHeldByCurrentThread()) {
 			super.unlock();
 		}
+	}
+
+	public boolean isOwner(Thread thread) {
+		return getOwner() == thread;
 	}
 }
