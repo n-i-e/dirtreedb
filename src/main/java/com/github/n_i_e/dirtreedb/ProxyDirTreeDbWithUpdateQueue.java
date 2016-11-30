@@ -27,15 +27,12 @@ public class ProxyDirTreeDbWithUpdateQueue extends ProxyDirTreeDb {
 
 	@Override
 	public void close() throws SQLException {
-		super.close();
-	}
-
-	public void closeDb() throws SQLException {
-		super.close();
-	}
-
-	public void closeQueue() {
 		updatequeue.close();
+		super.close();
+	}
+
+	public boolean isOpen() {
+		return updatequeue.isOpen();
 	}
 
 	/*
@@ -108,6 +105,7 @@ public class ProxyDirTreeDbWithUpdateQueue extends ProxyDirTreeDb {
 	}
 
 	public synchronized void consumeOneUpdateQueue() throws InterruptedException, SQLException {
+		Assertion.assertNullPointerException(isOpen(), "!! Update Queue Already Closed");
 		if (updatequeue.hasNext()) {
 			try {
 				beginConsumeUpdateQueueMode();

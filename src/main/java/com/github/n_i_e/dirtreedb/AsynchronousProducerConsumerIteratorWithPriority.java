@@ -25,6 +25,10 @@ public class AsynchronousProducerConsumerIteratorWithPriority<T> implements Iter
 	private ArrayList<ArrayList<T>> buffer;
 	private boolean isOpen = true;
 
+	public boolean isOpen() {
+		return isOpen;
+	}
+
 	public AsynchronousProducerConsumerIteratorWithPriority(int numPriorityLevels) {
 		buffer = new ArrayList<ArrayList<T>>();
 		for (int i=0; i<numPriorityLevels; i++) {
