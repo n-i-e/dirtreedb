@@ -33,11 +33,14 @@ import com.github.n_i_e.dirtreedb.LazyProxyDirTreeDb.Dispatcher;
 
 class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeDbProvider {
 
-	private static final int UPDATE_QUEUE_SIZE_LIMIT = 10000;
+	private static final int UPDATE_QUEUE_SIZD_LOW_THRESHOLD = 9000;
+	private static final int UPDATE_QUEUE_SIZD_HIGH_THRESHOLD = 10000;
+
 	private static final int INSERTABLE_QUEUE_LOW_THRESHOLD = 50;
 	private static final int INSERTABLE_QUEUE_HIGH_THRESHOLD = 100;
 	private static final int RELAXED_INSERTABLE_QUEUE_SIZE_LOW_THRESHOLD = 950;
 	private static final int RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD = 1000;
+
 	private static final int DONT_INSERT_QUEUE_SIZE_LOW_THRESHOLD = 9000;
 	private static final int DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD = 10000;
 
@@ -51,6 +54,10 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		while (true) {
 			getDb().consumeSomeUpdateQueue();
 			beacon();
+			while (getDb().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
+				getDb().consumeOneUpdateQueue();
+				beacon();
+			}
 
 			if (scheduleInsertable[cI].isStartable()) {
 				writelog2("--- scuedule layer 1 ---");
@@ -66,6 +73,10 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 
 			getDb().consumeSomeUpdateQueue();
 			beacon();
+			while (getDb().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
+				getDb().consumeOneUpdateQueue();
+				beacon();
+			}
 
 			if (scheduleDontInsert[cD].isStartable()) {
 				writelog2("--- scuedule layer 2 ---");
@@ -81,6 +92,10 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 
 			getDb().consumeSomeUpdateQueue();
 			beacon();
+			while (getDb().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
+				getDb().consumeOneUpdateQueue();
+				beacon();
+			}
 
 			if (scheduleUpdate[cU].isStartable()) {
 				writelog2("--- scuedule layer 3 ---");
@@ -122,7 +137,6 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				}
 			} else {
 				lastPathId = -2;
-
 			}
 		}
 
@@ -177,8 +191,8 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		private final IsEol queueLimit = new IsEol() {
 			@Override
 			public boolean isEol() throws SQLException, InterruptedException {
-				if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
-						|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_LIMIT
+				if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
+						|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
 						|| getDb().getInsertableQueueSize() >= getQueueSizeHighThreshold()) {
 					return true;
 				} else {
@@ -252,8 +266,8 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		private final IsEol queueLimit = new IsEol() {
 			@Override
 			public boolean isEol() throws SQLException, InterruptedException {
-				if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
-						|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_LIMIT
+				if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
+						|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
 						|| getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD) {
 					return true;
 				} else {
@@ -372,8 +386,8 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		private final IsEol queueLimit = new IsEol() {
 			@Override
 			public boolean isEol() throws SQLException, InterruptedException {
-				if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_LIMIT
-						|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_LIMIT) {
+				if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
+						|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD) {
 					return true;
 				} else {
 					return false;
@@ -618,6 +632,13 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				}
 			},
 			new ScheduleDontInsert() {
+				@Override public boolean isStartable() {
+					if (getDb().getUpdateQueueSize(0) > 0) {
+						return false;
+					} else {
+						return super.isStartable();
+					}
+				}
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("--- touch ---");
 					setLastPathIdAvailable(true);
@@ -640,15 +661,24 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 			}
 	};
 
+	private static final int SCHEDULE_UPDATE_COUNT_THRESHOLD = UPDATE_QUEUE_SIZD_HIGH_THRESHOLD * 8 / 10;
 	Schedule[] scheduleUpdate = {
 			new ScheduleUpdate() {
+				private int repeatCounter=0;
 				@Override
 				public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("*** refresh upperlower entries (1/2) ***");
 					setLastPathIdAvailable(false);
 					int c = getDb().refreshDirectUpperLower(getQueueLimit());
 					writelog2("*** refresh upperlower entries (1/2) finished count=" + c + " ***");
-					return true;
+
+					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
+						repeatCounter++;
+						return false;
+					} else {
+						repeatCounter = 0;
+						return true;
+					}
 				}
 			},
 			new ScheduleUpdate() {
@@ -659,7 +689,8 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 					setLastPathIdAvailable(false);
 					int c = getDb().refreshIndirectUpperLower(getQueueLimit());
 					writelog2("*** refresh upperlower entries (2/2) finished count=" + c + " ***");
-					if (c>0  && repeatCounter < 10) {
+
+					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
 						repeatCounter++;
 						return false;
 					} else {
@@ -689,33 +720,31 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				}
 			},
 			new ScheduleUpdate() {
+				private int repeatCounter=0;
 				@Override
 				public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("*** refresh duplicate fields ***");
 					setLastPathIdAvailable(false);
 					int c = getDb().refreshDuplicateFields(getQueueLimit());
 					writelog2("*** refresh duplicate fields finished count=" + c + " ***");
-					return true;
-				}
-			},
-			new ScheduleUpdate() {
-				@Override
-				public boolean isEol() throws SQLException, InterruptedException {
-					writelog2("*** refresh directory sizes ***");
-					setLastPathIdAvailable(false);
-					int c = getDb().refreshFolderSizes(getQueueLimit());
-					writelog2("*** refresh directory sizes finished count=" + c + " ***");
-					return true;
+
+					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
+						repeatCounter++;
+						return false;
+					} else {
+						repeatCounter = 0;
+						return true;
+					}
 				}
 			},
 			new ScheduleUpdate() {
 				private int repeatCounter=0;
 				@Override
 				public boolean isEol() throws SQLException, InterruptedException {
-					writelog2("*** cleanup orphans ***");
+					writelog2("*** refresh directory sizes ***");
 					setLastPathIdAvailable(false);
-					int c = getDb().cleanupOrphans(getQueueLimit());
-					writelog2("*** cleanup orphans finished count=" + c + " ***");
+					int c = getDb().refreshFolderSizes(getQueueLimit());
+					writelog2("*** refresh directory sizes finished count=" + c + " ***");
 
 					if (c>0  && repeatCounter < 10) {
 						repeatCounter++;
@@ -727,6 +756,25 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				}
 			},
 			new ScheduleUpdate() {
+				private int repeatCounter=0;
+				@Override
+				public boolean isEol() throws SQLException, InterruptedException {
+					writelog2("*** cleanup orphans ***");
+					setLastPathIdAvailable(false);
+					int c = getDb().cleanupOrphans(getQueueLimit());
+					writelog2("*** cleanup orphans finished count=" + c + " ***");
+
+					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
+						repeatCounter++;
+						return false;
+					} else {
+						repeatCounter = 0;
+						return true;
+					}
+				}
+			},
+			new ScheduleUpdate() {
+				private int repeatCounter=0;
 				@Override
 				public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("*** cleanup equality orphans ***");
@@ -734,9 +782,11 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 					int c = getDb().cleanupEqualityOrphans(getQueueLimit());
 					writelog2("*** cleanup equality orphans finished count=" + c + " ***");
 
-					if (c>0) {
+					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
+						repeatCounter++;
 						return false;
 					} else {
+						repeatCounter = 0;
 						return true;
 					}
 				}
@@ -750,7 +800,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 					int c = getDb().cleanupEqualityOrphans(getQueueLimit());
 					writelog2("*** cleanup upperlower orphans finished count=" + c + " ***");
 
-					if (c>0  && repeatCounter < 10) {
+					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
 						repeatCounter++;
 						return false;
 					} else {
