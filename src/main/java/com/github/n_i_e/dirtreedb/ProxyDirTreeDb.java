@@ -609,7 +609,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		int count = 0;
 		try {
 			threadHook();
-			ResultSet rs = stmt.executeQuery("SELECT parentid, pathid FROM directory AS d1 WHERE parentid<>0 "
+			ResultSet rs = stmt.executeQuery("SELECT parentid, pathid FROM directory AS d1 WHERE parentid>0 "
 					+ getDontListRootIdsSubSql(dontListRootIds)
 					+ "AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid) " // NOT orphan
 					+ "AND NOT EXISTS (SELECT * FROM upperlower WHERE distance=1 AND parentid=upper AND pathid=lower)");
