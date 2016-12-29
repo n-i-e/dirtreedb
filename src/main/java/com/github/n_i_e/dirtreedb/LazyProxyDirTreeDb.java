@@ -740,6 +740,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 			if (stack == null) { return null; /* orphan */ }
 			try {
 				DbPathEntry p1 = stack.get(stack.size()-1);
+				Assertion.assertAssertionError(p1.isFile());
 				PathEntry p2 = getNewPathEntry(p1);
 				if (!PathEntry.dscMatch(p1, p2)) {
 					updateStatus(p1, PathEntry.DIRTY);
@@ -762,6 +763,7 @@ public class LazyProxyDirTreeDb extends ProxyDirTreeDbWithUpdateQueue {
 			if (stack == null) { return null; /* orphan */ }
 			try {
 				DbPathEntry p1 = stack.get(stack.size()-1);
+				Assertion.assertAssertionError(p1.isFile());
 				PathEntry p2 = getNewPathEntry(p1);
 				if (!PathEntry.dscMatch(p1, p2)) {
 					updateStatus(p1, PathEntry.DIRTY);
