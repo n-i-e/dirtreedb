@@ -1124,9 +1124,14 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			long t0 = new Date().getTime();
 			long count=0;
 			while (newfolderIter.hasNext()) {
-				Thread.sleep(0);
+				threadHook();
 				PathEntry newchild = newfolderIter.next();
 				Assertion.assertAssertionError(newchild.isFolder() || newchild.isFile());
+				if (newchild.isFolder()) {
+					Assertion.assertAssertionError(newchild.getPath().length() > entry.getPath().length()+1);
+				} else {
+					Assertion.assertAssertionError(newchild.getPath().length() > entry.getPath().length());
+				}
 
 				count++;
 				long t1 = new Date().getTime();
@@ -1208,11 +1213,12 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			long t0 = new Date().getTime();
 			long count=0;
 			while (newfolderIter.hasNext()) {
-				Thread.sleep(0);
+				threadHook();
 				PathEntry newchild = newfolderIter.next();
 				Assertion.assertNullPointerException(newchild != null, "newchild is null, entry=" + entry.getPath());
 				Assertion.assertAssertionError(newchild.isCompressedFolder() || newchild.isCompressedFile(),
 						"newchild type error: " + newchild.getType() + " is not CompressedFolder nor CompressedFile, entry=" + entry.getPath());
+				Assertion.assertAssertionError(newchild.getPath().length() > entry.getPath().length()+1);
 
 				count++;
 				long t1 = new Date().getTime();
