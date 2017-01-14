@@ -1,4 +1,4 @@
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.jdbcwithdebuglog;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -329,7 +329,7 @@ public class StatementWithDebugLog extends AbstractStatementWithDebugLog impleme
 		return instance.isCloseOnCompletion();
 	}
 
-	protected void writelogQuery() {
+	public void writelogQuery() {
 		writelog(sql);
 	}
 

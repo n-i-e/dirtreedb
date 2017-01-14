@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.jdbcwithdebuglog;
 
 public abstract class AbstractStatementWithDebugLog {
 	protected String sql = "";
@@ -26,5 +26,5 @@ public abstract class AbstractStatementWithDebugLog {
 		System.out.println(message);
 	}
 
-	protected abstract void writelogQuery();
+	public abstract void writelogQuery();
 }

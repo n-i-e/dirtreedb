@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.jdbcwithdebuglog;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -37,6 +37,8 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Map;
+
+import com.github.n_i_e.dirtreedb.Assertion;
 
 public class ResultSetWithDebugLog implements ResultSet {
 	private ResultSet instance;

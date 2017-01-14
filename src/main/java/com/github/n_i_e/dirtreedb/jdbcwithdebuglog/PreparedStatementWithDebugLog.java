@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.jdbcwithdebuglog;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -739,7 +739,7 @@ public class PreparedStatementWithDebugLog extends AbstractStatementWithDebugLog
 		writelogQuery();
 	}
 
-	protected void writelogQuery() {
+	public void writelogQuery() {
 		writelog(sql);
 		ArrayList<Integer> keylist = new ArrayList<Integer>(parameter.keySet());
 		Collections.sort(keylist);
