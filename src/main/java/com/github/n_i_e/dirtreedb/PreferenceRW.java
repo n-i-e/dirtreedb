@@ -32,7 +32,7 @@ public class PreferenceRW {
 	public static void regist(IPreferenceSyncUpdate updater) {
 		Assertion.assertNullPointerException(updater != null);
 		updaters.add(updater);
-		updater.setDbFilePath(getDbFilePath());
+		updater.setDBFilePath(getDBFilePath());
 		updater.setExtensionAvailabilityMap(getExtensionAvailabilityMap());
 		updater.setNumCrawlingThreads(getNumCrawlingThreads());
 		updater.setWindowsIdleSeconds(getWindowsIdleSeconds());
@@ -46,22 +46,22 @@ public class PreferenceRW {
 
 	private static Preferences prefs = Preferences.userNodeForPackage(PreferenceRW.class);
 
-	// DbFilePath
+	// DBFilePath
 
-	private final static String DbFilePath_KEY = "DbFilePath";
+	private final static String DBFilePath_KEY = "DbFilePath";
 
-	public static String getDbFilePath() {
+	public static String getDBFilePath() {
 		String def = System.getProperty("user.home") + "\\.dirtreedb\\dirtreedb.sqlite";
-		String result = prefs.get(DbFilePath_KEY, def);
+		String result = prefs.get(DBFilePath_KEY, def);
 		File p = new File(result).getParentFile();
 		p.mkdirs();
 		return result;
 	}
 
-	public static void setDbFilePath(String newvalue) {
-		prefs.put(DbFilePath_KEY, newvalue);
+	public static void setDBFilePath(String newvalue) {
+		prefs.put(DBFilePath_KEY, newvalue);
 		for (IPreferenceSyncUpdate p: updaters) {
-			p.setDbFilePath(newvalue);
+			p.setDBFilePath(newvalue);
 		}
 	}
 

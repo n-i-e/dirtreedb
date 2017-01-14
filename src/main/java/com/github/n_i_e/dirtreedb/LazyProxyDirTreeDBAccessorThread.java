@@ -16,9 +16,9 @@
 
 package com.github.n_i_e.dirtreedb;
 
-public class LazyProxyDirTreeDbAccessorThread extends StackingNonPreemptiveThread {
+public class LazyProxyDirTreeDBAccessorThread extends StackingNonPreemptiveThread {
 
-	public LazyProxyDirTreeDbAccessorThread(LazyProxyDirTreeDbProvider prov, RunnableWithLazyProxyDirTreeDbProvider target) {
+	public LazyProxyDirTreeDBAccessorThread(LazyProxyDirTreeDBProvider prov, RunnableWithLazyProxyDirTreeDBProvider target) {
 		super(new Runnable() {
 
 			@Override
@@ -28,7 +28,7 @@ public class LazyProxyDirTreeDbAccessorThread extends StackingNonPreemptiveThrea
 					target.setProv(prov);
 					target.openingHook();
 					Debug.writelog("--- Open DB (2/3) ---");
-					prov.openDbIfNot();
+					prov.openDBIfNot();
 					Debug.writelog("--- Open DB (3/3) ---");
 					threadHook();
 					target.run();
@@ -43,7 +43,7 @@ public class LazyProxyDirTreeDbAccessorThread extends StackingNonPreemptiveThrea
 				} finally {
 					Debug.writelog("--- Close DB (1/3) ---");
 					try {
-						prov.closeDbIfPossible();
+						prov.closeDBIfPossible();
 					} catch (Throwable e) {
 						Debug.writelog("Failed closing DB file");
 						prov.getMessageWriter().writeError("Error", "Failed closing DB file. This is may be a fatal trouble. Exiting.\n" + e.toString());

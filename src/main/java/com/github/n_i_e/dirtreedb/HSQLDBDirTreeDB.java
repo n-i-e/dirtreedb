@@ -23,8 +23,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 
-public class HsqldbDirTreeDB extends CommonSqlDirTreeDb {
-	public HsqldbDirTreeDB(String filename) throws ClassNotFoundException, SQLException {
+public class HSQLDBDirTreeDB extends CommonSQLDirTreeDB {
+	public HSQLDBDirTreeDB(String filename) throws ClassNotFoundException, SQLException {
 		Class.forName("org.hsqldb.jdbcDriver");
 
 		Assertion.assertAssertionError(filename.substring(filename.length()-7).equalsIgnoreCase(".script"));

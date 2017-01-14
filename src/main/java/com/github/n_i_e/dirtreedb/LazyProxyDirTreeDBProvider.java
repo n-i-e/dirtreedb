@@ -22,9 +22,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class LazyProxyDirTreeDbProvider implements IPreferenceSyncUpdate {
+public class LazyProxyDirTreeDBProvider implements IPreferenceSyncUpdate {
 
-	private LazyProxyDirTreeDb db = null;
+	private LazyProxyDirTreeDB db = null;
 	private MessageWriter messagewriter = new MessageWriter() {
 		@Override public void writeWarning(String title, String message) {}
 		@Override public void writeMessage(String title, String message) {}
@@ -34,7 +34,7 @@ public class LazyProxyDirTreeDbProvider implements IPreferenceSyncUpdate {
 	private String dbFilePath = null;
 	private Map<String, Boolean> extensionAvailabilityMap = null;
 
-	public LazyProxyDirTreeDbProvider() {
+	public LazyProxyDirTreeDBProvider() {
 		PreferenceRW.regist(this);
 	}
 
@@ -42,12 +42,12 @@ public class LazyProxyDirTreeDbProvider implements IPreferenceSyncUpdate {
 	 * provides thread instances
 	 */
 
-	public LazyProxyDirTreeDbMaintainerThread getMaintainerThread() {
-		return new LazyProxyDirTreeDbMaintainerThread(this);
+	public LazyProxyDirTreeDBMaintainerThread getMaintainerThread() {
+		return new LazyProxyDirTreeDBMaintainerThread(this);
 	}
 
-	public LazyProxyDirTreeDbAccessorThread getThread(RunnableWithLazyProxyDirTreeDbProvider target) {
-		return new LazyProxyDirTreeDbAccessorThread(this, target);
+	public LazyProxyDirTreeDBAccessorThread getThread(RunnableWithLazyProxyDirTreeDBProvider target) {
+		return new LazyProxyDirTreeDBAccessorThread(this, target);
 	}
 
 	/*
@@ -55,7 +55,7 @@ public class LazyProxyDirTreeDbProvider implements IPreferenceSyncUpdate {
 	 */
 
 	@Override
-	public synchronized void setDbFilePath(String dbFilePath) {
+	public synchronized void setDBFilePath(String dbFilePath) {
 		Assertion.assertNullPointerException(dbFilePath != null);
 		this.dbFilePath = dbFilePath;
 	}
@@ -88,12 +88,12 @@ public class LazyProxyDirTreeDbProvider implements IPreferenceSyncUpdate {
 	}
 
 	/*
-	 * LazyProxyDirTreeDb handling APIs
+	 * LazyProxyDirTreeDB handling APIs
 	 */
 
 	Set<Thread> threads = new HashSet<Thread> ();
 
-	public LazyProxyDirTreeDb getDb() {
+	public LazyProxyDirTreeDB getDB() {
 		Assertion.assertAssertionError(db != null);
 		if (! threads.contains(Thread.currentThread())) {
 			threads.add(Thread.currentThread());
@@ -101,7 +101,7 @@ public class LazyProxyDirTreeDbProvider implements IPreferenceSyncUpdate {
 		return db;
 	}
 
-	public synchronized LazyProxyDirTreeDb openDbIfNot() throws ClassNotFoundException, SQLException, IOException {
+	public synchronized LazyProxyDirTreeDB openDBIfNot() throws ClassNotFoundException, SQLException, IOException {
 		if (! threads.contains(Thread.currentThread())) {
 			threads.add(Thread.currentThread());
 		}
@@ -113,14 +113,14 @@ public class LazyProxyDirTreeDbProvider implements IPreferenceSyncUpdate {
 		Debug.writelog("DB file is: " + dbFilePath);
 
 		try {
-			IDirTreeDb singlethreaddb = DirTreeDbFactory.getDirTreeDb(dbFilePath);
+			IDirTreeDB singlethreaddb = DirTreeDBFactory.getDirTreeDB(dbFilePath);
 			if (singlethreaddb == null) {
 				final String errmsg = String.format("Cannot determine DB type for this file name: %s", dbFilePath);
 				Debug.writelog(errmsg);
 				messagewriter.writeError("Fatal Error", errmsg);
 				throw new IOException(errmsg);
 			}
-			db = new LazyProxyDirTreeDb(singlethreaddb);
+			db = new LazyProxyDirTreeDB(singlethreaddb);
 			return db;
 		} catch (ClassNotFoundException e) {
 			final String errmsg = String.format("Possibly jdbc driver is not installed on this environment: %s\n%s", dbFilePath, e.toString());
@@ -146,7 +146,7 @@ public class LazyProxyDirTreeDbProvider implements IPreferenceSyncUpdate {
 		}
 	}
 
-	public synchronized void closeDbIfPossible() throws SQLException {
+	public synchronized void closeDBIfPossible() throws SQLException {
 		Set<Thread> r = new HashSet<Thread> ();
 		for (Thread t: threads) {
 			if (t.getState() == Thread.State.TERMINATED || t == Thread.currentThread()) {
@@ -159,7 +159,7 @@ public class LazyProxyDirTreeDbProvider implements IPreferenceSyncUpdate {
 		}
 
 		if (threads.size() == 0) {
-			LazyProxyDirTreeDb d = db;
+			LazyProxyDirTreeDB d = db;
 			db = null;
 			d.close();
 		}

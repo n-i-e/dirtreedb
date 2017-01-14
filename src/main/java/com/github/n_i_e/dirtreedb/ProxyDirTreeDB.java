@@ -33,10 +33,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ProxyDirTreeDb implements IDirTreeDb {
-	protected IDirTreeDb parent;
+public class ProxyDirTreeDB implements IDirTreeDB {
+	protected IDirTreeDB parent;
 
-	public ProxyDirTreeDb (IDirTreeDb parent) {
+	public ProxyDirTreeDB (IDirTreeDB parent) {
 		this.parent = parent;
 	}
 
@@ -50,7 +50,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		long n = (new Date()).getTime();
 		if (_threadHookInterval != 0 && n - _threadHookInterval > 30*1000) {
 			long d = n - _threadHookInterval;
-			Debug.writelog("ProxyDirTreeDb threadHookInterval too long: " + d);
+			Debug.writelog("ProxyDirTreeDB threadHookInterval too long: " + d);
 		}
 		_threadHookInterval = n;
 		try {
@@ -73,17 +73,17 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public DbPathEntry rsToPathEntry(ResultSet rs, String prefix) throws SQLException, InterruptedException {
+	public DBPathEntry rsToPathEntry(ResultSet rs, String prefix) throws SQLException, InterruptedException {
 		threadHook();
 		return parent.rsToPathEntry(rs, prefix);
 	}
 
-	public DbPathEntry rsToPathEntry(ResultSet rs) throws SQLException, InterruptedException {
+	public DBPathEntry rsToPathEntry(ResultSet rs) throws SQLException, InterruptedException {
 		return rsToPathEntry(rs, "");
 	}
 
 	@Override
-	public void insert(DbPathEntry basedir, PathEntry newentry) throws SQLException, InterruptedException {
+	public void insert(DBPathEntry basedir, PathEntry newentry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(newentry != null);
 		threadHook();
 		try {
@@ -96,7 +96,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public void update(DbPathEntry oldentry, PathEntry newentry) throws SQLException, InterruptedException {
+	public void update(DBPathEntry oldentry, PathEntry newentry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(oldentry != null);
 		Assertion.assertNullPointerException(newentry != null);
 		Assertion.assertAssertionError(oldentry.getPath().equals(newentry.getPath()),
@@ -114,31 +114,31 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public void updateStatus(DbPathEntry entry, int newstatus) throws SQLException, InterruptedException {
+	public void updateStatus(DBPathEntry entry, int newstatus) throws SQLException, InterruptedException {
 		assert(entry != null);
 		threadHook();
 		parent.updateStatus(entry, newstatus);
 	}
 
-	public void updateStatuses(Iterator<DbPathEntry> entries, int newstatus)
+	public void updateStatuses(Iterator<DBPathEntry> entries, int newstatus)
 			throws SQLException, InterruptedException {
 		while (entries.hasNext()) {
-			DbPathEntry entry = entries.next();
+			DBPathEntry entry = entries.next();
 			updateStatus(entry, newstatus);
 		}
 	}
 
 	@Override
-	public void delete(final DbPathEntry entry) throws SQLException, InterruptedException {
+	public void delete(final DBPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 		parent.delete(entry);
 	}
 
-	protected void deleteLowPriority(final DbPathEntry entry) throws SQLException, InterruptedException {
+	protected void deleteLowPriority(final DBPathEntry entry) throws SQLException, InterruptedException {
 		delete(entry);
 	}
 
-	public void deleteChildren(final DbPathEntry entry) throws SQLException, InterruptedException {
+	public void deleteChildren(final DBPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 		PreparedStatement ps = prepareStatement("SELECT * FROM directory WHERE parentid=?");
 		ps.setLong(1, entry.getPathId());
@@ -197,30 +197,30 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public void disable(DbPathEntry entry) throws SQLException, InterruptedException {
+	public void disable(DBPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 		parent.disable(entry);
 	}
 
 	@Override
-	public void disable(DbPathEntry entry, PathEntry newentry) throws SQLException, InterruptedException {
+	public void disable(DBPathEntry entry, PathEntry newentry) throws SQLException, InterruptedException {
 		threadHook();
 		parent.disable(entry, newentry);
 	}
 
 	@Override
-	public void updateParentId(DbPathEntry entry, long newparentid) throws SQLException ,InterruptedException {
+	public void updateParentId(DBPathEntry entry, long newparentid) throws SQLException ,InterruptedException {
 		threadHook();
 		parent.updateParentId(entry, newparentid);
 	};
 
 	@Override
-	public void orphanize(DbPathEntry entry) throws SQLException, InterruptedException {
+	public void orphanize(DBPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 		parent.orphanize(entry);
 	}
 
-	public void orphanizeChildren(final DbPathEntry entry) throws SQLException, InterruptedException {
+	public void orphanizeChildren(final DBPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 		PreparedStatement ps = prepareStatement("SELECT * FROM directory WHERE parentid=?");
 		ps.setLong(1, entry.getPathId());
@@ -301,7 +301,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		parent.updateDuplicateFields(pathid, duplicate, dedupablesize);
 	}
 
-	public DbPathEntry getParent(DbPathEntry basedir) throws SQLException, InterruptedException {
+	public DBPathEntry getParent(DBPathEntry basedir) throws SQLException, InterruptedException {
 		threadHook();
 		PreparedStatement ps = prepareStatement("select * from DIRECTORY where PATHID=?");
 		ps.setLong(1, basedir.getParentId());
@@ -318,14 +318,14 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		}
 	}
 
-	public List<DbPathEntry> getCompressionStack(DbPathEntry entry) throws SQLException, InterruptedException {
+	public List<DBPathEntry> getCompressionStack(DBPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(entry.isFile() || entry.isCompressedFolder() || entry.isCompressedFile());
 		threadHook();
 
-		ArrayList<DbPathEntry> result = new ArrayList<DbPathEntry>();
+		ArrayList<DBPathEntry> result = new ArrayList<DBPathEntry>();
 		result.add(entry);
 
-		DbPathEntry cursor = entry;
+		DBPathEntry cursor = entry;
 		while(!cursor.isFile()) {
 			Assertion.assertAssertionError(cursor.isCompressedFolder() || cursor.isCompressedFile());
 			threadHook();
@@ -340,10 +340,10 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		return result;
 	}
 
-	public Map<String, DbPathEntry> childrenList(DbPathEntry entry) throws SQLException, InterruptedException {
+	public Map<String, DBPathEntry> childrenList(DBPathEntry entry) throws SQLException, InterruptedException {
 		threadHook();
 
-		Map<String, DbPathEntry> result = new HashMap<String, DbPathEntry>();
+		Map<String, DBPathEntry> result = new HashMap<String, DBPathEntry>();
 
 		PreparedStatement ps = prepareStatement("SELECT * FROM directory WHERE parentid=?");
 		ps.setLong(1, entry.getPathId());
@@ -351,7 +351,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		try {
 			while (rs.next()) {
 				threadHook();
-				DbPathEntry f = rsToPathEntry(rs);
+				DBPathEntry f = rsToPathEntry(rs);
 				result.put(f.getPath(), f);
 			}
 		} finally {
@@ -362,15 +362,15 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		return result;
 	}
 
-	public InputStream getInputStream(DbPathEntry entry) throws SQLException, IOException, InterruptedException {
+	public InputStream getInputStream(DBPathEntry entry) throws SQLException, IOException, InterruptedException {
 		Assertion.assertAssertionError(entry.isFile() || entry.isCompressedFile()); // File / CompressedFile
 		return getInputStream(getCompressionStack(entry));
 	}
 
-	public InputStream getInputStream(List<DbPathEntry> stack) throws SQLException, IOException, InterruptedException {
+	public InputStream getInputStream(List<DBPathEntry> stack) throws SQLException, IOException, InterruptedException {
 		if (stack == null) { return null; } // orphan
 		Assertion.assertAssertionError(stack.size()>0);
-		DbPathEntry entry = stack.get(stack.size()-1);
+		DBPathEntry entry = stack.get(stack.size()-1);
 		try {
 			if (stack.size() == 1) {
 				return entry.getInputStream();
@@ -378,7 +378,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 				Assertion.assertAssertionError(entry.isFile());
 				InputStream result = null;
 				for (int i=stack.size()-2; i>=0; i--) {
-					DbPathEntry parent = entry;
+					DBPathEntry parent = entry;
 					InputStream parentStream = result;
 					entry = stack.get(i);
 					Assertion.assertAssertionError(entry.isCompressedFile(),
@@ -400,14 +400,14 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		}
 	}
 
-	public DbPathEntry getDbPathEntryByPathId(long pathid) throws SQLException, InterruptedException {
+	public DBPathEntry getDBPathEntryByPathId(long pathid) throws SQLException, InterruptedException {
 		String sql = "SELECT * from DIRECTORY where PATHID=?";
 		PreparedStatement ps = prepareStatement(sql);
 		ps.setLong(1, pathid);
 		ResultSet rs = ps.executeQuery();
 		try {
 			while (rs.next()) {
-				DbPathEntry p = rsToPathEntry(rs);
+				DBPathEntry p = rsToPathEntry(rs);
 				if (p.getPathId() == pathid) {
 					return p;
 				}
@@ -419,14 +419,14 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		return null;
 	}
 
-	public DbPathEntry getDbPathEntryByPath(String path) throws SQLException, InterruptedException {
+	public DBPathEntry getDBPathEntryByPath(String path) throws SQLException, InterruptedException {
 		String sql = "SELECT * from DIRECTORY where PATH=?";
 		PreparedStatement ps = prepareStatement(sql);
 		ps.setString(1, path);
 		ResultSet rs = ps.executeQuery();
 		try {
 			while (rs.next()) {
-				DbPathEntry p = rsToPathEntry(rs);
+				DBPathEntry p = rsToPathEntry(rs);
 				if (p.getPath().equals(path)) {
 					return p;
 				}
@@ -562,7 +562,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		while (cleanupOrphans() > 0) {}
 	}
 
-	private int reviveOprhan(final DbPathEntry basedir, final PathEntry newentry)
+	private int reviveOprhan(final DBPathEntry basedir, final PathEntry newentry)
 			throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(basedir != null);
 		Assertion.assertNullPointerException(newentry != null);
@@ -574,7 +574,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		ResultSet rs = ps.executeQuery();
 		try {
 			while (rs.next()) {
-				DbPathEntry oldentry = rsToPathEntry(rs);
+				DBPathEntry oldentry = rsToPathEntry(rs);
 				if (newentry.getPath().equals(oldentry.getPath())) {
 					Assertion.assertSQLException(oldentry.getType() == newentry.getType());
 					update(oldentry, newentry);
@@ -610,7 +610,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		try {
 			threadHook();
 			ResultSet rs = stmt.executeQuery("SELECT parentid, pathid FROM directory AS d1 WHERE parentid>0 "
-					+ getDontListRootIdsSubSql(dontListRootIds)
+					+ getDontListRootIdsSubSQL(dontListRootIds)
 					+ "AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid) " // NOT orphan
 					+ "AND NOT EXISTS (SELECT * FROM upperlower WHERE distance=1 AND parentid=upper AND pathid=lower)");
 			try {
@@ -655,7 +655,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			ResultSet rs = stmt.executeQuery("SELECT u1.upper, pathid AS lower, u1.distance+1 AS distance "
 					+ "FROM upperlower AS u1, directory "
 					+ "WHERE u1.lower=parentid "
-					+ getDontListRootIdsSubSql(dontListRootIds)
+					+ getDontListRootIdsSubSQL(dontListRootIds)
 					+ "AND NOT EXISTS (SELECT * FROM upperlower WHERE upper=u1.upper AND lower=pathid)");
 			try {
 				HashMap<Long, ArrayList<Long>> d = new HashMap<Long, ArrayList<Long>>();
@@ -686,8 +686,8 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		return count;
 	}
 
-	private static String getDontListRootIdsSubSql(Set<Long> dontListRootIds) {
-		String dontListRootIdsSubSql;
+	private static String getDontListRootIdsSubSQL(Set<Long> dontListRootIds) {
+		String dontListRootIdsSubSQL;
 		ArrayList<String> s = new ArrayList<String>();
 		if (dontListRootIds != null) {
 			for (Long i: dontListRootIds) {
@@ -695,11 +695,11 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			}
 		}
 		if (s.size() > 0) {
-			dontListRootIdsSubSql = " AND (" + String.join(" AND ", s) + ") ";
+			dontListRootIdsSubSQL = " AND (" + String.join(" AND ", s) + ") ";
 		} else {
-			dontListRootIdsSubSql = "";
+			dontListRootIdsSubSQL = "";
 		}
-		return dontListRootIdsSubSql;
+		return dontListRootIdsSubSQL;
 	}
 
 	public void refreshFolderSizesAll() throws SQLException, InterruptedException {
@@ -722,7 +722,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			int count=0;
 			while (rs.next()) {
 				threadHook();
-				DbPathEntry entry = rsToPathEntry(rs);
+				DBPathEntry entry = rsToPathEntry(rs);
 				PathEntry newentry = new PathEntry(entry);
 				newentry.setSize(rs.getLong("newsize"));
 				newentry.setCompressedSize(rs.getLong("newcompressedsize"));
@@ -891,16 +891,16 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		public boolean isCsum() { return _csum == NONE ? false : true; }
 		public boolean isCsumForce() { return _csum == CSUM_FORCE ? true : false; }
 
-		protected boolean _noChildInDb = false;
-		public void setNoChildInDb(boolean noChildInDb) { _noChildInDb = noChildInDb; }
-		public boolean isNoChildInDb() { return _noChildInDb; }
+		protected boolean noChildInDB = false;
+		public void setNoChildInDB(boolean noChildInDB) { this.noChildInDB = noChildInDB; }
+		public boolean isNoChildInDB() { return this.noChildInDB; }
 
 		protected Map<Long, String> reachableRoots = null;
 		public Map<Long, String> getReachableRoots() { return reachableRoots; }
-		public void setReachableRoots(Set<DbPathEntry> roots) {
+		public void setReachableRoots(Set<DBPathEntry> roots) {
 			reachableRoots = new ConcurrentHashMap<Long, String>();
 			if (roots != null) {
-				for (DbPathEntry e: roots) {
+				for (DBPathEntry e: roots) {
 					reachableRoots.put(e.getPathId(), e.getPath());
 				}
 			}
@@ -918,7 +918,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			if (reachableRoots == null) { return null; }
 			return reachableRoots.get(rootid);
 		}
-		public void checkRootAndDisable(final DbPathEntry entry) throws SQLException, InterruptedException {
+		public void checkRootAndDisable(final DBPathEntry entry) throws SQLException, InterruptedException {
 			Assertion.assertNullPointerException(entry != null);
 			if (isReachableRoot(entry.getRootId())) {
 				String s = getReachableRootPath(entry.getRootId());
@@ -934,7 +934,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			}
 		}
 
-		public PathEntry dispatch(final DbPathEntry entry) throws IOException, InterruptedException, SQLException {
+		public PathEntry dispatch(final DBPathEntry entry) throws IOException, InterruptedException, SQLException {
 			threadHook();
 			if (entry == null || !isReachableRoot(entry.getRootId())) {
 				return null;
@@ -950,7 +950,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			}
 		}
 
-		protected PathEntry dispatchFolder(final DbPathEntry entry)
+		protected PathEntry dispatchFolder(final DBPathEntry entry)
 				throws SQLException, InterruptedException {
 			threadHook();
 
@@ -983,11 +983,11 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 					newfolderIter = null;
 				}
 
-				final Map<String, DbPathEntry> oldfolder;
+				final Map<String, DBPathEntry> oldfolder;
 				if (!isList() || newfolderIter == null) {
 					oldfolder = null;
-				} else if (isNoChildInDb()) {
-					oldfolder = new HashMap<String, DbPathEntry>();
+				} else if (isNoChildInDB()) {
+					oldfolder = new HashMap<String, DBPathEntry>();
 				} else {
 					oldfolder = childrenList(entry);
 				}
@@ -1005,7 +1005,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			return newentry;
 		}
 
-		protected PathEntry dispatchFile(final DbPathEntry entry)
+		protected PathEntry dispatchFile(final DBPathEntry entry)
 				throws SQLException, InterruptedException {
 			Assertion.assertAssertionError(entry.isFile());
 			threadHook();
@@ -1035,11 +1035,11 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 					newfolderIter = null;
 				}
 
-				final Map<String, DbPathEntry> oldfolder;
+				final Map<String, DBPathEntry> oldfolder;
 				if (!isList() || newfolderIter == null) {
 					oldfolder = null;
-				} else if (isNoChildInDb()) {
-					oldfolder = new HashMap<String, DbPathEntry>();
+				} else if (isNoChildInDB()) {
+					oldfolder = new HashMap<String, DBPathEntry>();
 				} else {
 					oldfolder = childrenList(entry);
 				}
@@ -1065,11 +1065,11 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			return newentry;
 		}
 
-		protected PathEntry dispatchCompressedFile(final DbPathEntry entry) throws SQLException, InterruptedException {
+		protected PathEntry dispatchCompressedFile(final DBPathEntry entry) throws SQLException, InterruptedException {
 			threadHook();
 
 			final PathEntry newentry = new PathEntry(entry);
-			final List<DbPathEntry> stack = getCompressionStack(entry);
+			final List<DBPathEntry> stack = getCompressionStack(entry);
 			if (stack == null) { return newentry; } // orphan
 			try {
 				if (isList()) {
@@ -1081,11 +1081,11 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 						newfolderIter = null;
 					}
 
-					final Map<String, DbPathEntry> oldfolder;
+					final Map<String, DBPathEntry> oldfolder;
 					if (newfolderIter == null) {
 						oldfolder = null;
-					} else if (isNoChildInDb()) {
-						oldfolder = new HashMap<String, DbPathEntry>();
+					} else if (isNoChildInDB()) {
+						oldfolder = new HashMap<String, DBPathEntry>();
 					} else {
 						oldfolder = childrenList(entry);
 					}
@@ -1111,16 +1111,16 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		}
 
 		protected void dispatchFolderListCore(
-				DbPathEntry entry,
+				DBPathEntry entry,
 				File fileobj,
-				Map<String, DbPathEntry> oldfolder,
+				Map<String, DBPathEntry> oldfolder,
 				PathEntry newentry,
 				DirLister newfolderIter
 				) throws InterruptedException, SQLException, IOException {
 			long new_size = 0;
 			long new_compressedsize = 0;
 
-			final List<DbPathEntry> updatedfolders = new ArrayList<DbPathEntry>();
+			final List<DBPathEntry> updatedfolders = new ArrayList<DBPathEntry>();
 			long t0 = new Date().getTime();
 			long count=0;
 			while (newfolderIter.hasNext()) {
@@ -1142,7 +1142,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 					t0 = t1;
 				}
 
-				DbPathEntry oldchild = oldfolder.get(newchild.getPath());
+				DBPathEntry oldchild = oldfolder.get(newchild.getPath());
 				if (oldchild != null) { // exists in oldfolder - update
 					if (newchild.isFolder()) {
 						if (oldchild.isClean() && !PathEntry.dMatch(oldchild, newchild)) {
@@ -1191,7 +1191,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			}
 
 			updateStatuses(updatedfolders.iterator(), PathEntry.DIRTY);
-			for (DbPathEntry p: oldfolder.values()) {
+			for (DBPathEntry p: oldfolder.values()) {
 				Assertion.assertFileNotFoundException(getFileIfExists(p) == null,
 						"!! File DOES exist: " + p.getPath()
 						);
@@ -1205,8 +1205,8 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		}
 
 		protected void dispatchFileListCore(
-				DbPathEntry entry,
-				Map<String, DbPathEntry> oldfolder,
+				DBPathEntry entry,
+				Map<String, DBPathEntry> oldfolder,
 				PathEntry newentry,
 				PathEntryLister newfolderIter
 				) throws InterruptedException, SQLException, IOException {
@@ -1228,7 +1228,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 							+ "isListCsum=" + isListCsum() + ", oldfoldersize=" + oldfolder.size());
 					t0 = t1;
 				}
-				DbPathEntry oldchild = oldfolder.get(newchild.getPath());
+				DBPathEntry oldchild = oldfolder.get(newchild.getPath());
 				if (oldchild != null) {
 					if (!PathEntry.dscMatch(oldchild, newchild)) {
 						update(oldchild, newchild);
@@ -1241,7 +1241,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 				}
 			}
 			newfolderIter.close();
-			for (DbPathEntry p: oldfolder.values()) {
+			for (DBPathEntry p: oldfolder.values()) {
 				Assertion.assertAssertionError(p.getParentId()!=0);
 				orphanize(p);
 			}
@@ -1249,16 +1249,16 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			update(entry, newentry);
 		}
 
-		public boolean checkEquality(final DbPathEntry entry1, final DbPathEntry entry2, final int dbAccessMode)
+		public boolean checkEquality(final DBPathEntry entry1, final DBPathEntry entry2, final int dbAccessMode)
 				throws SQLException, InterruptedException {
-			final List<DbPathEntry> stack1 = getCompressionStack(entry1);
+			final List<DBPathEntry> stack1 = getCompressionStack(entry1);
 			if (stack1 == null) { // orphan
 				if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
 					deleteEquality(entry1.getPathId(), entry2.getPathId());
 				}
 				return false;
 			}
-			final List<DbPathEntry> stack2 = getCompressionStack(entry2);
+			final List<DBPathEntry> stack2 = getCompressionStack(entry2);
 			if (stack2 == null) { // orphan
 				if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
 					deleteEquality(entry1.getPathId(), entry2.getPathId());
@@ -1273,13 +1273,13 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 		public final int CHECKEQUALITY_INSERT = 2;
 		public final int CHECKEQUALITY_AUTOSELECT = 3;
 		public boolean checkEquality(
-				final List<DbPathEntry> stack1,
-				final List<DbPathEntry> stack2,
+				final List<DBPathEntry> stack1,
+				final List<DBPathEntry> stack2,
 				final int dbAccessMode
 				) throws SQLException, InterruptedException {
 			if (stack1 == null || stack2 == null) { return false; /* orphan */ }
-			DbPathEntry entry1 = stack1.get(0);
-			DbPathEntry entry2 = stack2.get(0);
+			DBPathEntry entry1 = stack1.get(0);
+			DBPathEntry entry2 = stack2.get(0);
 
 			Assertion.assertAssertionError(dbAccessMode >=0 && dbAccessMode <= 3);
 			Assertion.assertAssertionError(entry1.isFile() || entry1.isCompressedFile(),
@@ -1291,7 +1291,7 @@ public class ProxyDirTreeDb implements IDirTreeDb {
 			Assertion.assertAssertionError(!entry2.isCsumNull());
 			Assertion.assertAssertionError(entry1.getCsum() == entry2.getCsum());
 
-			DbPathEntry re = null;
+			DBPathEntry re = null;
 			long count=0L;
 			try {
 				boolean isEqual;

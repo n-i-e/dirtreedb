@@ -19,18 +19,18 @@ package com.github.n_i_e.dirtreedb;
 import java.io.IOException;
 import java.sql.SQLException;
 
-public class DirTreeDbFactory {
+public class DirTreeDBFactory {
 
-	public static IDirTreeDb getDirTreeDb(String dbfile) throws ClassNotFoundException, SQLException, IOException {
-		IDirTreeDb result;
+	public static IDirTreeDB getDirTreeDB(String dbfile) throws ClassNotFoundException, SQLException, IOException {
+		IDirTreeDB result;
 		if (PathEntryListerFactory.fileExtensionMatches(dbfile, "sqlite")) {
-			result = new SqliteDirTreeDb(dbfile);
+			result = new SQLiteDirTreeDB(dbfile);
 		} else if (PathEntryListerFactory.fileExtensionMatches(dbfile, "mdb")) {
-			result = new MdbDirTreeDb(dbfile);
+			result = new MDBDirTreeDB(dbfile);
 		} else if (PathEntryListerFactory.fileExtensionMatches(dbfile, "mv.db")) {
-			result = new H2DirTreeDb(dbfile);
+			result = new H2DirTreeDB(dbfile);
 		} else if (PathEntryListerFactory.fileExtensionMatches(dbfile, "script")) {
-			result = new HsqldbDirTreeDB(dbfile);
+			result = new HSQLDBDirTreeDB(dbfile);
 		} else {
 			result = null;
 		}

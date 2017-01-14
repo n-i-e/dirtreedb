@@ -25,7 +25,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.Date;
 
-public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
+public abstract class CommonSQLDirTreeDB implements IDirTreeDB {
 	Connection conn;
 
 	@Override
@@ -44,7 +44,7 @@ public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public DbPathEntry rsToPathEntry(ResultSet rs, String prefix) throws SQLException, InterruptedException {
+	public DBPathEntry rsToPathEntry(ResultSet rs, String prefix) throws SQLException, InterruptedException {
 		if (rs == null) {
 			return null;
 		}
@@ -68,7 +68,7 @@ public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 
 		int newtype = rs.getInt(prefix + "type");
 
-		DbPathEntry result = new DbPathEntry(newpath, newtype, newpathid, newparentid, newrootid);
+		DBPathEntry result = new DBPathEntry(newpath, newtype, newpathid, newparentid, newrootid);
 
 		result.setDateLastModified(rs.getTimestamp(prefix + "datelastmodified").getTime());
 		result.setSize(rs.getLong(prefix + "size"));
@@ -85,7 +85,7 @@ public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public void insert(DbPathEntry basedir, PathEntry newentry) throws SQLException, InterruptedException {
+	public void insert(DBPathEntry basedir, PathEntry newentry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(newentry != null);
 		String sql = null;
 		try {
@@ -124,7 +124,7 @@ public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 			}
 		} catch (SQLException e) {
 			if (sql != null) {
-				Debug.writelog("!! SQL insert failed at CommonSqlDirTreeDB for: " + sql);
+				Debug.writelog("!! SQL insert failed at CommonSQLDirTreeDB for: " + sql);
 				Debug.writelog("newentry.path = " + newentry.getPath());
 				if (basedir != null) {
 					Debug.writelog("basedir.path = " + basedir.getPath());
@@ -135,7 +135,7 @@ public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public void update(DbPathEntry oldentry, PathEntry newentry) throws SQLException, InterruptedException
+	public void update(DBPathEntry oldentry, PathEntry newentry) throws SQLException, InterruptedException
 	{
 		Assertion.assertAssertionError(oldentry.getPath().equals(newentry.getPath()));
 
@@ -159,7 +159,7 @@ public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public void updateStatus(DbPathEntry entry, int newstatus) throws SQLException, InterruptedException {
+	public void updateStatus(DBPathEntry entry, int newstatus) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
 		Assertion.assertAssertionError(newstatus == PathEntry.CLEAN
 				|| newstatus == PathEntry.DIRTY
@@ -176,7 +176,7 @@ public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public void delete(DbPathEntry entry) throws SQLException, InterruptedException {
+	public void delete(DBPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
 		PreparedStatement ps = prepareStatement("DELETE FROM directory WHERE pathid=? AND parentid=?");
 		try {
@@ -201,7 +201,7 @@ public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public void disable(DbPathEntry entry) throws SQLException, InterruptedException {
+	public void disable(DBPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
 		unsetClean(entry.getParentId());
 		PreparedStatement ps;
@@ -215,7 +215,7 @@ public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public void disable(DbPathEntry entry, PathEntry newentry) throws SQLException, InterruptedException {
+	public void disable(DBPathEntry entry, PathEntry newentry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
 		Assertion.assertNullPointerException(newentry != null);
 		unsetClean(entry.getParentId());
@@ -224,7 +224,7 @@ public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public void updateParentId(DbPathEntry entry, long newparentid) throws SQLException, InterruptedException {
+	public void updateParentId(DBPathEntry entry, long newparentid) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);
 		PreparedStatement ps;
 		ps = prepareStatement("UPDATE directory SET parentid=? WHERE pathid=?");
@@ -238,7 +238,7 @@ public abstract class CommonSqlDirTreeDb implements IDirTreeDb {
 	}
 
 	@Override
-	public void orphanize(DbPathEntry entry) throws SQLException, InterruptedException {
+	public void orphanize(DBPathEntry entry) throws SQLException, InterruptedException {
 		updateParentId(entry, -1);
 	}
 

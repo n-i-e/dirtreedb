@@ -20,18 +20,18 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Map;
 
-public abstract class RunnableWithLazyProxyDirTreeDbProvider implements RunnableWithException2<SQLException, InterruptedException> {
+public abstract class RunnableWithLazyProxyDirTreeDBProvider implements RunnableWithException2<SQLException, InterruptedException> {
 
 	public void openingHook() {}
 	public void closingHook() {}
 
-	private LazyProxyDirTreeDbProvider prov = null;
+	private LazyProxyDirTreeDBProvider prov = null;
 
-	public LazyProxyDirTreeDbProvider getProv() {
+	public LazyProxyDirTreeDBProvider getProv() {
 		return prov;
 	}
 
-	public void setProv(LazyProxyDirTreeDbProvider prov) {
+	public void setProv(LazyProxyDirTreeDBProvider prov) {
 		this.prov = prov;
 	}
 
@@ -49,16 +49,16 @@ public abstract class RunnableWithLazyProxyDirTreeDbProvider implements Runnable
 		return prov.getExtensionAvailabilityMap();
 	}
 
-	public LazyProxyDirTreeDb getDb() {
+	public LazyProxyDirTreeDB getDB() {
 		Assertion.assertNullPointerException(prov != null);
-		return prov.getDb();
+		return prov.getDB();
 	}
 
-	public LazyProxyDirTreeDb openDbIfNot() throws ClassNotFoundException, SQLException, IOException {
-		return prov.openDbIfNot();
+	public LazyProxyDirTreeDB openDBIfNot() throws ClassNotFoundException, SQLException, IOException {
+		return prov.openDBIfNot();
 	}
 
-	public void closeDbIfPossible() throws SQLException {
-		prov.closeDbIfPossible();
+	public void closeDBIfPossible() throws SQLException {
+		prov.closeDBIfPossible();
 	}
 }

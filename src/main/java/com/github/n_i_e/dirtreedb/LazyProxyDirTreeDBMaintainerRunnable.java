@@ -29,9 +29,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import com.github.n_i_e.dirtreedb.LazyProxyDirTreeDb.Dispatcher;
+import com.github.n_i_e.dirtreedb.LazyProxyDirTreeDB.Dispatcher;
 
-class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeDbProvider {
+class LazyProxyDirTreeDBMaintainerRunnable extends RunnableWithLazyProxyDirTreeDBProvider {
 
 	private static final int UPDATE_QUEUE_SIZD_LOW_THRESHOLD = 9000;
 	private static final int UPDATE_QUEUE_SIZD_HIGH_THRESHOLD = 10000;
@@ -45,17 +45,17 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 	private static final int DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD = 10000;
 
 	private void writelog2(String message) {
-		getDb().writelog2(message);
+		getDB().writelog2(message);
 	}
 
 	public void run() throws SQLException, InterruptedException {
 		int cI=0, cD=0, cU=0;
 
 		while (true) {
-			getDb().consumeSomeUpdateQueue();
+			getDB().consumeSomeUpdateQueue();
 			beacon();
-			while (getDb().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
-				getDb().consumeOneUpdateQueue();
+			while (getDB().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
+				getDB().consumeOneUpdateQueue();
 				beacon();
 			}
 
@@ -71,10 +71,10 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				writelog2("--- SKIP scuedule layer 1 ---");
 			}
 
-			getDb().consumeSomeUpdateQueue();
+			getDB().consumeSomeUpdateQueue();
 			beacon();
-			while (getDb().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
-				getDb().consumeOneUpdateQueue();
+			while (getDB().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
+				getDB().consumeOneUpdateQueue();
 				beacon();
 			}
 
@@ -90,10 +90,10 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				writelog2("--- SKIP scuedule layer 2 ---");
 			}
 
-			getDb().consumeSomeUpdateQueue();
+			getDB().consumeSomeUpdateQueue();
 			beacon();
-			while (getDb().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
-				getDb().consumeOneUpdateQueue();
+			while (getDB().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
+				getDB().consumeOneUpdateQueue();
 				beacon();
 			}
 
@@ -165,17 +165,17 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 
 	private abstract class ScheduleInsertable extends Schedule {
 		@Override public boolean isStartable() throws SQLException, InterruptedException {
-			if (getDb().getUpdateQueueSize(0) > 0) {
+			if (getDB().getUpdateQueueSize(0) > 0) {
 				return false;
 			}
 
-			if (getDb().getInsertableQueueSize() >= getQueueSizeLowThreshold()) {
+			if (getDB().getInsertableQueueSize() >= getQueueSizeLowThreshold()) {
 				return false;
 			}
 
-			Set<DbPathEntry> allRoots = getAllRoots();
+			Set<DBPathEntry> allRoots = getAllRoots();
 			Set<Long> allRootIds = getIdsFromEntries(allRoots);
-			Set<Long> dontAccessRootIds = getDb().getInsertableRootIdSet();
+			Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
 
 			if (!InterSetOperation.include(dontAccessRootIds, allRootIds)) {
 				return true;
@@ -191,9 +191,9 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		private final IsEol queueLimit = new IsEol() {
 			@Override
 			public boolean isEol() throws SQLException, InterruptedException {
-				if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
-						|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
-						|| getDb().getInsertableQueueSize() >= getQueueSizeHighThreshold()) {
+				if (getDB().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
+						|| getDB().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
+						|| getDB().getInsertableQueueSize() >= getQueueSizeHighThreshold()) {
 					return true;
 				} else {
 					return false;
@@ -202,24 +202,24 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		};
 		@Override public IsEol getQueueLimit() { return queueLimit; }
 
-		public int list(Set<Long> dontListRootIds, Set<DbPathEntry> rootmap, String typeStatusSubSql, boolean hasNoChild)
+		public int list(Set<Long> dontListRootIds, Set<DBPathEntry> rootmap, String typeStatusSubSQL, boolean hasNoChild)
 				throws SQLException, InterruptedException {
-			Dispatcher disp = getDb().getDispatcher();
+			Dispatcher disp = getDB().getDispatcher();
 			disp.setList(Dispatcher.LIST);
 			disp.setCsum(Dispatcher.NONE);
 			disp.setNoReturn(true);
-			disp.setNoChildInDb(hasNoChild);
+			disp.setNoChildInDB(hasNoChild);
 			disp.setReachableRoots(rootmap);
 
 			String sql = "SELECT * FROM directory AS d1 WHERE "
-					+ typeStatusSubSql
-					+ getSubSqlFromIds(dontListRootIds)
+					+ typeStatusSubSQL
+					+ getSubSQLFromIds(dontListRootIds)
 					+ " AND " + (hasNoChild ? "NOT " : "") + "EXISTS (SELECT * FROM directory WHERE parentid=d1.pathid)"
 					+ " AND (d1.parentid=0 OR EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid ))"
 					+ (isLastPathIdAvailable() ? " AND d1.pathid>? ORDER BY d1.pathid" : "")
 					;
 			//writelog2(sql);
-			PreparedStatement ps = getDb().prepareStatement(sql);
+			PreparedStatement ps = getDB().prepareStatement(sql);
 			//writelog2(String.valueOf(lastPathId));
 			if (isLastPathIdAvailable()) {
 				ps.setLong(1, getLastPathId());
@@ -229,7 +229,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 			int count = 0;
 			try {
 				while (rs.next()) {
-					DbPathEntry f = getDb().rsToPathEntry(rs);
+					DBPathEntry f = getDB().rsToPathEntry(rs);
 					Assertion.assertAssertionError(f.isFolder()
 							|| ((f.isFile() || f.isCompressedFile()) && PathEntryListerFactory.isArchivable(f)),
 							"!! CANNOT LIST THIS ENTRY: " + f.getType() + " at " + f.getPath());
@@ -254,7 +254,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 
 	private abstract class ScheduleDontInsert extends Schedule {
 		@Override public boolean isStartable() {
-			if (getDb().getDontInsertQueueSize() < getQueueSizeLowThreshold()) {
+			if (getDB().getDontInsertQueueSize() < getQueueSizeLowThreshold()) {
 				return true;
 			} else {
 				return false;
@@ -266,9 +266,9 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		private final IsEol queueLimit = new IsEol() {
 			@Override
 			public boolean isEol() throws SQLException, InterruptedException {
-				if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
-						|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
-						|| getDb().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD) {
+				if (getDB().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
+						|| getDB().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
+						|| getDB().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD) {
 					return true;
 				} else {
 					return false;
@@ -277,19 +277,19 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		};
 		@Override public IsEol getQueueLimit() { return queueLimit; }
 
-		public int csum(PreparedStatement ps, Set<DbPathEntry> reachableRoots)
+		public int csum(PreparedStatement ps, Set<DBPathEntry> reachableRoots)
 				throws SQLException, InterruptedException {
 			ResultSet rs = ps.executeQuery();
 			writelog2("--- csum query finished ---");
 			int count = 0;
 			try {
-				Dispatcher disp = getDb().getDispatcher();
+				Dispatcher disp = getDB().getDispatcher();
 				disp.setList(Dispatcher.NONE);
 				disp.setCsum(Dispatcher.CSUM_FORCE);
 				disp.setNoReturn(true);
 				disp.setReachableRoots(reachableRoots);
 				while (rs.next()) {
-					DbPathEntry f = getDb().rsToPathEntry(rs);
+					DBPathEntry f = getDB().rsToPathEntry(rs);
 					assert(f.isFile() || f.isCompressedFile());
 					try {
 						disp.dispatch(f);
@@ -309,19 +309,19 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 			return count;
 		}
 
-		public int touch(PreparedStatement ps, Set<DbPathEntry> reachableRoots)
+		public int touch(PreparedStatement ps, Set<DBPathEntry> reachableRoots)
 				throws SQLException, InterruptedException {
 			ResultSet rs = ps.executeQuery();
 			writelog2("--- touch query finished ---");
 			int count = 0;
 			try {
-				Dispatcher disp = getDb().getDispatcher();
+				Dispatcher disp = getDB().getDispatcher();
 				disp.setList(Dispatcher.NONE);
 				disp.setCsum(Dispatcher.NONE);
 				disp.setNoReturn(true);
 				disp.setReachableRoots(reachableRoots);
 				while (rs.next()) {
-					DbPathEntry f = getDb().rsToPathEntry(rs);
+					DBPathEntry f = getDB().rsToPathEntry(rs);
 					assert(f.isFolder() || f.isFile());
 					try {
 						disp.dispatch(f);
@@ -341,21 +341,21 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 			return count;
 		}
 
-		public int crawlEqualityUpdate(Set<DbPathEntry> rootmap)
+		public int crawlEqualityUpdate(Set<DBPathEntry> rootmap)
 				throws SQLException, InterruptedException {
 			writelog2("--- equality ---");
-			Dispatcher disp = getDb().getDispatcher();
+			Dispatcher disp = getDB().getDispatcher();
 			disp.setNoReturn(true);
 			disp.setReachableRoots(rootmap);
-			Statement stmt = getDb().createStatement();
+			Statement stmt = getDB().createStatement();
 			String sql = "SELECT * FROM equality ORDER BY datelasttested";
 			ResultSet rs = stmt.executeQuery(sql);
 			writelog2("--- equality query finished ---");
 			int count = 0;
 			try {
 				while (rs.next()) {
-					DbPathEntry p1 = getDb().getDbPathEntryByPathId(rs.getLong("pathid1"));
-					DbPathEntry p2 = getDb().getDbPathEntryByPathId(rs.getLong("pathid2"));
+					DBPathEntry p1 = getDB().getDBPathEntryByPathId(rs.getLong("pathid1"));
+					DBPathEntry p2 = getDB().getDBPathEntryByPathId(rs.getLong("pathid2"));
 					disp.checkEquality(p1, p2, disp.CHECKEQUALITY_UPDATE);
 					count++;
 					if (queueLimit.isEol()) {
@@ -374,7 +374,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 	private abstract class ScheduleUpdate extends Schedule {
 
 		@Override public boolean isStartable() throws SQLException, InterruptedException {
-			if (getDb().getUpdateQueueSize() > 0) {
+			if (getDB().getUpdateQueueSize() > 0) {
 				return false;
 			} else {
 				return true;
@@ -386,8 +386,8 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		private final IsEol queueLimit = new IsEol() {
 			@Override
 			public boolean isEol() throws SQLException, InterruptedException {
-				if (getDb().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
-						|| getDb().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD) {
+				if (getDB().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
+						|| getDB().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD) {
 					return true;
 				} else {
 					return false;
@@ -405,24 +405,24 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 					ext.add("path LIKE '%." + kv.getKey() + "'");
 				}
 			}
-			String dontArchiveExtSubSql;
+			String dontArchiveExtSubSQL;
 			if (ext.size() == 0) {
 				writelog2("*** SKIP unlist disabled extensions (nothing to unlist) ***");
 				return 0;
 			} else {
-				dontArchiveExtSubSql = "AND (" + String.join(" OR ", ext) + ")";
-				String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) " + dontArchiveExtSubSql
+				dontArchiveExtSubSQL = "AND (" + String.join(" OR ", ext) + ")";
+				String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) " + dontArchiveExtSubSQL
 						+ " AND EXISTS (SELECT * FROM directory AS d2 WHERE d2.parentid=d1.pathid)"
 						+ " AND EXISTS (SELECT * FROM directory AS d3 WHERE d1.parentid=d3.pathid)";
-				Statement stmt = getDb().createStatement();
+				Statement stmt = getDB().createStatement();
 				ResultSet rs = stmt.executeQuery(sql);
 				try {
 					int count = 0;
 					while (rs.next()) {
-						DbPathEntry f = getDb().rsToPathEntry(rs);
+						DBPathEntry f = getDB().rsToPathEntry(rs);
 						Assertion.assertAssertionError(f.isFile() || f.isCompressedFile());
-						getDb().updateStatus(f, PathEntry.DIRTY);
-						getDb().orphanizeChildren(f);
+						getDB().updateStatus(f, PathEntry.DIRTY);
+						getDB().orphanizeChildren(f);
 						count++;
 						if (getQueueLimit().isEol()) {
 							break;
@@ -440,13 +440,13 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 			String sql = "SELECT * FROM directory AS d1 WHERE EXISTS "
 					+ "(SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid AND d2.parentid<>0 "
 					+ "AND NOT EXISTS (SELECT * FROM directory AS d3 WHERE d2.parentid=d3.pathid))";
-			PreparedStatement ps = getDb().prepareStatement(sql);
+			PreparedStatement ps = getDB().prepareStatement(sql);
 			ResultSet rs = ps.executeQuery();
 			try {
 				int count = 0;
 				while (rs.next()) {
-					DbPathEntry entry = getDb().rsToPathEntry(rs);
-					getDb().orphanize(entry);
+					DBPathEntry entry = getDB().rsToPathEntry(rs);
+					getDB().orphanize(entry);
 					count ++;
 					if (getQueueLimit().isEol()) {
 						break;
@@ -469,8 +469,8 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("+++ list folders with children +++");
 					setLastPathIdAvailable(false);
-					Set<DbPathEntry> allRoots = getAllRoots();
-					Set<Long> dontAccessRootIds = getDb().getInsertableRootIdSet();
+					Set<DBPathEntry> allRoots = getAllRoots();
+					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
 
 					int count = list(dontAccessRootIds,  minus(allRoots, dontAccessRootIds), "type=0 AND status=1", false);
 					writelog2("+++ list folders with children finished count=" + count + " +++");
@@ -497,9 +497,9 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("+++ list folders without children +++");
 					setLastPathIdAvailable(false);
-					Set<DbPathEntry> allRoots = getAllRoots();
+					Set<DBPathEntry> allRoots = getAllRoots();
 					Set<Long> allRootIds = getIdsFromEntries(allRoots);
-					Set<Long> dontAccessRootIds = getDb().getInsertableRootIdSet();
+					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
 
 					int count = list(dontAccessRootIds,  minus(allRoots, dontAccessRootIds), "type=0 AND status=1", true);
 					writelog2("+++ list folders without children finished count=" + count + " +++");
@@ -526,10 +526,10 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("+++ list files with children +++");
 					setLastPathIdAvailable(false);
-					Set<DbPathEntry> allRoots = getAllRoots();
-					Set<Long> dontAccessRootIds = getDb().getInsertableRootIdSet();
+					Set<DBPathEntry> allRoots = getAllRoots();
+					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
 					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
-							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND status=1", false);
+							"((type=1 OR type=3) AND (" + getArchiveExtSubSQL() + ")) AND status=1", false);
 					writelog2("+++ list files with children finished count=" + count + " +++");
 					return true;
 				}
@@ -538,10 +538,10 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("+++ list files without children +++");
 					setLastPathIdAvailable(false);
-					Set<DbPathEntry> allRoots = getAllRoots();
-					Set<Long> dontAccessRootIds = getDb().getInsertableRootIdSet();
+					Set<DBPathEntry> allRoots = getAllRoots();
+					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
 					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
-							"((type=1 OR type=3) AND (" + getArchiveExtSubSql() + ")) AND status=1", true);
+							"((type=1 OR type=3) AND (" + getArchiveExtSubSQL() + ")) AND status=1", true);
 					writelog2("+++ list files without children finished count=" + count + " +++");
 					return true;
 				}
@@ -550,8 +550,8 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("+++ list NoAccess folders with children +++");
 					setLastPathIdAvailable(true);
-					Set<DbPathEntry> allRoots = getAllRoots();
-					Set<Long> dontAccessRootIds = getDb().getInsertableRootIdSet();
+					Set<DBPathEntry> allRoots = getAllRoots();
+					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
 					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
 							"type=0 AND (status=2 OR parentid=0)", false);
 					writelog2("+++ list NoAccess folders with children finished count=" + count + " +++");
@@ -568,8 +568,8 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("+++ list NoAccess folders without children +++");
 					setLastPathIdAvailable(true);
-					Set<DbPathEntry> allRoots = getAllRoots();
-					Set<Long> dontAccessRootIds = getDb().getInsertableRootIdSet();
+					Set<DBPathEntry> allRoots = getAllRoots();
+					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
 					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
 							"type=0 AND (status=2 OR parentid=0)", true);
 					writelog2("+++ list NoAccess folders without children finished count=" + count + " +++");
@@ -589,14 +589,14 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("--- csum (1/2) ---");
 					setLastPathIdAvailable(false);
-					Set<DbPathEntry> allRoots = getAllRoots();
+					Set<DBPathEntry> allRoots = getAllRoots();
 					String sql = "SELECT * FROM directory AS d1 WHERE ((type=1 OR type=3) AND status<>2)"
 							+ " AND (size<0 OR (csum IS NULL AND EXISTS (SELECT * FROM directory AS d2"
 							+ " WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid)))"
 							+ " AND EXISTS (SELECT * FROM directory AS d3 WHERE d3.pathid=d1.parentid)"
 							+ " ORDER BY size DESC"
 							;
-					PreparedStatement ps = getDb().prepareStatement(sql);
+					PreparedStatement ps = getDB().prepareStatement(sql);
 					int count = csum(ps, allRoots);
 					writelog2("--- csum (1/2) finished count=" + count + " ---");
 					return true;
@@ -605,7 +605,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 			new ScheduleDontInsert() {
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					setLastPathIdAvailable(false);
-					Set<DbPathEntry> allRoots = getAllRoots();
+					Set<DBPathEntry> allRoots = getAllRoots();
 					crawlEqualityUpdate(allRoots);
 					return true;
 				}
@@ -614,12 +614,12 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("--- csum (2/2) ---");
 					setLastPathIdAvailable(true);
-					Set<DbPathEntry> allRoots = getAllRoots();
+					Set<DBPathEntry> allRoots = getAllRoots();
 					String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND status=2"
 							+ " AND EXISTS (SELECT * FROM directory AS d2 WHERE d2.pathid=d1.parentid)"
 							+ " AND pathid>? ORDER BY d1.pathid"
 							;
-					PreparedStatement ps = getDb().prepareStatement(sql);
+					PreparedStatement ps = getDB().prepareStatement(sql);
 					ps.setLong(1, getLastPathId());
 					int count = csum(ps, allRoots);
 					writelog2("--- csum (2/2) finished count=" + count + " ---");
@@ -633,7 +633,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 			},
 			new ScheduleDontInsert() {
 				@Override public boolean isStartable() {
-					if (getDb().getUpdateQueueSize(0) > 0) {
+					if (getDB().getUpdateQueueSize(0) > 0) {
 						return false;
 					} else {
 						return super.isStartable();
@@ -642,12 +642,12 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("--- touch ---");
 					setLastPathIdAvailable(true);
-					Set<DbPathEntry> allRoots = getAllRoots();
+					Set<DBPathEntry> allRoots = getAllRoots();
 					String sql = "SELECT * FROM directory AS d1 WHERE ((type=0 AND status=0) OR type=1)"
 							+ " AND EXISTS (SELECT * FROM directory AS d2 WHERE d2.pathid=d1.parentid AND d2.status=0)"
 							+ " AND pathid>? ORDER BY d1.pathid"
 							;
-					PreparedStatement ps = getDb().prepareStatement(sql);
+					PreparedStatement ps = getDB().prepareStatement(sql);
 					ps.setLong(1, getLastPathId());
 					int count = touch(ps, allRoots);
 					writelog2("--- touch finished count=" + count + " ---");
@@ -669,7 +669,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("*** refresh upperlower entries (1/2) ***");
 					setLastPathIdAvailable(false);
-					int c = getDb().refreshDirectUpperLower(getQueueLimit());
+					int c = getDB().refreshDirectUpperLower(getQueueLimit());
 					writelog2("*** refresh upperlower entries (1/2) finished count=" + c + " ***");
 
 					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
@@ -687,7 +687,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("*** refresh upperlower entries (2/2) ***");
 					setLastPathIdAvailable(false);
-					int c = getDb().refreshIndirectUpperLower(getQueueLimit());
+					int c = getDB().refreshIndirectUpperLower(getQueueLimit());
 					writelog2("*** refresh upperlower entries (2/2) finished count=" + c + " ***");
 
 					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
@@ -725,7 +725,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("*** refresh duplicate fields ***");
 					setLastPathIdAvailable(false);
-					int c = getDb().refreshDuplicateFields(getQueueLimit());
+					int c = getDB().refreshDuplicateFields(getQueueLimit());
 					writelog2("*** refresh duplicate fields finished count=" + c + " ***");
 
 					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
@@ -743,7 +743,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("*** refresh directory sizes ***");
 					setLastPathIdAvailable(false);
-					int c = getDb().refreshFolderSizes(getQueueLimit());
+					int c = getDB().refreshFolderSizes(getQueueLimit());
 					writelog2("*** refresh directory sizes finished count=" + c + " ***");
 
 					if (c>0  && repeatCounter < 10) {
@@ -761,7 +761,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("*** cleanup orphans ***");
 					setLastPathIdAvailable(false);
-					int c = getDb().cleanupOrphans(getQueueLimit());
+					int c = getDB().cleanupOrphans(getQueueLimit());
 					writelog2("*** cleanup orphans finished count=" + c + " ***");
 
 					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
@@ -779,7 +779,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("*** cleanup equality orphans ***");
 					setLastPathIdAvailable(false);
-					int c = getDb().cleanupEqualityOrphans(getQueueLimit());
+					int c = getDB().cleanupEqualityOrphans(getQueueLimit());
 					writelog2("*** cleanup equality orphans finished count=" + c + " ***");
 
 					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
@@ -797,7 +797,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 				public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("*** cleanup upperlower orphans ***");
 					setLastPathIdAvailable(false);
-					int c = getDb().cleanupEqualityOrphans(getQueueLimit());
+					int c = getDB().cleanupEqualityOrphans(getQueueLimit());
 					writelog2("*** cleanup upperlower orphans finished count=" + c + " ***");
 
 					if (c>SCHEDULE_UPDATE_COUNT_THRESHOLD  && repeatCounter < 10) {
@@ -811,17 +811,17 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 			}
 	};
 
-	private Set<DbPathEntry> getAllRoots() throws SQLException, InterruptedException {
-		Set<DbPathEntry> result = new HashSet<DbPathEntry>();
-		Statement stmt = getDb().createStatement();
+	private Set<DBPathEntry> getAllRoots() throws SQLException, InterruptedException {
+		Set<DBPathEntry> result = new HashSet<DBPathEntry>();
+		Statement stmt = getDB().createStatement();
 		ResultSet rs = stmt.executeQuery("SELECT * FROM directory WHERE parentid=0");
 		try {
-			Dispatcher disp = getDb().getDispatcher();
+			Dispatcher disp = getDB().getDispatcher();
 			disp.setList(Dispatcher.NONE);
 			disp.setCsum(Dispatcher.NONE);
 			disp.setNoReturn(false);
 			while (rs.next()) {
-				DbPathEntry entry = getDb().rsToPathEntry(rs);
+				DBPathEntry entry = getDB().rsToPathEntry(rs);
 				result.add(entry);
 			}
 		} finally {
@@ -831,16 +831,16 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		return result;
 	}
 
-	private static Set<Long> getIdsFromEntries(Set<DbPathEntry> entries) {
+	private static Set<Long> getIdsFromEntries(Set<DBPathEntry> entries) {
 		if (entries == null) { return null; }
 		Set<Long> result = new HashSet<Long>();
-		for (DbPathEntry entry: entries) {
+		for (DBPathEntry entry: entries) {
 			result.add(entry.getPathId());
 		}
 		return result;
 	}
 
-	private static String getSubSqlFromIds(Set<Long> ids) {
+	private static String getSubSQLFromIds(Set<Long> ids) {
 		List<String> s = new ArrayList<String>();
 		if (ids != null) {
 			for (Long i: ids) {
@@ -856,13 +856,13 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 
 	private int setAllCleanFoldersDirty(Set<Long> dontListRootIds) throws SQLException, InterruptedException {
 		writelog2("*** set all clean folders dirty ***");
-		String sql = "SELECT * FROM directory WHERE type=0 AND status=0" + getSubSqlFromIds(dontListRootIds);
-		PreparedStatement ps = getDb().prepareStatement(sql);
+		String sql = "SELECT * FROM directory WHERE type=0 AND status=0" + getSubSQLFromIds(dontListRootIds);
+		PreparedStatement ps = getDB().prepareStatement(sql);
 		ResultSet rs = ps.executeQuery();
 		int c2 = 0;
 		try {
 			while (rs.next()) {
-				getDb().updateStatus(getDb().rsToPathEntry(rs), PathEntry.DIRTY);
+				getDB().updateStatus(getDB().rsToPathEntry(rs), PathEntry.DIRTY);
 				c2++;
 			}
 		} finally {
@@ -873,9 +873,9 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		return c2;
 	}
 
-	private static Set<DbPathEntry> minus(Set<DbPathEntry> arg1, Set<Long> arg2) {
-		Set<DbPathEntry> result = new HashSet<DbPathEntry>();
-		for (DbPathEntry e: arg1) {
+	private static Set<DBPathEntry> minus(Set<DBPathEntry> arg1, Set<Long> arg2) {
+		Set<DBPathEntry> result = new HashSet<DBPathEntry>();
+		for (DBPathEntry e: arg1) {
 			if (! arg2.contains(e.getPathId())) {
 				result.add(e);
 			}
@@ -883,7 +883,7 @@ class LazyProxyDirTreeDbMaintainerRunnable extends RunnableWithLazyProxyDirTreeD
 		return result;
 	}
 
-	private String getArchiveExtSubSql() {
+	private String getArchiveExtSubSQL() {
 		ArrayList<String> p = new ArrayList<String>();
 		Map<String, Boolean> eal = getExtensionAvailabilityMap();
 		for (String ext: PathEntryListerFactory.getExtensionList()) {

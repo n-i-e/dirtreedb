@@ -16,23 +16,23 @@
 
 package com.github.n_i_e.dirtreedb;
 
-public class DbPathEntry extends PathEntry {
+public class DBPathEntry extends PathEntry {
 	private long pathid;
 	private long parentid;
 	private long rootid;
 
-	public DbPathEntry() {
+	public DBPathEntry() {
 		super();
 	}
 
-	public DbPathEntry(String path, int type, long pathid, long parentid, long rootid) {
+	public DBPathEntry(String path, int type, long pathid, long parentid, long rootid) {
 		super(path, type);
 		this.pathid = pathid;
 		this.parentid = parentid;
 		this.rootid = rootid;
 	}
 
-	public DbPathEntry(DbPathEntry oldentry) {
+	public DBPathEntry(DBPathEntry oldentry) {
 		super(oldentry);
 		this.pathid = oldentry.getPathId();
 		this.parentid = oldentry.getParentId();

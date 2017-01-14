@@ -24,8 +24,8 @@ import java.io.OutputStream;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-public class MdbDirTreeDb extends CommonSqlDirTreeDb {
-	MdbDirTreeDb(String filename) throws ClassNotFoundException, SQLException, IOException {
+public class MDBDirTreeDB extends CommonSQLDirTreeDB {
+	MDBDirTreeDB(String filename) throws ClassNotFoundException, SQLException, IOException {
 		Class.forName("net.ucanaccess.jdbc.UcanaccessDriver");
 
 		File fileobj = new File(filename);
@@ -47,7 +47,7 @@ public class MdbDirTreeDb extends CommonSqlDirTreeDb {
 	}
 
 	@Override
-	public void insert(DbPathEntry basedir, PathEntry newentry) throws SQLException, InterruptedException {
+	public void insert(DBPathEntry basedir, PathEntry newentry) throws SQLException, InterruptedException {
 		if ((basedir != null && hasSurrogatePair(basedir.getPath())) || hasSurrogatePair(newentry.getPath())) {
 			return; // don't do anything for Unicode surrogate pair.
 		} else {

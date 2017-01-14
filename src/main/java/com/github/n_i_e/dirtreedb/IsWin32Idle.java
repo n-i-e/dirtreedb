@@ -24,7 +24,7 @@ public class IsWin32Idle {
 
 	static {
 		PreferenceRW.regist(new IPreferenceSyncUpdate() {
-			@Override public void setDbFilePath(String dbFilePath) {}
+			@Override public void setDBFilePath(String dbFilePath) {}
 			@Override public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {}
 			@Override public void setNumCrawlingThreads(int numCrawlingThreads) {}
 			@Override public void setWindowsIdleSeconds(int windowsIdleSeconds) {

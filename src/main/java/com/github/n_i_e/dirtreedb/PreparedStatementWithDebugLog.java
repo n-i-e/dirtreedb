@@ -515,10 +515,10 @@ public class PreparedStatementWithDebugLog extends AbstractStatementWithDebugLog
 	}
 
 	@Override
-	public void setObject(int parameterIndex, Object x, int targetSqlType)
+	public void setObject(int parameterIndex, Object x, int targetSQLType)
 			throws SQLException {
 		if (x != null) { parameter.put(new Integer(parameterIndex), x.toString()); }
-		instance.setObject(parameterIndex, x, targetSqlType);
+		instance.setObject(parameterIndex, x, targetSQLType);
 	}
 
 	@Override
@@ -666,10 +666,10 @@ public class PreparedStatementWithDebugLog extends AbstractStatementWithDebugLog
 	}
 
 	@Override
-	public void setObject(int parameterIndex, Object x, int targetSqlType,
+	public void setObject(int parameterIndex, Object x, int targetSQLType,
 			int scaleOrLength) throws SQLException {
 		if (x != null) { parameter.put(new Integer(parameterIndex), x.toString()); }
-		instance.setObject(parameterIndex, x, targetSqlType, scaleOrLength);
+		instance.setObject(parameterIndex, x, targetSQLType, scaleOrLength);
 	}
 
 	@Override

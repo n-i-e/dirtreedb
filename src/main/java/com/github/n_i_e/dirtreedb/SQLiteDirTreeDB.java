@@ -30,10 +30,10 @@ import java.util.Date;
 
 import org.sqlite.SQLiteConfig;
 
-public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
+public class SQLiteDirTreeDB extends CommonSQLDirTreeDB {
 	static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-	SqliteDirTreeDb(String filename) throws SQLException, ClassNotFoundException {
+	SQLiteDirTreeDB(String filename) throws SQLException, ClassNotFoundException {
 		Class.forName("org.sqlite.JDBC");
 
 		File fileobj = new File(filename);
@@ -117,7 +117,7 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 	}
 
 	@Override
-	public DbPathEntry rsToPathEntry(ResultSet rs, String prefix) throws SQLException, InterruptedException
+	public DBPathEntry rsToPathEntry(ResultSet rs, String prefix) throws SQLException, InterruptedException
 	{
 		if (rs == null) {
 			return null;
@@ -142,7 +142,7 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 
 		int newtype = rs.getInt(prefix + "type");
 
-		DbPathEntry result = new DbPathEntry(newpath, newtype, newpathid, newparentid, newrootid);
+		DBPathEntry result = new DBPathEntry(newpath, newtype, newpathid, newparentid, newrootid);
 
 		String t = rs.getString(prefix + "datelastmodified");
 		if (t == null) {
@@ -171,7 +171,7 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 	}
 
 	@Override
-	public void insert(DbPathEntry basedir, PathEntry newentry) throws SQLException, InterruptedException
+	public void insert(DBPathEntry basedir, PathEntry newentry) throws SQLException, InterruptedException
 	{
 		String sql = null;
 		try {
@@ -211,7 +211,7 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 			}
 		} catch (SQLException e) {
 			if (sql != null) {
-				Debug.writelog("!! SQL insert failed at CommonSqlDirTreeDB for: " + sql);
+				Debug.writelog("!! SQL insert failed at CommonSQLDirTreeDB for: " + sql);
 				Debug.writelog("newentry.path = " + newentry.getPath());
 				if (basedir != null) {
 					Debug.writelog("basedir.path = " + basedir.getPath());
@@ -222,7 +222,7 @@ public class SqliteDirTreeDb extends CommonSqlDirTreeDb {
 	}
 
 	@Override
-	public void update(DbPathEntry oldentry, PathEntry newentry) throws SQLException, InterruptedException
+	public void update(DBPathEntry oldentry, PathEntry newentry) throws SQLException, InterruptedException
 	{
 		assert(oldentry.getPath().equals(newentry.getPath()));
 

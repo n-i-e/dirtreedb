@@ -23,8 +23,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 
-public class H2DirTreeDb extends CommonSqlDirTreeDb {
-	public H2DirTreeDb(String filename) throws ClassNotFoundException, SQLException {
+public class H2DirTreeDB extends CommonSQLDirTreeDB {
+	public H2DirTreeDB(String filename) throws ClassNotFoundException, SQLException {
 		Class.forName("org.h2.Driver");
 
 		assert(filename.substring(filename.length()-6).equalsIgnoreCase(".mv.db"));
