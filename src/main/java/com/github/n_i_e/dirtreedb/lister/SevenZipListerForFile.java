@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lister;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,6 +22,9 @@ import java.io.InputStream;
 
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
+
+import com.github.n_i_e.dirtreedb.Assertion;
+import com.github.n_i_e.dirtreedb.PathEntry;
 
 public class SevenZipListerForFile extends AbstractArchiveLister {
 	private SevenZFile sevenzfile;

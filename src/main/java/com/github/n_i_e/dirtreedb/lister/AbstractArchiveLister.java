@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lister;
 
 import java.io.BufferedInputStream;
 import java.io.FileNotFoundException;
@@ -23,6 +23,9 @@ import java.io.InputStream;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+
+import com.github.n_i_e.dirtreedb.Assertion;
+import com.github.n_i_e.dirtreedb.PathEntry;
 
 public abstract class AbstractArchiveLister extends PathEntryLister {
 

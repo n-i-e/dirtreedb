@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lister;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -23,6 +23,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map.Entry;
+
+import com.github.n_i_e.dirtreedb.Assertion;
+import com.github.n_i_e.dirtreedb.PathEntry;
+
 import java.util.Set;
 
 public class PathEntryListerFactory {

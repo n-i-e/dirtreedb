@@ -19,6 +19,8 @@ package com.github.n_i_e.dirtreedb;
 import java.io.IOException;
 import java.sql.SQLException;
 
+import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
+
 public class DirTreeDBFactory {
 
 	public static IDirTreeDB getDirTreeDB(String dbfile) throws ClassNotFoundException, SQLException, IOException {

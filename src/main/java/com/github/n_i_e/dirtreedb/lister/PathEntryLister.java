@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lister;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
+
+import com.github.n_i_e.dirtreedb.PathEntry;
 
 public abstract class PathEntryLister implements Iterator<PathEntry>, Iterable<PathEntry>, Closeable {
 
@@ -36,7 +38,7 @@ public abstract class PathEntryLister implements Iterator<PathEntry>, Iterable<P
 	protected boolean isCsumRequested() {
 		return csumRequested;
 	}
-	protected void setCsumRequested(boolean csumNow) {
+	public void setCsumRequested(boolean csumNow) {
 		this.csumRequested = csumNow;
 	}
 

@@ -30,6 +30,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import com.github.n_i_e.dirtreedb.LazyProxyDirTreeDB.Dispatcher;
+import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
 
 class LazyProxyDirTreeDBMaintainerRunnable extends RunnableWithLazyProxyDirTreeDBProvider {
 

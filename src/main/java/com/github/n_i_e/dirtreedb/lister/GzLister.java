@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lister;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipException;
+
+import com.github.n_i_e.dirtreedb.PathEntry;
 
 public class GzLister extends AbstractCompressorLister {
 	public GzLister (PathEntry basepath, InputStream inf) throws IOException {

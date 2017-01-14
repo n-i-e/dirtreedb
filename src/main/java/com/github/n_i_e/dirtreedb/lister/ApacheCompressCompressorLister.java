@@ -14,40 +14,26 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lister;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Iterator;
 
-class NullArchiveLister extends PathEntryLister {
+import org.apache.commons.compress.compressors.CompressorException;
+import org.apache.commons.compress.compressors.CompressorStreamFactory;
 
-	public NullArchiveLister() {
-		super(null);
-	}
+import com.github.n_i_e.dirtreedb.PathEntry;
 
-	@Override
-	public boolean hasNext() {
-		return false;
-	}
-
-	@Override
-	public PathEntry next() {
-		return null;
-	}
-
-	@Override
-	public InputStream getInputStream(PathEntry entry) throws IOException {
-		return null;
-	}
-
-	@Override
-	public InputStream getInputStream() {
-		return null;
-	}
-
-	@Override
-	public Iterator<PathEntry> iterator() {
-		return this;
+public class ApacheCompressCompressorLister extends AbstractCompressorLister {
+	public ApacheCompressCompressorLister (PathEntry basepath, InputStream inf) throws IOException {
+		super(basepath, inf);
+		try {
+			setInstream(new CompressorStreamFactory().createCompressorInputStream(inf));
+		} catch (CompressorException e) {
+			inf.close();
+			byte[] buf = {};
+			setInstream(new ByteArrayInputStream(buf));
+		}
 	}
 }

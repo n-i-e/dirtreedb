@@ -26,6 +26,8 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.prefs.Preferences;
 
+import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
+
 public class PreferenceRW {
 
 	private static Set<IPreferenceSyncUpdate> updaters = new CopyOnWriteArraySet<IPreferenceSyncUpdate>();

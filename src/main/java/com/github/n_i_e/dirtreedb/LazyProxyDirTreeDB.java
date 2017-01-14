@@ -31,6 +31,10 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.github.n_i_e.dirtreedb.lister.DirLister;
+import com.github.n_i_e.dirtreedb.lister.PathEntryLister;
+import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
+
 public class LazyProxyDirTreeDB extends ProxyDirTreeDBWithUpdateQueue {
 
 	private static int numCrawlingThreads = 1;
