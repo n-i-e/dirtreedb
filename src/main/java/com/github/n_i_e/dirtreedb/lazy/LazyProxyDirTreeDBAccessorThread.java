@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lazy;
+
+import com.github.n_i_e.dirtreedb.Debug;
+import com.github.n_i_e.dirtreedb.StackingNonPreemptiveThread;
 
 public class LazyProxyDirTreeDBAccessorThread extends StackingNonPreemptiveThread {
 

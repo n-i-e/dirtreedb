@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lazy;
 
 import java.io.IOException;
 import java.sql.PreparedStatement;
@@ -29,7 +29,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import com.github.n_i_e.dirtreedb.LazyProxyDirTreeDB.Dispatcher;
+import com.github.n_i_e.dirtreedb.Assertion;
+import com.github.n_i_e.dirtreedb.DBPathEntry;
+import com.github.n_i_e.dirtreedb.InterSetOperation;
+import com.github.n_i_e.dirtreedb.IsEol;
+import com.github.n_i_e.dirtreedb.IsWin32Idle;
+import com.github.n_i_e.dirtreedb.PathEntry;
+import com.github.n_i_e.dirtreedb.lazy.LazyProxyDirTreeDB.Dispatcher;
 import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
 
 class LazyProxyDirTreeDBMaintainerRunnable extends RunnableWithLazyProxyDirTreeDBProvider {

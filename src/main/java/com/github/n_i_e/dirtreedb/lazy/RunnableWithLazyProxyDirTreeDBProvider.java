@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lazy;
 
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Map;
+
+import com.github.n_i_e.dirtreedb.Assertion;
+import com.github.n_i_e.dirtreedb.MessageWriter;
+import com.github.n_i_e.dirtreedb.RunnableWithException2;
 
 public abstract class RunnableWithLazyProxyDirTreeDBProvider implements RunnableWithException2<SQLException, InterruptedException> {
 

@@ -18,7 +18,7 @@ package com.github.n_i_e.dirtreedb;
 
 import java.util.Date;
 
-class Debug {
+public class Debug {
 
 	public static void writelog(final String message) {
 		Date now = new Date();

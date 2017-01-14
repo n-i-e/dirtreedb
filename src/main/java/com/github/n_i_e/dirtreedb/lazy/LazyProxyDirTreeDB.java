@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lazy;
 
 import java.io.Closeable;
 import java.io.File;
@@ -31,6 +31,18 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.github.n_i_e.dirtreedb.Assertion;
+import com.github.n_i_e.dirtreedb.AsynchronousProducerConsumerIterator;
+import com.github.n_i_e.dirtreedb.DBPathEntry;
+import com.github.n_i_e.dirtreedb.Debug;
+import com.github.n_i_e.dirtreedb.IDirTreeDB;
+import com.github.n_i_e.dirtreedb.IPreferenceSyncUpdate;
+import com.github.n_i_e.dirtreedb.IsEol;
+import com.github.n_i_e.dirtreedb.PathEntry;
+import com.github.n_i_e.dirtreedb.PreferenceRW;
+import com.github.n_i_e.dirtreedb.ProxyDirTreeDB;
+import com.github.n_i_e.dirtreedb.ProxyDirTreeDBWithUpdateQueue;
+import com.github.n_i_e.dirtreedb.ThreadWithInterruptHook;
 import com.github.n_i_e.dirtreedb.lister.DirLister;
 import com.github.n_i_e.dirtreedb.lister.PathEntryLister;
 import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
