@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.windows;
 
-import java.util.Arrays;
-import java.util.List;
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+import com.sun.jna.WString;
 
-import com.sun.jna.Structure;
-
-public class LASTINPUTINFO extends Structure {
-    public int cbSize = 8;
-    public int dwTime;
-
-   protected List<String> getFieldOrder() {
-       return Arrays.asList(new String[] { "cbSize", "dwTime" });
-   }
+public interface Kernel32 extends Library {
+	Kernel32 INSTANCE = (Kernel32) Native.loadLibrary("kernel32", Kernel32.class);
+	int GetCompressedFileSizeA(String lpFileName, int[] lpFileSizeHigh);
+	int GetCompressedFileSizeW(WString lpFileName, int[] lpFileSizeHigh);
+	int GetLastError();
+	int GetTickCount();
 }

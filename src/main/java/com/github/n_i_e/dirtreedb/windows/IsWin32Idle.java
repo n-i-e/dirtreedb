@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.windows;
 
 import java.util.Map;
+
+import com.github.n_i_e.dirtreedb.IPreferenceSyncUpdate;
+import com.github.n_i_e.dirtreedb.PreferenceRW;
 
 public class IsWin32Idle {
 

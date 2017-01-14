@@ -33,10 +33,10 @@ import com.github.n_i_e.dirtreedb.Assertion;
 import com.github.n_i_e.dirtreedb.DBPathEntry;
 import com.github.n_i_e.dirtreedb.InterSetOperation;
 import com.github.n_i_e.dirtreedb.IsEol;
-import com.github.n_i_e.dirtreedb.IsWin32Idle;
 import com.github.n_i_e.dirtreedb.PathEntry;
 import com.github.n_i_e.dirtreedb.lazy.LazyProxyDirTreeDB.Dispatcher;
 import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
+import com.github.n_i_e.dirtreedb.windows.IsWin32Idle;
 
 class LazyProxyDirTreeDBMaintainerRunnable extends RunnableWithLazyProxyDirTreeDBProvider {
 

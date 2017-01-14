@@ -28,6 +28,7 @@ import java.security.NoSuchAlgorithmException;
 
 import com.github.n_i_e.dirtreedb.lister.PathEntryLister;
 import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
+import com.github.n_i_e.dirtreedb.windows.Kernel32;
 import com.sun.jna.WString;
 
 class GetCompressedFileSizeException extends Exception {

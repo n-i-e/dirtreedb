@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.windows;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;
