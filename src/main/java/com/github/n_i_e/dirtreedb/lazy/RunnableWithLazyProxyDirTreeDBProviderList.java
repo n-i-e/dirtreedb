@@ -24,7 +24,7 @@ import com.github.n_i_e.dirtreedb.StackingNonPreemptiveThread;
 
 public class RunnableWithLazyProxyDirTreeDBProviderList extends RunnableWithLazyProxyDirTreeDBProvider {
 
-	private List<RunnableWithLazyProxyDirTreeDBProvider> list =
+	protected List<RunnableWithLazyProxyDirTreeDBProvider> list =
 			new CopyOnWriteArrayList<RunnableWithLazyProxyDirTreeDBProvider> ();
 
 	private boolean isOpeningHookFinished = false;
@@ -64,9 +64,10 @@ public class RunnableWithLazyProxyDirTreeDBProviderList extends RunnableWithLazy
 	@Override
 	public void closingHook() {
 		if (nextRunnableForClosingHook != null) {
-			nextRunnableForClosingHook.setProv(getProv());
-			nextRunnableForClosingHook.closingHook();
+			RunnableWithLazyProxyDirTreeDBProvider c = nextRunnableForClosingHook;
 			nextRunnableForClosingHook = null;
+			c.setProv(getProv());
+			c.closingHook();
 		}
 	}
 
