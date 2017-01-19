@@ -24,18 +24,18 @@ import com.github.n_i_e.dirtreedb.Assertion;
 import com.github.n_i_e.dirtreedb.MessageWriter;
 import com.github.n_i_e.dirtreedb.RunnableWithException2;
 
-public abstract class RunnableWithLazyProxyDirTreeDBProvider implements RunnableWithException2<SQLException, InterruptedException> {
+public abstract class RunnableWithLazyUpdaterProvider implements RunnableWithException2<SQLException, InterruptedException> {
 
 	public void openingHook() {}
 	public void closingHook() {}
 
-	private LazyProxyDirTreeDBProvider prov = null;
+	private LazyUpdaterProvider prov = null;
 
-	public LazyProxyDirTreeDBProvider getProv() {
+	public LazyUpdaterProvider getProv() {
 		return prov;
 	}
 
-	public void setProv(LazyProxyDirTreeDBProvider prov) {
+	public void setProv(LazyUpdaterProvider prov) {
 		this.prov = prov;
 	}
 
@@ -53,12 +53,12 @@ public abstract class RunnableWithLazyProxyDirTreeDBProvider implements Runnable
 		return prov.getExtensionAvailabilityMap();
 	}
 
-	public LazyProxyDirTreeDB getDB() {
+	public LazyUpdater getDB() {
 		Assertion.assertNullPointerException(prov != null);
 		return prov.getDB();
 	}
 
-	public LazyProxyDirTreeDB openDBIfNot() throws ClassNotFoundException, SQLException, IOException {
+	public LazyUpdater openDBIfNot() throws ClassNotFoundException, SQLException, IOException {
 		return prov.openDBIfNot();
 	}
 

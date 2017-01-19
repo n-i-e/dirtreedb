@@ -39,14 +39,14 @@ import com.github.n_i_e.dirtreedb.IPreferenceSyncUpdate;
 import com.github.n_i_e.dirtreedb.IsEol;
 import com.github.n_i_e.dirtreedb.PathEntry;
 import com.github.n_i_e.dirtreedb.PreferenceRW;
-import com.github.n_i_e.dirtreedb.ProxyDirTreeDB;
-import com.github.n_i_e.dirtreedb.ProxyDirTreeDBWithUpdateQueue;
+import com.github.n_i_e.dirtreedb.Updater;
+import com.github.n_i_e.dirtreedb.UpdaterWithUpdateQueue;
 import com.github.n_i_e.dirtreedb.debug.Debug;
 import com.github.n_i_e.dirtreedb.lister.DirLister;
 import com.github.n_i_e.dirtreedb.lister.PathEntryLister;
 import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
 
-public class LazyProxyDirTreeDB extends ProxyDirTreeDBWithUpdateQueue {
+public class LazyUpdater extends UpdaterWithUpdateQueue {
 
 	private static int numCrawlingThreads = 1;
 
@@ -55,7 +55,7 @@ public class LazyProxyDirTreeDB extends ProxyDirTreeDBWithUpdateQueue {
 			@Override public void setDBFilePath(String dbFilePath) {}
 			@Override public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {}
 			@Override public void setNumCrawlingThreads(int numCrawlingThreads) {
-				LazyProxyDirTreeDB.setNumCrawlingThreads(numCrawlingThreads);
+				LazyUpdater.setNumCrawlingThreads(numCrawlingThreads);
 			}
 			@Override public void setWindowsIdleSeconds(int windowsIdleSeconds) {}
 			@Override public void setCharset(String newvalue) {}
@@ -67,10 +67,10 @@ public class LazyProxyDirTreeDB extends ProxyDirTreeDBWithUpdateQueue {
 	}
 
 	public static void setNumCrawlingThreads(int numCrawlingThreads) {
-		LazyProxyDirTreeDB.numCrawlingThreads = numCrawlingThreads;
+		LazyUpdater.numCrawlingThreads = numCrawlingThreads;
 	}
 
-	public LazyProxyDirTreeDB (IDirTreeDB parent) {
+	public LazyUpdater (IDirTreeDB parent) {
 		super(parent);
 	}
 
@@ -88,7 +88,7 @@ public class LazyProxyDirTreeDB extends ProxyDirTreeDBWithUpdateQueue {
 		lazyqueue_insertable.close();
 		Debug.writelog("Closing lazyqueue_dontinsert");
 		lazyqueue_dontinsert.close();
-		Debug.writelog("LazyProxyDirTreeDB close finished");
+		Debug.writelog("LazyUpdater close finished");
 	}
 
 	@Override
@@ -380,7 +380,7 @@ public class LazyProxyDirTreeDB extends ProxyDirTreeDBWithUpdateQueue {
 			for (LazyQueueElement element: values()) {
 				element.enqueue(new LazyQueueableRunnable() {
 					public void run() throws InterruptedException {
-						LazyProxyDirTreeDB.this.noop();
+						LazyUpdater.this.noop();
 					}
 				});
 			}
@@ -423,7 +423,7 @@ public class LazyProxyDirTreeDB extends ProxyDirTreeDBWithUpdateQueue {
 		return new Dispatcher();
 	}
 
-	public class Dispatcher extends ProxyDirTreeDB.Dispatcher {
+	public class Dispatcher extends Updater.Dispatcher {
 		private boolean _noReturn = false;
 		public void setNoReturn(boolean noReturn) { _noReturn = noReturn; }
 		public boolean isNoReturn() { return _noReturn; }

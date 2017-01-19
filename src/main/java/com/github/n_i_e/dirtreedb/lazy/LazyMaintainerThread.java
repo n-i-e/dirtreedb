@@ -19,14 +19,14 @@ package com.github.n_i_e.dirtreedb.lazy;
 import com.github.n_i_e.dirtreedb.debug.Debug;
 import com.github.n_i_e.dirtreedb.windows.IsWin32Idle;
 
-public class LazyProxyDirTreeDBMaintainerThread extends StackingNonPreemptiveThread {
+public class LazyMaintainerThread extends StackingNonPreemptiveThread {
 
-	LazyProxyDirTreeDBMaintainerThread(LazyProxyDirTreeDBProvider prov) {
+	LazyMaintainerThread(LazyUpdaterProvider prov) {
 		super(new Runnable() {
 
 			@Override
 			public void run() {
-				LazyProxyDirTreeDBMaintainerRunnable target = new LazyProxyDirTreeDBMaintainerRunnable();
+				LazyMaintainerRunnable target = new LazyMaintainerRunnable();
 				while (true) {
 					try {
 						Debug.writelog("--- Maintainer Main Loop ---");

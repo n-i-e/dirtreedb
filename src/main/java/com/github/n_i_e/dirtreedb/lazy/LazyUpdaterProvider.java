@@ -30,9 +30,9 @@ import com.github.n_i_e.dirtreedb.MessageWriter;
 import com.github.n_i_e.dirtreedb.PreferenceRW;
 import com.github.n_i_e.dirtreedb.debug.Debug;
 
-public class LazyProxyDirTreeDBProvider implements IPreferenceSyncUpdate {
+public class LazyUpdaterProvider implements IPreferenceSyncUpdate {
 
-	private LazyProxyDirTreeDB db = null;
+	private LazyUpdater db = null;
 	private MessageWriter messagewriter = new MessageWriter() {
 		@Override public void writeWarning(String title, String message) {}
 		@Override public void writeMessage(String title, String message) {}
@@ -42,7 +42,7 @@ public class LazyProxyDirTreeDBProvider implements IPreferenceSyncUpdate {
 	private String dbFilePath = null;
 	private Map<String, Boolean> extensionAvailabilityMap = null;
 
-	public LazyProxyDirTreeDBProvider() {
+	public LazyUpdaterProvider() {
 		PreferenceRW.regist(this);
 	}
 
@@ -50,12 +50,12 @@ public class LazyProxyDirTreeDBProvider implements IPreferenceSyncUpdate {
 	 * provides thread instances
 	 */
 
-	public LazyProxyDirTreeDBMaintainerThread getMaintainerThread() {
-		return new LazyProxyDirTreeDBMaintainerThread(this);
+	public LazyMaintainerThread getMaintainerThread() {
+		return new LazyMaintainerThread(this);
 	}
 
-	public LazyProxyDirTreeDBAccessorThread getThread(RunnableWithLazyProxyDirTreeDBProvider target) {
-		return new LazyProxyDirTreeDBAccessorThread(this, target);
+	public LazyThread getThread(RunnableWithLazyUpdaterProvider target) {
+		return new LazyThread(this, target);
 	}
 
 	/*
@@ -96,12 +96,12 @@ public class LazyProxyDirTreeDBProvider implements IPreferenceSyncUpdate {
 	}
 
 	/*
-	 * LazyProxyDirTreeDB handling APIs
+	 * LazyUpdater handling APIs
 	 */
 
 	Set<Thread> threads = new HashSet<Thread> ();
 
-	public LazyProxyDirTreeDB getDB() {
+	public LazyUpdater getDB() {
 		Assertion.assertAssertionError(db != null);
 		if (! threads.contains(Thread.currentThread())) {
 			threads.add(Thread.currentThread());
@@ -109,7 +109,7 @@ public class LazyProxyDirTreeDBProvider implements IPreferenceSyncUpdate {
 		return db;
 	}
 
-	public synchronized LazyProxyDirTreeDB openDBIfNot() throws ClassNotFoundException, SQLException, IOException {
+	public synchronized LazyUpdater openDBIfNot() throws ClassNotFoundException, SQLException, IOException {
 		if (! threads.contains(Thread.currentThread())) {
 			threads.add(Thread.currentThread());
 		}
@@ -128,7 +128,7 @@ public class LazyProxyDirTreeDBProvider implements IPreferenceSyncUpdate {
 				messagewriter.writeError("Fatal Error", errmsg);
 				throw new IOException(errmsg);
 			}
-			db = new LazyProxyDirTreeDB(singlethreaddb);
+			db = new LazyUpdater(singlethreaddb);
 			return db;
 		} catch (ClassNotFoundException e) {
 			final String errmsg = String.format("Possibly jdbc driver is not installed on this environment: %s\n%s", dbFilePath, e.toString());
@@ -167,7 +167,7 @@ public class LazyProxyDirTreeDBProvider implements IPreferenceSyncUpdate {
 		}
 
 		if (threads.size() == 0) {
-			LazyProxyDirTreeDB d = db;
+			LazyUpdater d = db;
 			db = null;
 			d.close();
 		}

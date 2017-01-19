@@ -20,9 +20,9 @@ package com.github.n_i_e.dirtreedb.lazy;
  * @author matsu
  *
  */
-public class RunnableWithLazyProxyDirTreeDBProviderPlusOneAhead extends RunnableWithLazyProxyDirTreeDBProviderList {
+public class RunnableWithLazyUpdaterProviderPlusOneAhead extends RunnableWithLazyUpdaterProviderList {
 
-	public void add(RunnableWithLazyProxyDirTreeDBProvider target) {
+	public void add(RunnableWithLazyUpdaterProvider target) {
 		while (list.size()>1) {
 			list.remove(1);
 		}

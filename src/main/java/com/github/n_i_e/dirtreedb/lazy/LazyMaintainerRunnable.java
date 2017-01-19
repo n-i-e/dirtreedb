@@ -34,11 +34,11 @@ import com.github.n_i_e.dirtreedb.DBPathEntry;
 import com.github.n_i_e.dirtreedb.InterSetOperation;
 import com.github.n_i_e.dirtreedb.IsEol;
 import com.github.n_i_e.dirtreedb.PathEntry;
-import com.github.n_i_e.dirtreedb.lazy.LazyProxyDirTreeDB.Dispatcher;
+import com.github.n_i_e.dirtreedb.lazy.LazyUpdater.Dispatcher;
 import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
 import com.github.n_i_e.dirtreedb.windows.IsWin32Idle;
 
-class LazyProxyDirTreeDBMaintainerRunnable extends RunnableWithLazyProxyDirTreeDBProvider {
+class LazyMaintainerRunnable extends RunnableWithLazyUpdaterProvider {
 
 	private static final int UPDATE_QUEUE_SIZD_LOW_THRESHOLD = 9000;
 	private static final int UPDATE_QUEUE_SIZD_HIGH_THRESHOLD = 10000;

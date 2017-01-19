@@ -19,9 +19,9 @@ package com.github.n_i_e.dirtreedb;
 import java.sql.SQLException;
 import java.util.Set;
 
-public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
+public class UpdaterWithUpdateQueue extends Updater {
 
-	public ProxyDirTreeDBWithUpdateQueue(IDirTreeDB parent) {
+	public UpdaterWithUpdateQueue(IDirTreeDB parent) {
 		super(parent);
 	}
 
@@ -144,7 +144,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.insert(basedir, newentry);
+					UpdaterWithUpdateQueue.super.insert(basedir, newentry);
 				}
 			});
 		}
@@ -168,7 +168,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 			} else {
 				enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 					public void run() throws SQLException, InterruptedException {
-						ProxyDirTreeDBWithUpdateQueue.super.update(oldentry, newentry);
+						UpdaterWithUpdateQueue.super.update(oldentry, newentry);
 					}
 				});
 			}
@@ -184,7 +184,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.updateStatus(entry, newstatus);
+					UpdaterWithUpdateQueue.super.updateStatus(entry, newstatus);
 				}
 			});
 		}
@@ -197,7 +197,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.delete(entry);
+					UpdaterWithUpdateQueue.super.delete(entry);
 				}
 			});
 		}
@@ -210,7 +210,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.deleteLowPriority(entry);
+					UpdaterWithUpdateQueue.super.deleteLowPriority(entry);
 				}
 			}, 1);
 		}
@@ -230,7 +230,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.deleteChildren(entry);
+					UpdaterWithUpdateQueue.super.deleteChildren(entry);
 				}
 			});
 		}
@@ -243,7 +243,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.unsetClean(pathid);
+					UpdaterWithUpdateQueue.super.unsetClean(pathid);
 				}
 			});
 		}
@@ -258,7 +258,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.disable(entry);
+					UpdaterWithUpdateQueue.super.disable(entry);
 				}
 			});
 		}
@@ -273,7 +273,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.disable(entry, newentry);
+					UpdaterWithUpdateQueue.super.disable(entry, newentry);
 				}
 			});
 		}
@@ -287,7 +287,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.updateParentId(entry, newparentid);
+					UpdaterWithUpdateQueue.super.updateParentId(entry, newparentid);
 				}
 			});
 		}
@@ -302,7 +302,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.orphanize(entry);
+					UpdaterWithUpdateQueue.super.orphanize(entry);
 				}
 			});
 		}
@@ -322,7 +322,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.orphanizeChildren(entry);
+					UpdaterWithUpdateQueue.super.orphanizeChildren(entry);
 				}
 			});
 		}
@@ -344,7 +344,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.insertUpperLower(upper, lower, distance);
+					UpdaterWithUpdateQueue.super.insertUpperLower(upper, lower, distance);
 				}
 			});
 		}
@@ -357,7 +357,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.deleteUpperLower(upper, lower);
+					UpdaterWithUpdateQueue.super.deleteUpperLower(upper, lower);
 				}
 			});
 		}
@@ -376,7 +376,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.deleteUpperLower(pathid);
+					UpdaterWithUpdateQueue.super.deleteUpperLower(pathid);
 				}
 			});
 		}
@@ -404,7 +404,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.insertEquality(pathid1, pathid2, size, csum);
+					UpdaterWithUpdateQueue.super.insertEquality(pathid1, pathid2, size, csum);
 				}
 			});
 		}
@@ -417,7 +417,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.deleteEquality(pathid1, pathid2);
+					UpdaterWithUpdateQueue.super.deleteEquality(pathid1, pathid2);
 				}
 			});
 		}
@@ -430,7 +430,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.updateEquality(pathid1, pathid2);
+					UpdaterWithUpdateQueue.super.updateEquality(pathid1, pathid2);
 				}
 			});
 		}
@@ -444,7 +444,7 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		} else {
 			enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
 				public void run() throws SQLException, InterruptedException {
-					ProxyDirTreeDBWithUpdateQueue.super.updateDuplicateFields(pathid, duplicate, dedupablesize);
+					UpdaterWithUpdateQueue.super.updateDuplicateFields(pathid, duplicate, dedupablesize);
 				}
 			});
 		}

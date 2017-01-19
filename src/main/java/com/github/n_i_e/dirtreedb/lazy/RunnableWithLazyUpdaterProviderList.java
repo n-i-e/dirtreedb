@@ -20,29 +20,29 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class RunnableWithLazyProxyDirTreeDBProviderList extends RunnableWithLazyProxyDirTreeDBProvider {
+public class RunnableWithLazyUpdaterProviderList extends RunnableWithLazyUpdaterProvider {
 
-	protected List<RunnableWithLazyProxyDirTreeDBProvider> list =
-			new CopyOnWriteArrayList<RunnableWithLazyProxyDirTreeDBProvider> ();
+	protected List<RunnableWithLazyUpdaterProvider> list =
+			new CopyOnWriteArrayList<RunnableWithLazyUpdaterProvider> ();
 
 	private boolean isOpeningHookFinished = false;
 
 	@Override
 	public void openingHook() {
 		if (list.size() > 0) {
-			RunnableWithLazyProxyDirTreeDBProvider r = list.get(0);
+			RunnableWithLazyUpdaterProvider r = list.get(0);
 			r.setProv(getProv());
 			r.openingHook();
 			isOpeningHookFinished = true;
 		}
 	}
 
-	private RunnableWithLazyProxyDirTreeDBProvider nextRunnableForClosingHook = null;
+	private RunnableWithLazyUpdaterProvider nextRunnableForClosingHook = null;
 
 	@Override
 	public void run() throws SQLException {
 		while (list.size() > 0) {
-			RunnableWithLazyProxyDirTreeDBProvider r = list.get(0);
+			RunnableWithLazyUpdaterProvider r = list.get(0);
 			try {
 				((StackingNonPreemptiveThread)Thread.currentThread()).setTopPriority();
 				closingHook();
@@ -62,14 +62,14 @@ public class RunnableWithLazyProxyDirTreeDBProviderList extends RunnableWithLazy
 	@Override
 	public void closingHook() {
 		if (nextRunnableForClosingHook != null) {
-			RunnableWithLazyProxyDirTreeDBProvider c = nextRunnableForClosingHook;
+			RunnableWithLazyUpdaterProvider c = nextRunnableForClosingHook;
 			nextRunnableForClosingHook = null;
 			c.setProv(getProv());
 			c.closingHook();
 		}
 	}
 
-	public void add(RunnableWithLazyProxyDirTreeDBProvider target) {
+	public void add(RunnableWithLazyUpdaterProvider target) {
 		list.add(target);
 	}
 

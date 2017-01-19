@@ -39,10 +39,10 @@ import com.github.n_i_e.dirtreedb.lister.DirLister;
 import com.github.n_i_e.dirtreedb.lister.PathEntryLister;
 import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
 
-public class ProxyDirTreeDB implements IDirTreeDB {
+public class Updater implements IDirTreeDB {
 	protected IDirTreeDB parent;
 
-	public ProxyDirTreeDB (IDirTreeDB parent) {
+	public Updater (IDirTreeDB parent) {
 		this.parent = parent;
 	}
 
@@ -56,7 +56,7 @@ public class ProxyDirTreeDB implements IDirTreeDB {
 		long n = (new Date()).getTime();
 		if (_threadHookInterval != 0 && n - _threadHookInterval > 30*1000) {
 			long d = n - _threadHookInterval;
-			Debug.writelog("ProxyDirTreeDB threadHookInterval too long: " + d);
+			Debug.writelog("Updater threadHookInterval too long: " + d);
 		}
 		_threadHookInterval = n;
 		try {
