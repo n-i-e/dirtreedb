@@ -20,8 +20,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import com.github.n_i_e.dirtreedb.StackingNonPreemptiveThread;
-
 public class RunnableWithLazyProxyDirTreeDBProviderList extends RunnableWithLazyProxyDirTreeDBProvider {
 
 	protected List<RunnableWithLazyProxyDirTreeDBProvider> list =

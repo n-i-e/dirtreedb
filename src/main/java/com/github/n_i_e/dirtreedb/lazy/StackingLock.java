@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lazy;
 
 import java.util.Iterator;
 import java.util.Stack;
+
+import com.github.n_i_e.dirtreedb.Assertion;
 
 public class StackingLock {
 

@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lazy;
 
+import com.github.n_i_e.dirtreedb.Assertion;
 import com.github.n_i_e.dirtreedb.debug.Debug;
 
 public class StackingNonPreemptiveThread extends ThreadWithInterruptHook {

@@ -41,7 +41,6 @@ import com.github.n_i_e.dirtreedb.PathEntry;
 import com.github.n_i_e.dirtreedb.PreferenceRW;
 import com.github.n_i_e.dirtreedb.ProxyDirTreeDB;
 import com.github.n_i_e.dirtreedb.ProxyDirTreeDBWithUpdateQueue;
-import com.github.n_i_e.dirtreedb.ThreadWithInterruptHook;
 import com.github.n_i_e.dirtreedb.debug.Debug;
 import com.github.n_i_e.dirtreedb.lister.DirLister;
 import com.github.n_i_e.dirtreedb.lister.PathEntryLister;

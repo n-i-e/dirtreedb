@@ -14,35 +14,11 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb;
+package com.github.n_i_e.dirtreedb.lazy;
 
-import java.util.concurrent.locks.ReentrantLock;
+public class ThreadWithInterruptHook extends Thread {
 
-public class BinaryStateReentrantLock extends ReentrantLock {
-
-	BinaryStateReentrantLock() {
-		super();
-	}
-
-	BinaryStateReentrantLock(boolean fair) {
-		super(fair);
-	}
-
-	@Override
-	public void lock() {
-		if (! isHeldByCurrentThread()) {
-			super.lock();
-		}
-	}
-
-	@Override
-	public void unlock() {
-		while (isHeldByCurrentThread()) {
-			super.unlock();
-		}
-	}
-
-	public boolean isOwner(Thread thread) {
-		return getOwner() == thread;
+	public void interruptHook() throws InterruptedException {
+		Thread.sleep(0);
 	}
 }
