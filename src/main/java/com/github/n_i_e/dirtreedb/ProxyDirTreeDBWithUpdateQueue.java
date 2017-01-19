@@ -308,18 +308,6 @@ public class ProxyDirTreeDBWithUpdateQueue extends ProxyDirTreeDB {
 		}
 	}
 
-	@Deprecated
-	public void orphanizeLater(final DBPathEntry entry) throws InterruptedException {
-		Assertion.assertNullPointerException(entry != null);
-		Assertion.assertAssertionError(entry.getParentId() != 0);
-		Assertion.assertAssertionError(! isConsumeUpdateQueueMode());
-		enqueueUpdate(new RunnableWithException2<SQLException, InterruptedException> () {
-			public void run() throws SQLException, InterruptedException {
-				ProxyDirTreeDBWithUpdateQueue.super.orphanize(entry);
-			}
-		});
-	}
-
 	@Override
 	public void orphanizeChildren(final DBPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(entry != null);

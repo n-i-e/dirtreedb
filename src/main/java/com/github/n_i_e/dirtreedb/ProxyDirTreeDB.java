@@ -512,34 +512,6 @@ public class ProxyDirTreeDB implements IDirTreeDB {
 		}
 	}
 
-	@Deprecated
-	private int cleanupOrphans(String path, IsEol isEol)
-					throws SQLException, InterruptedException {
-		PreparedStatement ps;
-		Assertion.assertNullPointerException(path != null);
-		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 AND path=? "
-				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)";
-		ps = prepareStatement(sql);
-		ps.setString(1, path);
-		return cleanupOrphans(ps, isEol);
-	}
-
-	@Deprecated
-	public int cleanupOrphans(String path) throws SQLException, InterruptedException {
-		return cleanupOrphans(path, null);
-	}
-
-	@Deprecated
-	public int cleanupOrphansWithoutChildren(IsEol isEol)
-					throws SQLException, InterruptedException {
-		PreparedStatement ps;
-		String sql = "SELECT * FROM directory AS d1 WHERE parentid<>0 "
-				+ "AND NOT EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid) "
-				+ "AND NOT EXISTS (SELECT * FROM directory AS d3 WHERE d1.pathid=d3.parentid)";
-		ps = prepareStatement(sql);
-		return cleanupOrphans(ps, isEol);
-	}
-
 	public int cleanupOrphans(IsEol isEol)
 					throws SQLException, InterruptedException {
 		PreparedStatement ps;

@@ -125,7 +125,7 @@ public class LazyProxyDirTreeDB extends ProxyDirTreeDBWithUpdateQueue {
 		super.delete(entry);
 	}
 
-	@Deprecated @Override
+	@Override
 	public void deleteChildren(final DBPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
 		super.deleteChildren(entry);
