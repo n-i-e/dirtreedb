@@ -23,12 +23,12 @@ import java.util.Map;
 import java.util.Set;
 
 import com.github.n_i_e.dirtreedb.Assertion;
-import com.github.n_i_e.dirtreedb.Debug;
 import com.github.n_i_e.dirtreedb.DirTreeDBFactory;
 import com.github.n_i_e.dirtreedb.IDirTreeDB;
 import com.github.n_i_e.dirtreedb.IPreferenceSyncUpdate;
 import com.github.n_i_e.dirtreedb.MessageWriter;
 import com.github.n_i_e.dirtreedb.PreferenceRW;
+import com.github.n_i_e.dirtreedb.debug.Debug;
 
 public class LazyProxyDirTreeDBProvider implements IPreferenceSyncUpdate {
 

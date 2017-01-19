@@ -1,4 +1,4 @@
-package com.github.n_i_e.dirtreedb.jdbcwithdebuglog;
+package com.github.n_i_e.dirtreedb.debug;
 
 import java.sql.Connection;
 import java.sql.ResultSet;

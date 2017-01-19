@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.github.n_i_e.dirtreedb.jdbcwithdebuglog;
+package com.github.n_i_e.dirtreedb.debug;
 
 import java.io.InputStream;
 import java.io.Reader;

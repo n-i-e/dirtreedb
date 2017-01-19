@@ -25,8 +25,9 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.Date;
 
-import com.github.n_i_e.dirtreedb.jdbcwithdebuglog.PreparedStatementWithDebugLog;
-import com.github.n_i_e.dirtreedb.jdbcwithdebuglog.StatementWithDebugLog;
+import com.github.n_i_e.dirtreedb.debug.Debug;
+import com.github.n_i_e.dirtreedb.debug.PreparedStatementWithDebugLog;
+import com.github.n_i_e.dirtreedb.debug.StatementWithDebugLog;
 
 public abstract class CommonSQLDirTreeDB implements IDirTreeDB {
 	Connection conn;

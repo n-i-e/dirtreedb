@@ -30,6 +30,8 @@ import java.util.Date;
 
 import org.sqlite.SQLiteConfig;
 
+import com.github.n_i_e.dirtreedb.debug.Debug;
+
 public class SQLiteDirTreeDB extends CommonSQLDirTreeDB {
 	static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 

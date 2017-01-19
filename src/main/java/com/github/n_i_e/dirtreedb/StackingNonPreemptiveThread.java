@@ -16,6 +16,8 @@
 
 package com.github.n_i_e.dirtreedb;
 
+import com.github.n_i_e.dirtreedb.debug.Debug;
+
 public class StackingNonPreemptiveThread extends ThreadWithInterruptHook {
 
 	private Runnable target;

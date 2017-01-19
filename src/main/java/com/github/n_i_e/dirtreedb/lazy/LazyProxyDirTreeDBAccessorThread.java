@@ -16,8 +16,8 @@
 
 package com.github.n_i_e.dirtreedb.lazy;
 
-import com.github.n_i_e.dirtreedb.Debug;
 import com.github.n_i_e.dirtreedb.StackingNonPreemptiveThread;
+import com.github.n_i_e.dirtreedb.debug.Debug;
 
 public class LazyProxyDirTreeDBAccessorThread extends StackingNonPreemptiveThread {
 
