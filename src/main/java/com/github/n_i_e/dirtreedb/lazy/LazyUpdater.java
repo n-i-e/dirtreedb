@@ -32,7 +32,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.github.n_i_e.dirtreedb.Assertion;
-import com.github.n_i_e.dirtreedb.AsynchronousProducerConsumerIterator;
+import com.github.n_i_e.dirtreedb.IterableQueue;
 import com.github.n_i_e.dirtreedb.DBPathEntry;
 import com.github.n_i_e.dirtreedb.IDirTreeDB;
 import com.github.n_i_e.dirtreedb.IPreferenceSyncUpdate;
@@ -299,7 +299,7 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 		}
 	}
 
-	private class LazyQueueElement extends AsynchronousProducerConsumerIterator<LazyQueueableRunnable> {
+	private class LazyQueueElement extends IterableQueue<LazyQueueableRunnable> {
 		LazyQueueRunnerThread thread = null;
 
 		public synchronized boolean setThread(LazyQueueRunnerThread thread) {

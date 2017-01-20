@@ -20,7 +20,7 @@ import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-public class AsynchronousProducerConsumerIteratorWithPriority<T> implements Iterator<T>, Iterable<T>, Closeable {
+public class IterableQueueWithPriority<T> implements Iterator<T>, Iterable<T>, Closeable {
 
 	private ArrayList<ArrayList<T>> buffer;
 	private boolean isOpen = true;
@@ -29,7 +29,7 @@ public class AsynchronousProducerConsumerIteratorWithPriority<T> implements Iter
 		return isOpen;
 	}
 
-	public AsynchronousProducerConsumerIteratorWithPriority(int numPriorityLevels) {
+	public IterableQueueWithPriority(int numPriorityLevels) {
 		buffer = new ArrayList<ArrayList<T>>();
 		for (int i=0; i<numPriorityLevels; i++) {
 			buffer.add(new ArrayList<T>());
@@ -74,7 +74,7 @@ public class AsynchronousProducerConsumerIteratorWithPriority<T> implements Iter
 
 	public synchronized void add(T op, int priority) {
 		Assertion.assertAssertionError(priority < buffer.size());
-		Assertion.assertNullPointerException(isOpen, "!! AsynchronousProducerConsumerIterator already closed");
+		Assertion.assertNullPointerException(isOpen, "!! IterableQueue already closed");
 		buffer.get(priority).add(op);
 	}
 

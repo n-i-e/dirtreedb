@@ -39,7 +39,7 @@ public class UpdaterWithUpdateQueue extends Updater {
 	 * UpdateQueue entity and related methods
 	 */
 
-	public class UpdateQueue extends AsynchronousProducerConsumerIteratorWithPriority<RunnableWithException2<SQLException, InterruptedException>> {
+	public class UpdateQueue extends IterableQueueWithPriority<RunnableWithException2<SQLException, InterruptedException>> {
 		public UpdateQueue() {
 			super(2);
 		}
