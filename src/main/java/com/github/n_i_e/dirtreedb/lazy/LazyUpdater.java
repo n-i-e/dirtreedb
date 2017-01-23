@@ -32,13 +32,14 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.github.n_i_e.dirtreedb.Assertion;
-import com.github.n_i_e.dirtreedb.IterableQueue;
 import com.github.n_i_e.dirtreedb.DBPathEntry;
 import com.github.n_i_e.dirtreedb.IDirTreeDB;
 import com.github.n_i_e.dirtreedb.IPreferenceSyncUpdate;
 import com.github.n_i_e.dirtreedb.IsEol;
+import com.github.n_i_e.dirtreedb.IterableQueue;
 import com.github.n_i_e.dirtreedb.PathEntry;
 import com.github.n_i_e.dirtreedb.PreferenceRW;
+import com.github.n_i_e.dirtreedb.RunnableWithException2;
 import com.github.n_i_e.dirtreedb.Updater;
 import com.github.n_i_e.dirtreedb.UpdaterWithUpdateQueue;
 import com.github.n_i_e.dirtreedb.debug.Debug;
@@ -229,8 +230,8 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 		}
 	}
 
-	public abstract class LazyQueueableRunnable { // not really runnable, but used like that.
-		abstract void run() throws SQLException, InterruptedException;
+	public abstract class LazyQueueableRunnable
+		implements RunnableWithException2<SQLException, InterruptedException> {
 	}
 
 	private class LazyQueueRunnerThread extends ThreadWithInterruptHook {
