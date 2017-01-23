@@ -20,9 +20,9 @@ package com.github.n_i_e.dirtreedb.lazy;
  * @author matsu
  *
  */
-public class RunnableWithLazyUpdaterProviderPlusOneAhead extends RunnableWithLazyUpdaterProviderList {
+public class LazyRunnablePlusOneAhead extends LazyRunnableList {
 
-	public void add(RunnableWithLazyUpdaterProvider target) {
+	public void add(LazyRunnable target) {
 		while (list.size()>1) {
 			list.remove(1);
 		}

@@ -38,7 +38,7 @@ import com.github.n_i_e.dirtreedb.lazy.LazyUpdater.Dispatcher;
 import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
 import com.github.n_i_e.dirtreedb.windows.IsWin32Idle;
 
-class LazyMaintainerRunnable extends RunnableWithLazyUpdaterProvider {
+class LazyMaintainerRunnable extends LazyRunnable {
 
 	private static final int UPDATE_QUEUE_SIZD_LOW_THRESHOLD = 9000;
 	private static final int UPDATE_QUEUE_SIZD_HIGH_THRESHOLD = 10000;

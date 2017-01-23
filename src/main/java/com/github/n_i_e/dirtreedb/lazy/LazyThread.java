@@ -20,7 +20,7 @@ import com.github.n_i_e.dirtreedb.debug.Debug;
 
 public class LazyThread extends StackingNonPreemptiveThread {
 
-	public LazyThread(LazyUpdaterProvider prov, RunnableWithLazyUpdaterProvider target) {
+	public LazyThread(LazyUpdaterProvider prov, LazyRunnable target) {
 		super(new Runnable() {
 
 			@Override

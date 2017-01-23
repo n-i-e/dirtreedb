@@ -20,29 +20,29 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class RunnableWithLazyUpdaterProviderList extends RunnableWithLazyUpdaterProvider {
+public class LazyRunnableList extends LazyRunnable {
 
-	protected List<RunnableWithLazyUpdaterProvider> list =
-			new CopyOnWriteArrayList<RunnableWithLazyUpdaterProvider> ();
+	protected List<LazyRunnable> list =
+			new CopyOnWriteArrayList<LazyRunnable> ();
 
 	private boolean isOpeningHookFinished = false;
 
 	@Override
 	public void openingHook() {
 		if (list.size() > 0) {
-			RunnableWithLazyUpdaterProvider r = list.get(0);
+			LazyRunnable r = list.get(0);
 			r.setProv(getProv());
 			r.openingHook();
 			isOpeningHookFinished = true;
 		}
 	}
 
-	private RunnableWithLazyUpdaterProvider nextRunnableForClosingHook = null;
+	private LazyRunnable nextRunnableForClosingHook = null;
 
 	@Override
 	public void run() throws SQLException {
 		while (list.size() > 0) {
-			RunnableWithLazyUpdaterProvider r = list.get(0);
+			LazyRunnable r = list.get(0);
 			try {
 				((StackingNonPreemptiveThread)Thread.currentThread()).setTopPriority();
 				closingHook();
@@ -62,14 +62,14 @@ public class RunnableWithLazyUpdaterProviderList extends RunnableWithLazyUpdater
 	@Override
 	public void closingHook() {
 		if (nextRunnableForClosingHook != null) {
-			RunnableWithLazyUpdaterProvider c = nextRunnableForClosingHook;
+			LazyRunnable c = nextRunnableForClosingHook;
 			nextRunnableForClosingHook = null;
 			c.setProv(getProv());
 			c.closingHook();
 		}
 	}
 
-	public void add(RunnableWithLazyUpdaterProvider target) {
+	public void add(LazyRunnable target) {
 		list.add(target);
 	}
 

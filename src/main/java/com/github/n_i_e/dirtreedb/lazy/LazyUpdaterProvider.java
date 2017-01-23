@@ -54,7 +54,7 @@ public class LazyUpdaterProvider implements IPreferenceSyncUpdate {
 		return new LazyMaintainerThread(this);
 	}
 
-	public LazyThread getThread(RunnableWithLazyUpdaterProvider target) {
+	public LazyThread getThread(LazyRunnable target) {
 		return new LazyThread(this, target);
 	}
 
