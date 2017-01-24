@@ -93,11 +93,6 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 	}
 
 	@Override
-	public void threadHook() throws InterruptedException {
-		super.threadHook();
-	}
-
-	@Override
 	public int refreshDirectUpperLower(Set<Long> dontListRootIds, IsEol isEol)
 			throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
@@ -185,7 +180,7 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 
 	private LazyQueue lazyqueue_insertable = new LazyQueue();
 	private LazyQueue lazyqueue_dontinsert = new LazyQueue();
-	private LazyQueueRunnerThreadPool lazyqueue_thread = new LazyQueueRunnerThreadPool();
+	private CrawlingThreadPool lazyqueue_thread = new CrawlingThreadPool();
 
 	public int getInsertableQueueSize() {
 		return lazyqueue_insertable.size();
@@ -203,7 +198,7 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 		return lazyqueue_dontinsert.getRootIdSet();
 	}
 
-	private class LazyQueueRunnerThreadPool extends ArrayList<LazyQueueRunnerThread> implements Closeable {
+	private class CrawlingThreadPool extends ArrayList<CrawlingThread> implements Closeable {
 
 		public synchronized void wakeupThreadIfPossible() {
 			// cleanup dead threads
@@ -214,7 +209,7 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 			}
 
 			if (size() < getNumCrawlingThreads()) {
-				LazyQueueRunnerThread t = new LazyQueueRunnerThread();
+				CrawlingThread t = new CrawlingThread();
 				t.start();
 				add(t);
 			}
@@ -234,7 +229,7 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 		implements RunnableWithException2<SQLException, InterruptedException> {
 	}
 
-	private class LazyQueueRunnerThread extends ThreadWithInterruptHook {
+	private class CrawlingThread extends ThreadWithInterruptHook {
 
 		private void threadHook() throws InterruptedException {
 			Assertion.assertAssertionError(this == Thread.currentThread());
@@ -251,7 +246,7 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 				isEol = true;
 				for (LazyQueueElement target: lazyqueue_insertable.values()) {
 					if (target.hasNext() && target.getThread() == null) {
-						if (target.setThread((LazyQueueRunnerThread)Thread.currentThread())) {
+						if (target.setThread((CrawlingThread)Thread.currentThread())) {
 							try {
 								while (target.hasNext()) {
 									Assertion.assertAssertionError(target.getThread() == Thread.currentThread());
@@ -277,7 +272,7 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 					if (target.hasNext()
 							&& target.getThread() == null
 							&& lazyqueue_insertable.get(rootid).isEmpty()) {
-						if (target.setThread((LazyQueueRunnerThread)Thread.currentThread())) {
+						if (target.setThread((CrawlingThread)Thread.currentThread())) {
 							try {
 								while (target.hasNext() && lazyqueue_insertable.get(rootid).isEmpty()) {
 									Assertion.assertAssertionError(target.getThread() == Thread.currentThread());
@@ -301,9 +296,9 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 	}
 
 	private class LazyQueueElement extends IterableQueue<LazyQueueableRunnable> {
-		LazyQueueRunnerThread thread = null;
+		CrawlingThread thread = null;
 
-		public synchronized boolean setThread(LazyQueueRunnerThread thread) {
+		public synchronized boolean setThread(CrawlingThread thread) {
 			if (thread == null && this.thread == null) {
 				return false;
 			}
@@ -314,7 +309,7 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 			return true;
 		}
 
-		public synchronized LazyQueueRunnerThread getThread() {
+		public synchronized CrawlingThread getThread() {
 			return thread;
 		}
 
@@ -330,7 +325,7 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 		}
 	}
 
-	public class LazyQueue extends ConcurrentHashMap<Long, LazyQueueElement> implements Closeable {
+	private class LazyQueue extends ConcurrentHashMap<Long, LazyQueueElement> implements Closeable {
 
 		public LazyQueue() {
 			super();
@@ -353,18 +348,6 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 				}
 			}
 			return false;
-		}
-
-		public void discardAllItems() {
-			for (LazyQueueElement elm: this.values()) {
-				LazyQueueRunnerThread t = elm.getThread();
-				if (t != null) {
-					t.interrupt();
-				}
-				while (elm.hasNext()) {
-					elm.next();
-				}
-			}
 		}
 
 		public void enqueue(DBPathEntry entry, LazyQueueableRunnable newtodo) throws InterruptedException {
