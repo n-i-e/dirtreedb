@@ -118,14 +118,12 @@ public class UpdaterWithUpdateQueue extends Updater {
 
 	public void consumeUpdateQueue() throws InterruptedException, SQLException {
 		while (updatequeue.size() > 0) {
-			threadHook();
 			consumeOneUpdateQueue();
 		}
 	}
 
 	public void consumeUpdateQueue(int priority) throws InterruptedException, SQLException {
 		while (updatequeue.size(priority) > 0) {
-			threadHook();
 			consumeOneUpdateQueue();
 		}
 	}

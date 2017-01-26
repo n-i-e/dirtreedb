@@ -20,6 +20,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import com.github.n_i_e.dirtreedb.lister.EmlLister;
+
 import junit.framework.TestCase;
 
 /**

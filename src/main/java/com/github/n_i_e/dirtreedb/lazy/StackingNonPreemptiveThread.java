@@ -16,14 +16,19 @@
 
 package com.github.n_i_e.dirtreedb.lazy;
 
+import java.util.Stack;
+import java.util.concurrent.locks.ReentrantLock;
+
 import com.github.n_i_e.dirtreedb.Assertion;
 import com.github.n_i_e.dirtreedb.debug.Debug;
 
-public class StackingNonPreemptiveThread extends ThreadWithInterruptHook {
+public class StackingNonPreemptiveThread extends Thread {
 
 	private Runnable target;
 	private boolean lowPriority;
-	private static StackingLock lock = new StackingLock();
+//	private static StackingLock lock = new StackingLock();
+	private static ReentrantLock lock = new ReentrantLock();
+	private static Stack<Thread> stack = new Stack<Thread>(); // ending of buffer has high priority
 
 	public StackingNonPreemptiveThread(Runnable target, boolean lowPriority) {
 		super();
@@ -37,32 +42,56 @@ public class StackingNonPreemptiveThread extends ThreadWithInterruptHook {
 	}
 
 	public void setTopPriority() {
-		Assertion.assertAssertionError(Thread.currentThread() == this);
-		Debug.writelog("--- Set Top Priority (1/3) ---");
-		lock.unregist();
-		Debug.writelog("--- Set Top Priority (2/3) ---");
-		lock.regist();
-		Debug.writelog("--- Set Top Priority (3/3) ---");
+		Assertion.assertAssertionError(! lowPriority);
+		synchronized (stack) {
+			Debug.writelog("--- Set Top Priority (1/3) ---");
+			int i = stack.indexOf(this);
+			if (i<stack.size()-1) {
+				stack.remove(i);
+			}
+			Debug.writelog("--- Set Top Priority (2/3) ---");
+			stack.push(this);
+			Debug.writelog("--- Set Top Priority (3/3) ---");
+		}
 	}
 
 	@Override
 	public final void run() {
+		Assertion.assertAssertionError(this == Thread.currentThread());
 		try {
-			Debug.writelog("--- Start Thread (1/2) ---");
-			if (lowPriority) {
-				lock.registLowPriority();
-			} else {
-				lock.regist();
+			synchronized (stack) {
+				Debug.writelog("--- Start Thread (1/3) ---");
+				Assertion.assertAssertionError(stack.indexOf(this) == -1);
+				if (lowPriority) {
+					stack.insertElementAt(this, 0);
+					Assertion.assertAssertionError(stack.indexOf(this) == 0);
+				} else {
+					stack.push(this);
+					Assertion.assertAssertionError(stack.indexOf(this) == stack.size() - 1);
+				}
+				Debug.writelog("--- Start Thread (2/3) ---");
 			}
-			Debug.writelog("--- Start Thread (2/2) ---");
-			target.run();
+			try {
+				if (lock.isLocked()) {
+					Debug.writelog("Thread is locked, waiting for Start Thread 3/3 ...");
+				}
+				lock.lock();
+				Debug.writelog("--- Start Thread (3/3) ---");
+				target.run();
+			} finally {
+				lock.unlock();
+			}
 		} catch (Throwable e) {
 			Debug.writelog("Reached Thread bottom due to Exception: " + e.toString());
 			e.printStackTrace();
 		} finally {
-			Debug.writelog("--- End Thread (1/2) ---");
-			lock.unregist();
-			Debug.writelog("--- End Thread (2/2) ---");
+			synchronized (stack) {
+				Debug.writelog("--- End Thread (1/2) ---");
+				int i = stack.indexOf(this);
+				Assertion.assertAssertionError(i >= 0);
+				stack.remove(i);
+				Debug.writelog("--- End Thread (2/2) ---");
+			}
 		}
 
 	}
@@ -75,20 +104,27 @@ public class StackingNonPreemptiveThread extends ThreadWithInterruptHook {
 		isInterrupted = true;
 	}
 
-	@Override
-	public void interruptHook() throws InterruptedException {
-		synchronized(this) {
-			if (isInterrupted) {
-				isInterrupted = false;
-				throw new InterruptedException();
-			}
-		}
-		lock.keep();
-	}
-
-	protected static void threadHook() throws InterruptedException {
+	public static void threadHook() throws InterruptedException {
 		try {
-			((ThreadWithInterruptHook)Thread.currentThread()).interruptHook();
+			StackingNonPreemptiveThread thread = (StackingNonPreemptiveThread)Thread.currentThread();
+			synchronized(thread) {
+				if (thread.isInterrupted) {
+					thread.isInterrupted = false;
+					throw new InterruptedException();
+				}
+			}
+			while (true) {
+				while (! stack.peek().isAlive()) {
+					stack.pop();
+				}
+				if (stack.peek() == thread) {
+					break;
+				} else { // not highest priority
+					Assertion.assertAssertionError(lock.getHoldCount() == 1, "!! lock has " + lock.getHoldCount());
+					lock.unlock();
+					lock.lock();
+				}
+			}
 		} catch (ClassCastException e) {
 			Thread.sleep(0);
 		}

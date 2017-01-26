@@ -156,7 +156,6 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 	public void consumeOneUpdateQueue() throws InterruptedException, SQLException {
 		Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
 		Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-		threadHook();
 		super.consumeOneUpdateQueue();
 	}
 
@@ -229,66 +228,55 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 		implements RunnableWithException2<SQLException, InterruptedException> {
 	}
 
-	private class CrawlingThread extends ThreadWithInterruptHook {
-
-		private void threadHook() throws InterruptedException {
-			Assertion.assertAssertionError(this == Thread.currentThread());
-			try {
-				((ThreadWithInterruptHook)Thread.currentThread()).interruptHook();
-			} catch (ClassCastException e) {
-				Thread.sleep(0);
-			}
-		}
+	private class CrawlingThread extends Thread {
 
 		public void run() {
 			boolean isEol = false;
 			while (! isEol) {
 				isEol = true;
 				for (LazyQueueElement target: lazyqueue_insertable.values()) {
-					if (target.hasNext() && target.getThread() == null) {
-						if (target.setThread((CrawlingThread)Thread.currentThread())) {
-							try {
-								while (target.hasNext()) {
-									Assertion.assertAssertionError(target.getThread() == Thread.currentThread());
-									threadHook();
-									target.next().run();
-									isEol = false;
-								}
-							} catch (InterruptedException e) {
-								return;
-							} catch (SQLException e) {
-								e.printStackTrace();
-								System.exit(0); // this must not happen
-							} finally {
-								target.setThread(null);
-							}
+					if (! target.hasNext()) { continue; }
+					if (target.getThread() != null) { continue; }
+
+					if (! target.setThread((CrawlingThread)Thread.currentThread())) { continue; }
+					try {
+						while (target.hasNext()) {
+							Assertion.assertAssertionError(target.getThread() == Thread.currentThread());
+							target.next().run();
+							isEol = false;
 						}
+					} catch (InterruptedException e) {
+						return;
+					} catch (SQLException e) {
+						e.printStackTrace();
+						System.exit(0); // this must not happen
+					} finally {
+						target.setThread(null);
 					}
 				}
 
 				for (Entry<Long, LazyQueueElement> entry: lazyqueue_dontinsert.entrySet()) {
 					long rootid = entry.getKey();
 					LazyQueueElement target = entry.getValue();
-					if (target.hasNext()
-							&& target.getThread() == null
-							&& lazyqueue_insertable.get(rootid).isEmpty()) {
-						if (target.setThread((CrawlingThread)Thread.currentThread())) {
-							try {
-								while (target.hasNext() && lazyqueue_insertable.get(rootid).isEmpty()) {
-									Assertion.assertAssertionError(target.getThread() == Thread.currentThread());
-									threadHook();
-									target.next().run();
-									isEol = false;
-								}
-							} catch (InterruptedException e) {
-								return;
-							} catch (SQLException e) {
-								e.printStackTrace();
-								System.exit(0); // this must not happen
-							} finally {
-								target.setThread(null);
-							}
+
+					if (! target.hasNext()) { continue; }
+					if (target.getThread() != null) { continue; }
+					if (! lazyqueue_insertable.get(rootid).isEmpty()) { continue; }
+
+					if (! target.setThread((CrawlingThread)Thread.currentThread())) { continue; }
+					try {
+						while (target.hasNext() && lazyqueue_insertable.get(rootid).isEmpty()) {
+							Assertion.assertAssertionError(target.getThread() == Thread.currentThread());
+							target.next().run();
+							isEol = false;
 						}
+					} catch (InterruptedException e) {
+						return;
+					} catch (SQLException e) {
+						e.printStackTrace();
+						System.exit(0); // this must not happen
+					} finally {
+						target.setThread(null);
 					}
 				}
 			}
@@ -459,8 +447,6 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
 			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
 
-			threadHook();
-
 			final Map<String, DBPathEntry> oldfolder;
 			if (!isList()) {
 				oldfolder = null;
@@ -507,8 +493,6 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 		private void dispatchFileNoReturn(final DBPathEntry entry) throws InterruptedException, SQLException {
 			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
 			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-
-			threadHook();
 
 			final Map<String, DBPathEntry> oldfolder;
 			if (!isList()) {
@@ -563,8 +547,6 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
 			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
 
-			threadHook();
-
 			final Map<String, DBPathEntry> oldfolder;
 			if (!isList()) {
 				oldfolder = null;
@@ -617,8 +599,6 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 		protected PathEntry dispatchFolder(final DBPathEntry entry) throws InterruptedException, SQLException {
 			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
 			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-
-			threadHook();
 
 			final File fileobj = getFileIfExists(entry);
 			if (fileobj == null) {
@@ -676,8 +656,6 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
 			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
 
-			threadHook();
-
 			final PathEntry newentry;
 			try {
 				newentry = getNewPathEntry(entry);
@@ -733,8 +711,6 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
 			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
 
-			threadHook();
-
 			final List<DBPathEntry> stack = getCompressionStack(entry);
 			if (stack == null) { return null; /* orphan */ }
 			try {
@@ -755,8 +731,6 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 		protected PathEntry dispatchCompressedFile(final DBPathEntry entry) throws SQLException, InterruptedException {
 			Assertion.assertAssertionError(! lazyqueue_insertable.hasThread(Thread.currentThread()));
 			Assertion.assertAssertionError(! lazyqueue_dontinsert.hasThread(Thread.currentThread()));
-
-			threadHook();
 
 			final List<DBPathEntry> stack = getCompressionStack(entry);
 			if (stack == null) { return null; /* orphan */ }

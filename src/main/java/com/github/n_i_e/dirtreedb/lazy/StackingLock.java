@@ -21,6 +21,7 @@ import java.util.Stack;
 
 import com.github.n_i_e.dirtreedb.Assertion;
 
+@Deprecated
 public class StackingLock {
 
 	BinaryStateReentrantLock lock = new BinaryStateReentrantLock(true); // fair

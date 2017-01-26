@@ -34,7 +34,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.github.n_i_e.dirtreedb.debug.Debug;
-import com.github.n_i_e.dirtreedb.lazy.ThreadWithInterruptHook;
 import com.github.n_i_e.dirtreedb.lister.DirLister;
 import com.github.n_i_e.dirtreedb.lister.PathEntryLister;
 import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
@@ -51,36 +50,18 @@ public class Updater implements IDirTreeDB {
 		parent.close();
 	}
 
-	private long _threadHookInterval = 0;
-	public void threadHook() throws InterruptedException {
-		long n = (new Date()).getTime();
-		if (_threadHookInterval != 0 && n - _threadHookInterval > 30*1000) {
-			long d = n - _threadHookInterval;
-			Debug.writelog("Updater threadHookInterval too long: " + d);
-		}
-		_threadHookInterval = n;
-		try {
-			((ThreadWithInterruptHook)Thread.currentThread()).interruptHook();
-		} catch (ClassCastException e) {
-			Thread.sleep(0);
-		}
-	}
-
 	@Override
 	public Statement createStatement() throws SQLException, InterruptedException {
-		threadHook();
 		return parent.createStatement();
 	}
 
 	@Override
 	public PreparedStatement prepareStatement(String sql) throws SQLException, InterruptedException {
-		threadHook();
 		return parent.prepareStatement(sql);
 	}
 
 	@Override
 	public DBPathEntry rsToPathEntry(ResultSet rs, String prefix) throws SQLException, InterruptedException {
-		threadHook();
 		return parent.rsToPathEntry(rs, prefix);
 	}
 
@@ -91,7 +72,6 @@ public class Updater implements IDirTreeDB {
 	@Override
 	public void insert(DBPathEntry basedir, PathEntry newentry) throws SQLException, InterruptedException {
 		Assertion.assertNullPointerException(newentry != null);
-		threadHook();
 		try {
 			parent.insert(basedir, newentry);
 		} catch (SQLException e) {
@@ -111,10 +91,8 @@ public class Updater implements IDirTreeDB {
 
 		if ((!PathEntry.dscMatch(oldentry, newentry)) || (!PathEntry.csumMatch(oldentry, newentry))) {
 			deleteEquality(oldentry.getPathId());
-			threadHook();
 			parent.update(oldentry, newentry);
 		} else if (oldentry.getStatus() != newentry.getStatus()) {
-			threadHook();
 			parent.updateStatus(oldentry, newentry.getStatus());
 		}
 	}
@@ -122,7 +100,6 @@ public class Updater implements IDirTreeDB {
 	@Override
 	public void updateStatus(DBPathEntry entry, int newstatus) throws SQLException, InterruptedException {
 		assert(entry != null);
-		threadHook();
 		parent.updateStatus(entry, newstatus);
 	}
 
@@ -136,7 +113,6 @@ public class Updater implements IDirTreeDB {
 
 	@Override
 	public void delete(final DBPathEntry entry) throws SQLException, InterruptedException {
-		threadHook();
 		parent.delete(entry);
 	}
 
@@ -145,7 +121,6 @@ public class Updater implements IDirTreeDB {
 	}
 
 	public void deleteChildren(final DBPathEntry entry) throws SQLException, InterruptedException {
-		threadHook();
 		PreparedStatement ps = prepareStatement("SELECT * FROM directory WHERE parentid=?");
 		ps.setLong(1, entry.getPathId());
 		ResultSet rs = ps.executeQuery();
@@ -160,7 +135,6 @@ public class Updater implements IDirTreeDB {
 	}
 
 	public void deleteEquality(long pathid) throws InterruptedException, SQLException {
-		threadHook();
 		String sql = "SELECT * FROM equality WHERE pathid1=? OR pathid2=?";
 		PreparedStatement ps = prepareStatement(sql);
 		ps.setLong(1, pathid);
@@ -168,7 +142,6 @@ public class Updater implements IDirTreeDB {
 		ResultSet rs = ps.executeQuery();
 		try {
 			while (rs.next()) {
-				threadHook();
 				parent.deleteEquality(rs.getLong("pathid1"), rs.getLong("pathid2"));
 			}
 		} finally {
@@ -178,7 +151,6 @@ public class Updater implements IDirTreeDB {
 	}
 
 	public void deleteUpperLower(long pathid) throws SQLException, InterruptedException {
-		threadHook();
 		PreparedStatement ps;
 		String sql = "SELECT * FROM upperlower WHERE upper=? OR lower=?";
 		ps = prepareStatement(sql);
@@ -187,7 +159,6 @@ public class Updater implements IDirTreeDB {
 		ResultSet rs = ps.executeQuery();
 		try {
 			while (rs.next()) {
-				threadHook();
 				parent.deleteUpperLower(rs.getLong("upper"), rs.getLong("lower"));
 			}
 		} finally {
@@ -198,36 +169,30 @@ public class Updater implements IDirTreeDB {
 
 	@Override
 	public void unsetClean(long pathid) throws SQLException, InterruptedException {
-		threadHook();
 		parent.unsetClean(pathid);
 	}
 
 	@Override
 	public void disable(DBPathEntry entry) throws SQLException, InterruptedException {
-		threadHook();
 		parent.disable(entry);
 	}
 
 	@Override
 	public void disable(DBPathEntry entry, PathEntry newentry) throws SQLException, InterruptedException {
-		threadHook();
 		parent.disable(entry, newentry);
 	}
 
 	@Override
 	public void updateParentId(DBPathEntry entry, long newparentid) throws SQLException ,InterruptedException {
-		threadHook();
 		parent.updateParentId(entry, newparentid);
 	};
 
 	@Override
 	public void orphanize(DBPathEntry entry) throws SQLException, InterruptedException {
-		threadHook();
 		parent.orphanize(entry);
 	}
 
 	public void orphanizeChildren(final DBPathEntry entry) throws SQLException, InterruptedException {
-		threadHook();
 		PreparedStatement ps = prepareStatement("SELECT * FROM directory WHERE parentid=?");
 		ps.setLong(1, entry.getPathId());
 		ResultSet rs = ps.executeQuery();
@@ -243,38 +208,32 @@ public class Updater implements IDirTreeDB {
 
 	@Override
 	public void insertUpperLower(long upper, long lower, int distance) throws SQLException, InterruptedException {
-		threadHook();
 		parent.insertUpperLower(upper, lower, distance);
 	}
 
 	@Override
 	public void deleteUpperLower(long upper, long lower) throws SQLException, InterruptedException {
-		threadHook();
 		parent.deleteUpperLower(upper, lower);
 	}
 
 	@Override
 	public void insertEquality(long pathid1, long pathid2, long size, int csum)
 			throws SQLException, InterruptedException {
-		threadHook();
 		parent.insertEquality(pathid1, pathid2, size, csum);
 	}
 
 	@Override
 	public void deleteEquality(long pathid1, long pathid2) throws InterruptedException, SQLException {
-		threadHook();
 		parent.deleteEquality(pathid1, pathid2);
 	}
 
 	@Override
 	public void updateEquality(long pathid1, long pathid2) throws InterruptedException, SQLException {
-		threadHook();
 		parent.updateEquality(pathid1, pathid2);
 	}
 
 	public void insertOrUpdateEquality(long pathid1, long pathid2, long size, int csum)
 			throws InterruptedException, SQLException {
-		threadHook();
 		PreparedStatement ps = prepareStatement("SELECT * FROM equality WHERE pathid1=? AND pathid2=?");
 		try {
 			if (pathid1>pathid2) {
@@ -303,12 +262,10 @@ public class Updater implements IDirTreeDB {
 	@Override
 	public void updateDuplicateFields(long pathid, long duplicate, long dedupablesize)
 			throws InterruptedException, SQLException {
-		threadHook();
 		parent.updateDuplicateFields(pathid, duplicate, dedupablesize);
 	}
 
 	public DBPathEntry getParent(DBPathEntry basedir) throws SQLException, InterruptedException {
-		threadHook();
 		PreparedStatement ps = prepareStatement("select * from DIRECTORY where PATHID=?");
 		ps.setLong(1, basedir.getParentId());
 		ResultSet rs = ps.executeQuery();
@@ -326,7 +283,6 @@ public class Updater implements IDirTreeDB {
 
 	public List<DBPathEntry> getCompressionStack(DBPathEntry entry) throws SQLException, InterruptedException {
 		Assertion.assertAssertionError(entry.isFile() || entry.isCompressedFolder() || entry.isCompressedFile());
-		threadHook();
 
 		ArrayList<DBPathEntry> result = new ArrayList<DBPathEntry>();
 		result.add(entry);
@@ -334,7 +290,6 @@ public class Updater implements IDirTreeDB {
 		DBPathEntry cursor = entry;
 		while(!cursor.isFile()) {
 			Assertion.assertAssertionError(cursor.isCompressedFolder() || cursor.isCompressedFile());
-			threadHook();
 			cursor = getParent(cursor);
 			if (cursor == null) {
 				return null; // orphan
@@ -347,7 +302,6 @@ public class Updater implements IDirTreeDB {
 	}
 
 	public Map<String, DBPathEntry> childrenList(DBPathEntry entry) throws SQLException, InterruptedException {
-		threadHook();
 
 		Map<String, DBPathEntry> result = new HashMap<String, DBPathEntry>();
 
@@ -356,7 +310,6 @@ public class Updater implements IDirTreeDB {
 		ResultSet rs = ps.executeQuery();
 		try {
 			while (rs.next()) {
-				threadHook();
 				DBPathEntry f = rsToPathEntry(rs);
 				result.put(f.getPath(), f);
 			}
@@ -495,7 +448,6 @@ public class Updater implements IDirTreeDB {
 			try {
 				int count = 0;
 				while (rs.next()) {
-					threadHook();
 					delete(rsToPathEntry(rs));
 					count++;
 					if (isEol != null) {
@@ -582,18 +534,15 @@ public class Updater implements IDirTreeDB {
 
 	public int refreshDirectUpperLower(Set<Long> dontListRootIds, IsEol isEol)
 			throws SQLException, InterruptedException {
-		threadHook();
 		Statement stmt = createStatement();
 		int count = 0;
 		try {
-			threadHook();
 			ResultSet rs = stmt.executeQuery("SELECT parentid, pathid FROM directory AS d1 WHERE parentid>0 "
 					+ getDontListRootIdsSubSQL(dontListRootIds)
 					+ "AND EXISTS (SELECT * FROM directory WHERE pathid=d1.parentid) " // NOT orphan
 					+ "AND NOT EXISTS (SELECT * FROM upperlower WHERE distance=1 AND parentid=upper AND pathid=lower)");
 			try {
 				while (rs.next()) {
-					threadHook();
 					insertUpperLower(rs.getLong("parentid"), rs.getLong("pathid"), 1);
 					count++;
 					if (isEol != null) {
@@ -629,7 +578,6 @@ public class Updater implements IDirTreeDB {
 		Statement stmt = createStatement();
 		int count = 0;
 		try {
-			threadHook();
 			ResultSet rs = stmt.executeQuery("SELECT u1.upper, pathid AS lower, u1.distance+1 AS distance "
 					+ "FROM upperlower AS u1, directory "
 					+ "WHERE u1.lower=parentid "
@@ -645,7 +593,6 @@ public class Updater implements IDirTreeDB {
 					}
 					if (!d.get(u).contains(l)) {
 						d.get(u).add(l);
-						threadHook();
 						insertUpperLower(u, l, rs.getInt("distance"));
 					}
 					count++;
@@ -681,7 +628,6 @@ public class Updater implements IDirTreeDB {
 	}
 
 	public void refreshFolderSizesAll() throws SQLException, InterruptedException {
-		threadHook();
 		while (refreshFolderSizes() > 0) {}
 	}
 	public int refreshFolderSizes() throws SQLException, InterruptedException {
@@ -699,7 +645,6 @@ public class Updater implements IDirTreeDB {
 		try {
 			int count=0;
 			while (rs.next()) {
-				threadHook();
 				DBPathEntry entry = rsToPathEntry(rs);
 				PathEntry newentry = new PathEntry(entry);
 				newentry.setSize(rs.getLong("newsize"));
@@ -725,7 +670,6 @@ public class Updater implements IDirTreeDB {
 
 	public int refreshDuplicateFields(IsEol isEol)
 			throws InterruptedException, SQLException {
-		threadHook();
 
 		Statement stmt1 = createStatement();
 		int count = 0;
@@ -742,7 +686,6 @@ public class Updater implements IDirTreeDB {
 					+ " AND EXISTS (SELECT * FROM directory AS d5 WHERE d1.parentid=d5.pathid)");
 			try {
 				while (rs.next()) {
-					threadHook();
 					updateDuplicateFields(rs.getLong("pathid"), rs.getLong("newduplicate"), rs.getLong("newdedupablesize"));
 					count++;
 					if (isEol != null) {
@@ -764,7 +707,6 @@ public class Updater implements IDirTreeDB {
 					+ "AND (type=0 OR type=2 OR csum IS NULL)");
 			try {
 				while (rs.next()) {
-					threadHook();
 					updateDuplicateFields(rs.getLong("pathid"), 0, 0);
 					count++;
 					if (isEol != null) {
@@ -913,7 +855,6 @@ public class Updater implements IDirTreeDB {
 		}
 
 		public PathEntry dispatch(final DBPathEntry entry) throws IOException, InterruptedException, SQLException {
-			threadHook();
 			if (entry == null || !isReachableRoot(entry.getRootId())) {
 				return null;
 			}
@@ -930,7 +871,6 @@ public class Updater implements IDirTreeDB {
 
 		protected PathEntry dispatchFolder(final DBPathEntry entry)
 				throws SQLException, InterruptedException {
-			threadHook();
 
 			File fileobj = getFileIfExists(entry);
 			if (fileobj == null) {
@@ -986,7 +926,6 @@ public class Updater implements IDirTreeDB {
 		protected PathEntry dispatchFile(final DBPathEntry entry)
 				throws SQLException, InterruptedException {
 			Assertion.assertAssertionError(entry.isFile());
-			threadHook();
 
 			final PathEntry newentry;
 			try {
@@ -1044,7 +983,6 @@ public class Updater implements IDirTreeDB {
 		}
 
 		protected PathEntry dispatchCompressedFile(final DBPathEntry entry) throws SQLException, InterruptedException {
-			threadHook();
 
 			final PathEntry newentry = new PathEntry(entry);
 			final List<DBPathEntry> stack = getCompressionStack(entry);
@@ -1102,7 +1040,6 @@ public class Updater implements IDirTreeDB {
 			long t0 = new Date().getTime();
 			long count=0;
 			while (newfolderIter.hasNext()) {
-				threadHook();
 				PathEntry newchild = newfolderIter.next();
 				Assertion.assertAssertionError(newchild.isFolder() || newchild.isFile());
 				if (newchild.isFolder()) {
@@ -1191,7 +1128,6 @@ public class Updater implements IDirTreeDB {
 			long t0 = new Date().getTime();
 			long count=0;
 			while (newfolderIter.hasNext()) {
-				threadHook();
 				PathEntry newchild = newfolderIter.next();
 				Assertion.assertNullPointerException(newchild != null, "newchild is null, entry=" + entry.getPath());
 				Assertion.assertAssertionError(newchild.isCompressedFolder() || newchild.isCompressedFile(),
