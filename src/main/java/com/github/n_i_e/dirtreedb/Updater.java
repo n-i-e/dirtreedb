@@ -20,6 +20,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -1201,14 +1204,16 @@ public class Updater implements IDirTreeDB {
 			Assertion.assertAssertionError(entry2.isFile() || entry2.isCompressedFile(),
 					"wrong type " + entry2.getType() + " for checkEquality: path=" + entry2.getPath());
 			Assertion.assertAssertionError(entry1.getSize() == entry2.getSize());
-			Assertion.assertAssertionError(!entry1.isCsumNull());
-			Assertion.assertAssertionError(!entry2.isCsumNull());
-			Assertion.assertAssertionError(entry1.getCsum() == entry2.getCsum());
+			Assertion.assertAssertionError(entry1.isCsumNull() || entry2.isCsumNull() || entry1.getCsum() == entry2.getCsum());
 
 			DBPathEntry re = null;
-			long count=0L;
 			try {
-				boolean isEqual;
+				long count=0L;
+				boolean isEqual = true;
+
+				MessageDigest md1 = MessageDigest.getInstance("MD5");
+				MessageDigest md2 = MessageDigest.getInstance("MD5");
+
 				re = entry1;
 				InputStream stream1 = getInputStream(stack1);
 				re = entry2;
@@ -1224,11 +1229,15 @@ public class Updater implements IDirTreeDB {
 						re = null;
 						if (s1 != s2) {
 							isEqual = false;
-							break;
 						}
 						if (s1 == -1 && s2 == -1) {
-							isEqual = true;
 							break;
+						}
+						if (s1 != -1) {
+							md1.update((byte) s1);
+						}
+						if (s2 != -1) {
+							md2.update((byte) s2);
 						}
 						count++;
 					}
@@ -1239,14 +1248,46 @@ public class Updater implements IDirTreeDB {
 					stream2.close();
 					re = null;
 				}
-				if (isEqual && count==entry1.getSize()) {
-					if (dbAccessMode == CHECKEQUALITY_INSERT) {
-						insertEquality(entry1.getPathId(), entry2.getPathId(), entry1.getSize(), entry1.getCsum());
-					} else if (dbAccessMode == CHECKEQUALITY_UPDATE) {
-						updateEquality(entry1.getPathId(), entry2.getPathId());
-					} else if (dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
-						insertOrUpdateEquality(entry1.getPathId(), entry2.getPathId(), entry1.getSize(), entry1.getCsum());
+
+				int csum1 = ByteBuffer.wrap(md1.digest()).getInt();
+				if (entry1.isCsumNull()) {
+					PathEntry newentry = new PathEntry(entry1);
+					newentry.setCsum(csum1);
+					update(entry1, newentry);
+				}
+				int csum2 = ByteBuffer.wrap(md2.digest()).getInt();
+				if (entry2.isCsumNull()) {
+					PathEntry newentry = new PathEntry(entry2);
+					newentry.setCsum(csum2);
+					update(entry2, newentry);
+				}
+
+				if (isEqual) {
+					if (count==entry1.getSize() && count==entry2.getSize() && csum1 == csum2
+							&& (entry1.isCsumNull() || entry1.getCsum() == csum1)
+							&& (entry2.isCsumNull() || entry2.getCsum() == csum2)
+							) {
+						if (dbAccessMode == CHECKEQUALITY_INSERT) {
+							insertEquality(entry1.getPathId(), entry2.getPathId(), count, csum1);
+						} else if (dbAccessMode == CHECKEQUALITY_UPDATE) {
+							updateEquality(entry1.getPathId(), entry2.getPathId());
+						} else if (dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
+							insertOrUpdateEquality(entry1.getPathId(), entry2.getPathId(), count, csum1);
+						}
+					} else {
+						Debug.writelog("!! EQUAL, BUT UPDATED");
+
+						Debug.writelog(entry1.getPath());
+						re = entry1;
+						unsetClean(entry1.getParentId());
+
+						Debug.writelog(entry2.getPath());
+						re = entry2;
+						unsetClean(entry2.getParentId());
+
+						re = null;
 					}
+
 					if (entry1.isNoAccess()) {
 						updateStatus(entry1, PathEntry.DIRTY);
 					}
@@ -1255,13 +1296,9 @@ public class Updater implements IDirTreeDB {
 					}
 					return true;
 				} else {
-					if (!isEqual) {
-						Debug.writelog("!! WARNING NOT EQUAL");
-						if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
-							deleteEquality(entry1.getPathId(), entry2.getPathId());
-						}
-					} else {
-						Debug.writelog("!! EQUAL, BUT SIZE CHANGED "+entry1.getSize()+"->"+count);
+					Debug.writelog("!! WARNING NOT EQUAL");
+					if (dbAccessMode == CHECKEQUALITY_UPDATE || dbAccessMode == CHECKEQUALITY_AUTOSELECT) {
+						deleteEquality(entry1.getPathId(), entry2.getPathId());
 					}
 
 					Debug.writelog(entry1.getPath());
@@ -1283,6 +1320,8 @@ public class Updater implements IDirTreeDB {
 					deleteEquality(entry1.getPathId(), entry2.getPathId());
 				}
 				return false;
+			} catch (NoSuchAlgorithmException e) {
+				return false; // this does not happen
 			}
 		}
 	}
