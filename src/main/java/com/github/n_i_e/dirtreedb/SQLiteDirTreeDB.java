@@ -29,6 +29,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import org.sqlite.SQLiteConfig;
+import org.sqlite.SQLiteException;
 
 import com.github.n_i_e.dirtreedb.debug.Debug;
 
@@ -210,6 +211,12 @@ public class SQLiteDirTreeDB extends CommonSQLDirTreeDB {
 				ps.setInt(7, newentry.getType());
 				ps.executeUpdate();
 				ps.close();
+			}
+		} catch (SQLiteException e) {
+			if (e.toString().indexOf("UNIQUE constraint failed: directory.path") >= 0) {
+				return;
+			} else {
+				throw e;
 			}
 		} catch (SQLException e) {
 			if (sql != null) {
