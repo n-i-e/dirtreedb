@@ -601,7 +601,7 @@ class LazyMaintainerRunnable extends LazyRunnable {
 							+ " AND (size<0 OR (csum IS NULL AND EXISTS (SELECT * FROM directory AS d2"
 							+ " WHERE (type=1 OR type=3) AND size=d1.size AND pathid<>d1.pathid)))"
 							+ " AND EXISTS (SELECT * FROM directory AS d3 WHERE d3.pathid=d1.parentid)"
-							+ " ORDER BY size DESC"
+							+ " ORDER BY size"
 							;
 					PreparedStatement ps = getDB().prepareStatement(sql);
 					int count = csum(ps, allRoots);
