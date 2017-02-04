@@ -594,6 +594,14 @@ class LazyMaintainerRunnable extends LazyRunnable {
 	Schedule[] scheduleDontInsert = {
 			new ScheduleDontInsert() {
 				@Override public boolean isEol() throws SQLException, InterruptedException {
+					setLastPathIdAvailable(false);
+					Set<DBPathEntry> allRoots = getAllRoots();
+					crawlEqualityUpdate(allRoots);
+					return true;
+				}
+			},
+			new ScheduleDontInsert() {
+				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("--- csum (1/2) ---");
 					setLastPathIdAvailable(false);
 					Set<DBPathEntry> allRoots = getAllRoots();
@@ -606,14 +614,6 @@ class LazyMaintainerRunnable extends LazyRunnable {
 					PreparedStatement ps = getDB().prepareStatement(sql);
 					int count = csum(ps, allRoots);
 					writelog2("--- csum (1/2) finished count=" + count + " ---");
-					return true;
-				}
-			},
-			new ScheduleDontInsert() {
-				@Override public boolean isEol() throws SQLException, InterruptedException {
-					setLastPathIdAvailable(false);
-					Set<DBPathEntry> allRoots = getAllRoots();
-					crawlEqualityUpdate(allRoots);
 					return true;
 				}
 			},
