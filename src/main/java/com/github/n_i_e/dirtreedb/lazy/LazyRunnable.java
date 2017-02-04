@@ -66,7 +66,7 @@ public abstract class LazyRunnable implements RunnableWithException2<SQLExceptio
 		prov.closeDBIfPossible();
 	}
 
-	public void threadHook() throws InterruptedException {
-		StackingNonPreemptiveThread.threadHook();
+	public void threadWait() throws InterruptedException {
+		StackingNonPreemptiveThread.threadWait();
 	}
 }

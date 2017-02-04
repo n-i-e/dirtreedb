@@ -104,7 +104,7 @@ public class StackingNonPreemptiveThread extends Thread {
 		isInterrupted = true;
 	}
 
-	public static void threadHook() throws InterruptedException {
+	public static void threadWait() throws InterruptedException {
 		try {
 			StackingNonPreemptiveThread thread = (StackingNonPreemptiveThread)Thread.currentThread();
 			synchronized(thread) {

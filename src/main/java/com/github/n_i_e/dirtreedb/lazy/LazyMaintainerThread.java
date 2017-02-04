@@ -34,7 +34,7 @@ public class LazyMaintainerThread extends StackingNonPreemptiveThread {
 							Debug.writelog("--- Maintainer Start Sleep ---");
 							System.gc();
 							while (!IsWin32Idle.isWin32Idle()) {
-								threadHook();
+								threadWait();
 								Thread.sleep(1000);
 							}
 							Debug.writelog("--- Maintainer End Sleep ---");
@@ -44,7 +44,7 @@ public class LazyMaintainerThread extends StackingNonPreemptiveThread {
 						Debug.writelog("--- Maintainer Open DB (2/3) ---");
 						prov.openDBIfNot();
 						Debug.writelog("--- Maintainer Open DB (3/3) ---");
-						threadHook();
+						threadWait();
 						target.setProv(prov);
 						target.run();
 					} catch (InterruptedException e) {

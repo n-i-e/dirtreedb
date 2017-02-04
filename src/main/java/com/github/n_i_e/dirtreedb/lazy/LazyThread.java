@@ -32,7 +32,7 @@ public class LazyThread extends StackingNonPreemptiveThread {
 					Debug.writelog("--- Open DB (2/3) ---");
 					prov.openDBIfNot();
 					Debug.writelog("--- Open DB (3/3) ---");
-					threadHook();
+					threadWait();
 					target.run();
 				} catch (InterruptedException e) {
 					Debug.writelog("--- Interrupted ---");
