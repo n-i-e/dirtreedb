@@ -18,7 +18,7 @@ package com.github.n_i_e.dirtreedb.windows;
 
 import java.util.Map;
 
-import com.github.n_i_e.dirtreedb.IPreferenceSyncUpdate;
+import com.github.n_i_e.dirtreedb.IPreferenceObserver;
 import com.github.n_i_e.dirtreedb.PreferenceRW;
 
 public class IsWin32Idle {
@@ -26,7 +26,7 @@ public class IsWin32Idle {
 	private static int windowsIdleSeconds = 30;
 
 	static {
-		PreferenceRW.regist(new IPreferenceSyncUpdate() {
+		PreferenceRW.addObserver(new IPreferenceObserver() {
 			@Override public void setDBFilePath(String dbFilePath) {}
 			@Override public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {}
 			@Override public void setNumCrawlingThreads(int numCrawlingThreads) {}

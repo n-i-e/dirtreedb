@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.github.n_i_e.dirtreedb.Assertion;
 import com.github.n_i_e.dirtreedb.DBPathEntry;
 import com.github.n_i_e.dirtreedb.IDirTreeDB;
-import com.github.n_i_e.dirtreedb.IPreferenceSyncUpdate;
+import com.github.n_i_e.dirtreedb.IPreferenceObserver;
 import com.github.n_i_e.dirtreedb.IsEol;
 import com.github.n_i_e.dirtreedb.IterableQueue;
 import com.github.n_i_e.dirtreedb.PathEntry;
@@ -52,7 +52,7 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 	private static int numCrawlingThreads = 1;
 
 	static {
-		PreferenceRW.regist(new IPreferenceSyncUpdate() {
+		PreferenceRW.addObserver(new IPreferenceObserver() {
 			@Override public void setDBFilePath(String dbFilePath) {}
 			@Override public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {}
 			@Override public void setNumCrawlingThreads(int numCrawlingThreads) {
@@ -79,7 +79,7 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 	public void close() throws SQLException {
 		Debug.writelog("Consuming remaining queue elements");
 		try {
-			consumeUpdateQueueWithTimelimit(1000);
+			consumeUpdateQueueWithTimelimit(5000);
 		} catch (InterruptedException e) {}
 		Debug.writelog("Really closing DB");
 		super.close();
@@ -168,13 +168,16 @@ public class LazyUpdater extends UpdaterWithUpdateQueue {
 
 	public void consumeUpdateQueueWithTimelimit(long milliseconds) throws InterruptedException, SQLException {
 		long t1 = new Date().getTime() + milliseconds;
+		Debug.writelog("consumeUpdateQueueWithTimelimit starting, size=" + getUpdateQueueSize());
 		while (getUpdateQueueSize() > 0) {
 			consumeOneUpdateQueue();
 			long t2 = new Date().getTime();
 			if (t2 > t1) {
+				Debug.writelog("consumeUpdateQueueWithTimelimit reached time limit, remaining size=" + getUpdateQueueSize());
 				return;
 			}
 		}
+		Debug.writelog("consumeUpdateQueueWithTimelimit finished, no remaining queue");
 	}
 
 	private LazyQueue lazyqueue_insertable = new LazyQueue();

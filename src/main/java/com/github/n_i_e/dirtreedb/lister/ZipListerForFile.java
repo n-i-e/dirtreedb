@@ -27,7 +27,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import com.github.n_i_e.dirtreedb.Assertion;
-import com.github.n_i_e.dirtreedb.IPreferenceSyncUpdate;
+import com.github.n_i_e.dirtreedb.IPreferenceObserver;
 import com.github.n_i_e.dirtreedb.PathEntry;
 import com.github.n_i_e.dirtreedb.PreferenceRW;
 
@@ -38,7 +38,7 @@ public class ZipListerForFile extends AbstractArchiveLister {
 	private static String charset = "windows-31j";
 
 	static {
-		PreferenceRW.regist(new IPreferenceSyncUpdate() {
+		PreferenceRW.addObserver(new IPreferenceObserver() {
 			@Override public void setDBFilePath(String dbFilePath) {}
 			@Override public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap) {}
 			@Override public void setNumCrawlingThreads(int numCrawlingThreads) {}

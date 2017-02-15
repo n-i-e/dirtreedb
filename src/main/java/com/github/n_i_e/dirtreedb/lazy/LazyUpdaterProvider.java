@@ -25,12 +25,12 @@ import java.util.Set;
 import com.github.n_i_e.dirtreedb.Assertion;
 import com.github.n_i_e.dirtreedb.DirTreeDBFactory;
 import com.github.n_i_e.dirtreedb.IDirTreeDB;
-import com.github.n_i_e.dirtreedb.IPreferenceSyncUpdate;
+import com.github.n_i_e.dirtreedb.IPreferenceObserver;
 import com.github.n_i_e.dirtreedb.MessageWriter;
 import com.github.n_i_e.dirtreedb.PreferenceRW;
 import com.github.n_i_e.dirtreedb.debug.Debug;
 
-public class LazyUpdaterProvider implements IPreferenceSyncUpdate {
+public class LazyUpdaterProvider implements IPreferenceObserver {
 
 	private LazyUpdater db = null;
 	private MessageWriter messagewriter = new MessageWriter() {
@@ -43,7 +43,7 @@ public class LazyUpdaterProvider implements IPreferenceSyncUpdate {
 	private Map<String, Boolean> extensionAvailabilityMap = null;
 
 	public LazyUpdaterProvider() {
-		PreferenceRW.regist(this);
+		PreferenceRW.addObserver(this);
 	}
 
 	/*
@@ -59,7 +59,7 @@ public class LazyUpdaterProvider implements IPreferenceSyncUpdate {
 	}
 
 	/*
-	 * IPreferenceSyncUpdate API
+	 * IPreferenceObserver API
 	 */
 
 	@Override

@@ -18,7 +18,6 @@ package com.github.n_i_e.dirtreedb;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -30,8 +29,8 @@ import com.github.n_i_e.dirtreedb.lister.PathEntryListerFactory;
 
 public class PreferenceRW {
 
-	private static Set<IPreferenceSyncUpdate> updaters = new CopyOnWriteArraySet<IPreferenceSyncUpdate>();
-	public static void regist(IPreferenceSyncUpdate updater) {
+	private static Set<IPreferenceObserver> updaters = new CopyOnWriteArraySet<IPreferenceObserver>();
+	public static void addObserver(IPreferenceObserver updater) {
 		Assertion.assertNullPointerException(updater != null);
 		updaters.add(updater);
 		updater.setDBFilePath(getDBFilePath());
@@ -41,7 +40,7 @@ public class PreferenceRW {
 		updater.setCharset(getZipListerCharset());
 	}
 
-	public static boolean unregist(IPreferenceSyncUpdate updater) {
+	public static boolean unregist(IPreferenceObserver updater) {
 		Assertion.assertNullPointerException(updater != null);
 		return updaters.remove(updater);
 	}
@@ -62,7 +61,7 @@ public class PreferenceRW {
 
 	public static void setDBFilePath(String newvalue) {
 		prefs.put(DBFilePath_KEY, newvalue);
-		for (IPreferenceSyncUpdate p: updaters) {
+		for (IPreferenceObserver p: updaters) {
 			p.setDBFilePath(newvalue);
 		}
 	}
@@ -77,7 +76,7 @@ public class PreferenceRW {
 
 	public static void setWindowsIdleSeconds(int windowsIdleSeconds) {
 		prefs.put(WindowsIdleSeconds_KEY, String.valueOf(windowsIdleSeconds));
-		for (IPreferenceSyncUpdate p: updaters) {
+		for (IPreferenceObserver p: updaters) {
 			p.setWindowsIdleSeconds(windowsIdleSeconds);
 		}
 	}
@@ -92,7 +91,7 @@ public class PreferenceRW {
 
 	public static void setNumCrawlingThreads(int numCrawlingThreads) {
 		prefs.put(NumCrawlingThreads_KEY, String.valueOf(numCrawlingThreads));
-		for (IPreferenceSyncUpdate p: updaters) {
+		for (IPreferenceObserver p: updaters) {
 			p.setNumCrawlingThreads(numCrawlingThreads);
 		}
 	}
@@ -107,86 +106,9 @@ public class PreferenceRW {
 
 	public static void setZipListerCharset(String newvalue) {
 		prefs.put(ZipListerCharset_KEY, newvalue);
-		for (IPreferenceSyncUpdate p: updaters) {
+		for (IPreferenceObserver p: updaters) {
 			p.setCharset(newvalue);
 		}
-	}
-
-	// SwtFileFolderMenuSortOrder
-
-	private final static String SwtFileFolderMenuSortOrder_KEY = "SwtFileFolderMenuSortOrder";
-
-	public static String getSwtFileFolderMenuSortOrder() {
-		String[] candidates = {
-				"path", "path DESC",
-				"datelastmodified", "datelastmodified DESC",
-				"size", "size DESC",
-				"compressedsize", "compressedsize DESC",
-				"duplicate", "duplicate DESC",
-				"dedupablesize", "dedupablesize DESC"
-		};
-
-		String def = "compressedsize DESC";
-		String result = prefs.get(SwtFileFolderMenuSortOrder_KEY, def);
-		if (Arrays.asList(candidates).contains(result)) {
-			return result;
-		} else {
-			return def;
-		}
-	}
-
-	public static void setSwtFileFolderMenuSortOrder(String newvalue) {
-		prefs.put(SwtFileFolderMenuSortOrder_KEY, newvalue);
-	}
-
-	// SwtDuplicateMenuSortOrderR
-
-	private final static String SwtDuplicateMenuSortOrderR_KEY = "SwtDuplicateMenuSortOrderR";
-
-	public static String getSwtDuplicateMenuSortOrderR() {
-		String[] candidates = {
-				"path", "path DESC",
-				"datelastmodified", "datelastmodified DESC",
-				"size", "size DESC",
-				"compressedsize", "compressedsize DESC",
-		};
-
-		String def = "compressedsize DESC";
-		String result = prefs.get(SwtDuplicateMenuSortOrderR_KEY, def);
-		if (Arrays.asList(candidates).contains(result)) {
-			return result;
-		} else {
-			return def;
-		}
-	}
-
-	public static void setSwtDuplicateMenuSortOrderR(String newvalue) {
-		prefs.put(SwtDuplicateMenuSortOrderR_KEY, newvalue);
-	}
-
-	// SwtRootMenuSortOrder
-
-	private final static String SwtRootMenuSortOrder_KEY = "SwtRootMenuSortOrder";
-
-	public static String getSwtRootMenuSortOrder() {
-		String[] candidates = {
-				"path", "path DESC",
-				"datelastmodified", "datelastmodified DESC",
-				"size", "size DESC",
-				"compressedsize", "compressedsize DESC",
-		};
-
-		String def = "path";
-		String result = prefs.get(SwtRootMenuSortOrder_KEY, def);
-		if (Arrays.asList(candidates).contains(result)) {
-			return result;
-		} else {
-			return def;
-		}
-	}
-
-	public static void setSwtRootMenuSortOrder(String newvalue) {
-		prefs.put(SwtRootMenuSortOrder_KEY, newvalue);
 	}
 
 	// ExtensionAvailabilityMap
@@ -230,7 +152,7 @@ public class PreferenceRW {
 			}
 		}
 		prefs.put(ExtensionAvailabilityMap_KEY, String.join(",", r1));
-		for (IPreferenceSyncUpdate p: updaters) {
+		for (IPreferenceObserver p: updaters) {
 			p.setExtensionAvailabilityMap(getExtensionAvailabilityMap());
 		}
 

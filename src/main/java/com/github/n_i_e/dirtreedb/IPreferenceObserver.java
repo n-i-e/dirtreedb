@@ -18,7 +18,7 @@ package com.github.n_i_e.dirtreedb;
 
 import java.util.Map;
 
-public interface IPreferenceSyncUpdate {
+public interface IPreferenceObserver {
 	public void setDBFilePath(String dbFilePath);
 	public void setExtensionAvailabilityMap(Map<String, Boolean> extensionAvailabilityMap);
 	public void setNumCrawlingThreads(int numCrawlingThreads);
