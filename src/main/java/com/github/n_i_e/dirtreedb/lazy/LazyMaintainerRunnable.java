@@ -118,6 +118,7 @@ class LazyMaintainerRunnable extends LazyRunnable {
 
 	long debugBeaconMessageTimer = 0L;
 	private void beacon() throws InterruptedException {
+		threadWait();
 		if (!IsWin32Idle.isWin32Idle()) {
 			throw new InterruptedException();
 		}
