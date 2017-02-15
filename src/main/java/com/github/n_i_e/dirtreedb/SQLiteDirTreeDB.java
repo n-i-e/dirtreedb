@@ -271,8 +271,11 @@ public class SQLiteDirTreeDB extends CommonSQLDirTreeDB {
 			ps.setString(5, sdf.format(d));
 			ps.executeUpdate();
 		} catch (SQLException e) {
-			Debug.writelog("SQLException at addEquality: pathid1=" + pathid1 + ", pathid2=" + pathid2);
-			throw e;
+			if (e.toString().indexOf("UNIQUE constraint failed:") >= 0) {
+				Debug.writelog("SQLException at addEquality: pathid1=" + pathid1 + ", pathid2=" + pathid2);
+			} else {
+				throw e;
+			}
 		} finally {
 			ps.close();
 		}
