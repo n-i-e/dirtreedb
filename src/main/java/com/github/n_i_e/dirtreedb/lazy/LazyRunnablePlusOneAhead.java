@@ -19,10 +19,12 @@ package com.github.n_i_e.dirtreedb.lazy;
 public class LazyRunnablePlusOneAhead extends LazyRunnableList {
 
 	public void add(LazyRunnable target) {
-		while (list.size()>1) {
-			list.remove(1);
-		}
-		list.add(target);
+		try {
+			while (true) {
+				list.remove(1);
+			}
+		} catch (IndexOutOfBoundsException e) {}
+		super.add(target);
 	}
 
 }
