@@ -17,34 +17,38 @@
 package com.github.n_i_e.dirtreedb.lazy;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+
+import com.github.n_i_e.dirtreedb.Assertion;
 
 public class LazyRunnableList extends LazyRunnable {
 
 	protected List<LazyRunnable> list =
-			new CopyOnWriteArrayList<LazyRunnable> ();
+			Collections.synchronizedList(new ArrayList<LazyRunnable>());
 
 	private boolean isOpeningHookFinished = false;
 
 	@Override
 	public void openingHook() {
-		if (list.size() > 0) {
+		Assertion.assertAssertionError((LazyThread)Thread.currentThread() != null);
+		try {
 			LazyRunnable r = list.get(0);
 			r.setProv(getProv());
 			r.openingHook();
 			isOpeningHookFinished = true;
-		}
+		} catch (IndexOutOfBoundsException e) {}
 	}
 
 	private LazyRunnable nextRunnableForClosingHook = null;
 
 	@Override
 	public void run() throws SQLException {
-		while (list.size() > 0) {
+		Assertion.assertAssertionError((LazyThread)Thread.currentThread() != null);
+		try {
 			LazyRunnable r = list.get(0);
 			try {
-				((StackingNonPreemptiveThread)Thread.currentThread()).setTopPriority();
 				closingHook();
 				r.setProv(getProv());
 				if (isOpeningHookFinished) {
@@ -55,12 +59,14 @@ public class LazyRunnableList extends LazyRunnable {
 				r.run();
 				nextRunnableForClosingHook = r;
 			} catch (InterruptedException e) {}
-			list.remove(0);
-		}
+			LazyRunnable r2 = list.remove(0);
+			Assertion.assertAssertionError(r2 == r);
+		} catch (IndexOutOfBoundsException e) {}
 	}
 
 	@Override
 	public void closingHook() {
+		Assertion.assertAssertionError((LazyThread)Thread.currentThread() != null);
 		if (nextRunnableForClosingHook != null) {
 			LazyRunnable c = nextRunnableForClosingHook;
 			nextRunnableForClosingHook = null;
@@ -69,10 +75,12 @@ public class LazyRunnableList extends LazyRunnable {
 		}
 	}
 
+	// add() is called from outside a StackingNonPreemptiveThread.
 	public void add(LazyRunnable target) {
 		list.add(target);
 	}
 
+	// size() is called from outside a StackingNonPreemptiveThread.
 	public int size() {
 		return list.size();
 	}
