@@ -34,19 +34,6 @@ import java.util.Iterator;
  * closeを実行すると、キューが「クローズ」され、キューに残ったエレメントは全て消去されます。
  * クローズされたキューに新たなエレメントをaddすることはできません（NullPointerExceptionが返ります）。
  *
- * IterableQueue implements a FIFO queue.
- *
- * With the add method, one element is enqueued.
- * With the next method of the Iterator interface, one element is dequeued.
- * You can also dequeue with for each syntax using the Iterable interface.
- *
- * Executing next with no elements in the queue will return null.
- * However, close is not performed at this time.
- * Therefore, if you add from this state, you can also call next.
- *
- * When you execute close, the queue is "closed", and all elements remaining in the queue are deleted.
- * It is not possible to add a new element to the closed queue (NullPointerException is returned).
- *
  * @param <T>
  */
 public class IterableQueue<T> implements Iterator<T>, Iterable<T>, Closeable {
