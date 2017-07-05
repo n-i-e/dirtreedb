@@ -16,6 +16,7 @@
 
 package com.github.n_i_e.dirtreedb.lazy;
 
+@Deprecated
 public class LazyRunnablePlusOneAhead extends LazyRunnableList {
 
 	public void add(LazyRunnable target) {
