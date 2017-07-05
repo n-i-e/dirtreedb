@@ -28,7 +28,6 @@ public class LazyThread extends StackingNonPreemptiveThread {
 				try {
 					Debug.writelog("--- Open DB (1/3) ---");
 					target.setProv(prov);
-					target.openingHook();
 					Debug.writelog("--- Open DB (2/3) ---");
 					prov.openDBIfNot();
 					Debug.writelog("--- Open DB (3/3) ---");
@@ -43,7 +42,7 @@ public class LazyThread extends StackingNonPreemptiveThread {
 					e.printStackTrace();
 					System.exit(1);
 				} finally {
-					Debug.writelog("--- Close DB (1/3) ---");
+					Debug.writelog("--- Close DB (1/2) ---");
 					try {
 						prov.closeDBIfPossible();
 					} catch (Throwable e) {
@@ -52,9 +51,7 @@ public class LazyThread extends StackingNonPreemptiveThread {
 						e.printStackTrace();
 						System.exit(1);
 					}
-					Debug.writelog("--- Close DB (2/3) ---");
-					target.closingHook();
-					Debug.writelog("--- Close DB (3/3) ---");
+					Debug.writelog("--- Close DB (2/2) ---");
 				}
 
 			}

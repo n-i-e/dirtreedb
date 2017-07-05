@@ -39,11 +39,9 @@ public class LazyMaintainerThread extends StackingNonPreemptiveThread {
 							}
 							Debug.writelog("--- Maintainer End Sleep ---");
 						}
-						Debug.writelog("--- Maintainer Open DB (1/3) ---");
-						target.openingHook();
-						Debug.writelog("--- Maintainer Open DB (2/3) ---");
+						Debug.writelog("--- Maintainer Open DB (1/2) ---");
 						prov.openDBIfNot();
-						Debug.writelog("--- Maintainer Open DB (3/3) ---");
+						Debug.writelog("--- Maintainer Open DB (2/2) ---");
 						threadWait();
 						target.setProv(prov);
 						target.run();
@@ -55,7 +53,7 @@ public class LazyMaintainerThread extends StackingNonPreemptiveThread {
 						e.printStackTrace();
 						System.exit(1);
 					} finally {
-						Debug.writelog("--- Maintainer Close DB (1/3) ---");
+						Debug.writelog("--- Maintainer Close DB (1/2) ---");
 						try {
 							prov.closeDBIfPossible();
 						} catch (Throwable e) {
@@ -64,9 +62,7 @@ public class LazyMaintainerThread extends StackingNonPreemptiveThread {
 							e.printStackTrace();
 							System.exit(1);
 						}
-						Debug.writelog("--- Maintainer Close DB (2/3) ---");
-						target.closingHook();
-						Debug.writelog("--- Maintainer Close DB (3/3) ---");
+						Debug.writelog("--- Maintainer Close DB (2/2) ---");
 					}
 				}
 			}

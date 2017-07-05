@@ -26,9 +26,6 @@ import com.github.n_i_e.dirtreedb.RunnableWithException2;
 
 public abstract class LazyRunnable implements RunnableWithException2<SQLException, InterruptedException> {
 
-	public void openingHook() {}
-	public void closingHook() {}
-
 	private LazyUpdaterProvider prov = null;
 
 	public LazyUpdaterProvider getProv() {

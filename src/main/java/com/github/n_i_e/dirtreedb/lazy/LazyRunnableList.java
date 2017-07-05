@@ -23,25 +23,11 @@ import java.util.List;
 
 import com.github.n_i_e.dirtreedb.Assertion;
 
+@Deprecated
 public class LazyRunnableList extends LazyRunnable {
 
 	protected List<LazyRunnable> list =
 			Collections.synchronizedList(new ArrayList<LazyRunnable>());
-
-	private boolean isOpeningHookFinished = false;
-
-	@Override
-	public void openingHook() {
-		Assertion.assertAssertionError((LazyThread)Thread.currentThread() != null);
-		try {
-			LazyRunnable r = list.get(0);
-			r.setProv(getProv());
-			r.openingHook();
-			isOpeningHookFinished = true;
-		} catch (IndexOutOfBoundsException e) {}
-	}
-
-	private LazyRunnable nextRunnableForClosingHook = null;
 
 	@Override
 	public void run() throws SQLException {
@@ -49,30 +35,12 @@ public class LazyRunnableList extends LazyRunnable {
 		try {
 			LazyRunnable r = list.get(0);
 			try {
-				closingHook();
 				r.setProv(getProv());
-				if (isOpeningHookFinished) {
-					isOpeningHookFinished = false;
-				} else {
-					r.openingHook();
-				}
 				r.run();
-				nextRunnableForClosingHook = r;
 			} catch (InterruptedException e) {}
 			LazyRunnable r2 = list.remove(0);
 			Assertion.assertAssertionError(r2 == r);
 		} catch (IndexOutOfBoundsException e) {}
-	}
-
-	@Override
-	public void closingHook() {
-		Assertion.assertAssertionError((LazyThread)Thread.currentThread() != null);
-		if (nextRunnableForClosingHook != null) {
-			LazyRunnable c = nextRunnableForClosingHook;
-			nextRunnableForClosingHook = null;
-			c.setProv(getProv());
-			c.closingHook();
-		}
 	}
 
 	// add() is called from outside a StackingNonPreemptiveThread.
