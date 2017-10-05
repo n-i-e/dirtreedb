@@ -82,7 +82,7 @@ public class MsgLister extends AbstractArchiveLister {
 					}
 					part = content[count];
 					try {
-						data = part.attachData.getValue();
+						data = part.getAttachData().getValue();
 					} catch (NullPointerException e) {
 						data = null;
 						count++;
@@ -91,7 +91,7 @@ public class MsgLister extends AbstractArchiveLister {
 
 				String filename;
 				try {
-					filename = part.attachFileName.getValue();
+					filename = part.getAttachFileName().getValue();
 				} catch (NullPointerException e) {
 					filename = String.valueOf(count);
 				}
