@@ -677,16 +677,15 @@ public class Updater implements IDirTreeDB {
 		Statement stmt1 = createStatement();
 		int count = 0;
 		try {
-			ResultSet rs = stmt1.executeQuery("SELECT pathid, newduplicate, newdedupablesize FROM directory AS d1,"
+			ResultSet rs = stmt1.executeQuery("SELECT pathid, newduplicate, newdedupablesize FROM"
+					+ " (SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND csum IS NOT NULL"
+					+ "  AND EXISTS (SELECT * FROM directory AS d2 WHERE d1.parentid=d2.pathid)) AS d3,"
 					+ " (SELECT size, csum, count(size)-1 AS newduplicate, (count(size)-1)*size AS newdedupablesize"
-					+ " FROM directory AS d2 WHERE (type=1 OR type=3) AND csum IS NOT NULL"
-					+ " AND EXISTS (SELECT * FROM directory AS d3 WHERE d2.parentid=d3.pathid)"
-					+ " GROUP BY size, csum"
-					+ " HAVING (COUNT(size)>=2 AND COUNT(size)-1<>MAX(duplicate))"
-					+ " OR (COUNT(size)>=2 AND COUNT(size)-1<>MAX(duplicate))"
-					+ " OR MAX(duplicate)>MIN(duplicate)) AS d4"
-					+ " WHERE (d1.type=1 OR d1.type=3) AND d1.size=d4.size AND d1.csum=d4.csum"
-					+ " AND EXISTS (SELECT * FROM directory AS d5 WHERE d1.parentid=d5.pathid)");
+					+ "  FROM directory AS d4 WHERE (type=1 OR type=3) AND csum IS NOT NULL"
+					+ "  AND EXISTS (SELECT * FROM directory AS d5 WHERE d4.parentid=d5.pathid)"
+					+ "  GROUP BY size, csum) AS d6"
+					+ " WHERE d3.size=d6.size AND d3.csum=d6.csum"
+					+ " AND (d3.duplicate<>d6.newduplicate OR d3.dedupablesize<>d6.newdedupablesize)");
 			try {
 				while (rs.next()) {
 					updateDuplicateFields(rs.getLong("pathid"), rs.getLong("newduplicate"), rs.getLong("newdedupablesize"));
