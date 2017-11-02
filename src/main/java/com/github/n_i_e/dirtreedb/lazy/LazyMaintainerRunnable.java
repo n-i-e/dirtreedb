@@ -604,6 +604,27 @@ class LazyMaintainerRunnable extends LazyRunnable {
 			new ScheduleDontInsert() {
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("--- csum (1/2) ---");
+					setLastPathIdAvailable(true);
+					Set<DBPathEntry> allRoots = getAllRoots();
+					String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND status=2"
+							+ " AND EXISTS (SELECT * FROM directory AS d2 WHERE d2.pathid=d1.parentid)"
+							+ " AND pathid>? ORDER BY d1.pathid"
+							;
+					PreparedStatement ps = getDB().prepareStatement(sql);
+					ps.setLong(1, getLastPathId());
+					int count = csum(ps, allRoots);
+					writelog2("--- csum (1/2) finished count=" + count + " ---");
+					if (count>0) {
+						return false;
+					} else {
+						resetLastPathId();
+						return true;
+					}
+				}
+			},
+			new ScheduleDontInsert() {
+				@Override public boolean isEol() throws SQLException, InterruptedException {
+					writelog2("--- csum (2/2) ---");
 					setLastPathIdAvailable(false);
 					Set<DBPathEntry> allRoots = getAllRoots();
 					String sql = "SELECT * FROM directory AS d1 WHERE ((type=1 OR type=3) AND status<>2)"
@@ -614,29 +635,8 @@ class LazyMaintainerRunnable extends LazyRunnable {
 							;
 					PreparedStatement ps = getDB().prepareStatement(sql);
 					int count = csum(ps, allRoots);
-					writelog2("--- csum (1/2) finished count=" + count + " ---");
-					return true;
-				}
-			},
-			new ScheduleDontInsert() {
-				@Override public boolean isEol() throws SQLException, InterruptedException {
-					writelog2("--- csum (2/2) ---");
-					setLastPathIdAvailable(true);
-					Set<DBPathEntry> allRoots = getAllRoots();
-					String sql = "SELECT * FROM directory AS d1 WHERE (type=1 OR type=3) AND status=2"
-							+ " AND EXISTS (SELECT * FROM directory AS d2 WHERE d2.pathid=d1.parentid)"
-							+ " AND pathid>? ORDER BY d1.pathid"
-							;
-					PreparedStatement ps = getDB().prepareStatement(sql);
-					ps.setLong(1, getLastPathId());
-					int count = csum(ps, allRoots);
 					writelog2("--- csum (2/2) finished count=" + count + " ---");
-					if (count>0) {
-						return false;
-					} else {
-						resetLastPathId();
-						return true;
-					}
+					return true;
 				}
 			},
 			new ScheduleDontInsert() {
