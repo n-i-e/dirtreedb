@@ -67,7 +67,7 @@ class LazyMaintainerRunnable extends LazyRunnable {
 			}
 
 			if (scheduleInsertable[cI].isStartable()) {
-				writelog2("--- scuedule layer 1 ---");
+				writelog2("--- schedule layer 1 ---");
 				if (scheduleInsertable[cI].isEol()) {
 					cI++;
 					if (cI >= scheduleInsertable.length) {
@@ -75,7 +75,7 @@ class LazyMaintainerRunnable extends LazyRunnable {
 					}
 				}
 			} else {
-				writelog2("--- SKIP scuedule layer 1 ---");
+				writelog2("--- SKIP schedule layer 1 ---");
 			}
 
 			getDB().consumeSomeUpdateQueue();
@@ -86,7 +86,7 @@ class LazyMaintainerRunnable extends LazyRunnable {
 			}
 
 			if (scheduleDontInsert[cD].isStartable()) {
-				writelog2("--- scuedule layer 2 ---");
+				writelog2("--- schedule layer 2 ---");
 				if (scheduleDontInsert[cD].isEol()) {
 					cD++;
 					if (cD >= scheduleDontInsert.length) {
@@ -94,7 +94,7 @@ class LazyMaintainerRunnable extends LazyRunnable {
 					}
 				}
 			} else {
-				writelog2("--- SKIP scuedule layer 2 ---");
+				writelog2("--- SKIP schedule layer 2 ---");
 			}
 
 			getDB().consumeSomeUpdateQueue();
@@ -105,7 +105,7 @@ class LazyMaintainerRunnable extends LazyRunnable {
 			}
 
 			if (scheduleUpdate[cU].isStartable()) {
-				writelog2("--- scuedule layer 3 ---");
+				writelog2("--- schedule layer 3 ---");
 				if (scheduleUpdate[cU].isEol()) {
 					cU++;
 					if (cU >= scheduleUpdate.length) {
