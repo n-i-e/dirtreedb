@@ -40,11 +40,11 @@ import com.github.n_i_e.dirtreedb.windows.IsWin32Idle;
 
 class LazyMaintainerRunnable extends LazyRunnable {
 
-	private static final int UPDATE_QUEUE_SIZD_LOW_THRESHOLD = 9000;
-	private static final int UPDATE_QUEUE_SIZD_HIGH_THRESHOLD = 10000;
+	private static final int UPDATE_QUEUE_SIZE_LOW_THRESHOLD = 9000;
+	private static final int UPDATE_QUEUE_SIZE_HIGH_THRESHOLD = 10000;
 
-	private static final int INSERTABLE_QUEUE_LOW_THRESHOLD = 50;
-	private static final int INSERTABLE_QUEUE_HIGH_THRESHOLD = 100;
+	private static final int INSERTABLE_QUEUE_SIZE_LOW_THRESHOLD = 50;
+	private static final int INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD = 100;
 	private static final int RELAXED_INSERTABLE_QUEUE_SIZE_LOW_THRESHOLD = 950;
 	private static final int RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD = 1000;
 
@@ -59,15 +59,10 @@ class LazyMaintainerRunnable extends LazyRunnable {
 		int cI=0, cD=0, cU=0;
 
 		while (true) {
-			getDB().consumeSomeUpdateQueue();
-			beacon();
-			while (getDB().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
-				getDB().consumeOneUpdateQueue();
-				beacon();
-			}
+			consumeUpdateQueueLowThreshold();
 
 			if (scheduleInsertable[cI].isStartable()) {
-				writelog2("--- schedule layer 1 ---");
+				writelog2("--- schedule layer 1 (#1) ---");
 				if (scheduleInsertable[cI].isEol()) {
 					cI++;
 					if (cI >= scheduleInsertable.length) {
@@ -75,15 +70,10 @@ class LazyMaintainerRunnable extends LazyRunnable {
 					}
 				}
 			} else {
-				writelog2("--- SKIP schedule layer 1 ---");
+				writelog2("--- SKIP schedule layer 1 (#1) ---");
 			}
 
-			getDB().consumeSomeUpdateQueue();
-			beacon();
-			while (getDB().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
-				getDB().consumeOneUpdateQueue();
-				beacon();
-			}
+			consumeUpdateQueueLowThreshold();
 
 			if (scheduleDontInsert[cD].isStartable()) {
 				writelog2("--- schedule layer 2 ---");
@@ -97,12 +87,21 @@ class LazyMaintainerRunnable extends LazyRunnable {
 				writelog2("--- SKIP schedule layer 2 ---");
 			}
 
-			getDB().consumeSomeUpdateQueue();
-			beacon();
-			while (getDB().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZD_LOW_THRESHOLD) {
-				getDB().consumeOneUpdateQueue();
-				beacon();
+			consumeUpdateQueueLowThreshold();
+
+			if (scheduleInsertable[cI].isStartable()) {
+				writelog2("--- schedule layer 1 (#2) ---");
+				if (scheduleInsertable[cI].isEol()) {
+					cI++;
+					if (cI >= scheduleInsertable.length) {
+						cI = 0;
+					}
+				}
+			} else {
+				writelog2("--- SKIP schedule layer 1 (#2) ---");
 			}
+
+			consumeUpdateQueueLowThreshold();
 
 			if (scheduleUpdate[cU].isStartable()) {
 				writelog2("--- schedule layer 3 ---");
@@ -113,6 +112,15 @@ class LazyMaintainerRunnable extends LazyRunnable {
 					}
 				}
 			}
+		}
+	}
+
+	private void consumeUpdateQueueLowThreshold() throws InterruptedException, SQLException {
+		getDB().consumeSomeUpdateQueue();
+		beacon();
+		while (getDB().getUpdateQueueSize(0) > UPDATE_QUEUE_SIZE_LOW_THRESHOLD) {
+			getDB().consumeOneUpdateQueue();
+			beacon();
 		}
 	}
 
@@ -177,7 +185,7 @@ class LazyMaintainerRunnable extends LazyRunnable {
 				return false;
 			}
 
-			if (getDB().getInsertableQueueSize() >= getQueueSizeLowThreshold()) {
+			if (getDB().getInsertableQueueSize() > getQueueSizeLowThreshold()) {
 				return false;
 			}
 
@@ -192,15 +200,15 @@ class LazyMaintainerRunnable extends LazyRunnable {
 			}
 		}
 
-		protected long getQueueSizeLowThreshold() { return INSERTABLE_QUEUE_LOW_THRESHOLD; }
+		protected long getQueueSizeLowThreshold() { return INSERTABLE_QUEUE_SIZE_LOW_THRESHOLD; }
 
-		protected long getQueueSizeHighThreshold() { return INSERTABLE_QUEUE_HIGH_THRESHOLD; }
+		protected long getQueueSizeHighThreshold() { return INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD; }
 
 		private final IsEol queueLimit = new IsEol() {
 			@Override
 			public boolean isEol() throws SQLException, InterruptedException {
-				if (getDB().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
-						|| getDB().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
+				if (getDB().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_HIGH_THRESHOLD
+						|| getDB().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_HIGH_THRESHOLD
 						|| getDB().getInsertableQueueSize() >= getQueueSizeHighThreshold()) {
 					return true;
 				} else {
@@ -262,7 +270,7 @@ class LazyMaintainerRunnable extends LazyRunnable {
 
 	private abstract class ScheduleDontInsert extends Schedule {
 		@Override public boolean isStartable() {
-			if (getDB().getDontInsertQueueSize() < getQueueSizeLowThreshold()) {
+			if (getDB().getDontInsertQueueSize() <= getQueueSizeLowThreshold()) {
 				return true;
 			} else {
 				return false;
@@ -274,8 +282,8 @@ class LazyMaintainerRunnable extends LazyRunnable {
 		private final IsEol queueLimit = new IsEol() {
 			@Override
 			public boolean isEol() throws SQLException, InterruptedException {
-				if (getDB().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
-						|| getDB().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
+				if (getDB().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_HIGH_THRESHOLD
+						|| getDB().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_HIGH_THRESHOLD
 						|| getDB().getDontInsertQueueSize() >= DONT_INSERT_QUEUE_SIZE_HIGH_THRESHOLD) {
 					return true;
 				} else {
@@ -394,8 +402,8 @@ class LazyMaintainerRunnable extends LazyRunnable {
 		private final IsEol queueLimit = new IsEol() {
 			@Override
 			public boolean isEol() throws SQLException, InterruptedException {
-				if (getDB().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD
-						|| getDB().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZD_HIGH_THRESHOLD) {
+				if (getDB().getUpdateQueueSize(0) >= UPDATE_QUEUE_SIZE_HIGH_THRESHOLD
+						|| getDB().getUpdateQueueSize(1) >= UPDATE_QUEUE_SIZE_HIGH_THRESHOLD) {
 					return true;
 				} else {
 					return false;
@@ -473,9 +481,16 @@ class LazyMaintainerRunnable extends LazyRunnable {
 
 	Schedule[] scheduleInsertable = {
 			new ScheduleInsertable() {
+				private int queueSizeHighThreshold = INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD;
+				@Override protected long getQueueSizeHighThreshold() { return queueSizeHighThreshold; }
+				private void setQueueSizeHighThreshold(int queueSizeHighThreshold) { this.queueSizeHighThreshold = queueSizeHighThreshold; }
 				private int repeatCounter=0;
+
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("+++ list folders with children +++");
+					int q = INSERTABLE_QUEUE_SIZE_LOW_THRESHOLD + getDB().getInsertableQueueSize();
+					setQueueSizeHighThreshold(q > INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD ? INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD : q);
+
 					setLastPathIdAvailable(false);
 					Set<DBPathEntry> allRoots = getAllRoots();
 					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
@@ -499,11 +514,59 @@ class LazyMaintainerRunnable extends LazyRunnable {
 				}
 			},
 			new ScheduleInsertable() {
+				private int queueSizeHighThreshold = INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD;
+				@Override protected long getQueueSizeHighThreshold() { return queueSizeHighThreshold; }
+				private void setQueueSizeHighThreshold(int queueSizeHighThreshold) { this.queueSizeHighThreshold = queueSizeHighThreshold; }
+
+				@Override public boolean isEol() throws SQLException, InterruptedException {
+					writelog2("+++ list files with children +++");
+					int q = INSERTABLE_QUEUE_SIZE_LOW_THRESHOLD + getDB().getInsertableQueueSize();
+					setQueueSizeHighThreshold(q > INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD ? INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD : q);
+
+					setLastPathIdAvailable(false);
+					Set<DBPathEntry> allRoots = getAllRoots();
+					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
+					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
+							"((type=1 OR type=3) AND (" + getArchiveExtSubSQL() + ")) AND status=1", false);
+					writelog2("+++ list files with children finished count=" + count + " +++");
+					return true;
+				}
+			},
+			new ScheduleInsertable() {
+				private int queueSizeHighThreshold = INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD;
+				@Override protected long getQueueSizeHighThreshold() { return queueSizeHighThreshold; }
+				private void setQueueSizeHighThreshold(int queueSizeHighThreshold) { this.queueSizeHighThreshold = queueSizeHighThreshold; }
+
+				@Override public boolean isEol() throws SQLException, InterruptedException {
+					writelog2("+++ list NoAccess folders with children +++");
+					int q = INSERTABLE_QUEUE_SIZE_LOW_THRESHOLD + getDB().getInsertableQueueSize();
+					setQueueSizeHighThreshold(q > INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD ? INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD : q);
+
+					setLastPathIdAvailable(true);
+					Set<DBPathEntry> allRoots = getAllRoots();
+					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
+					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
+							"type=0 AND (status=2 OR parentid=0)", false);
+					writelog2("+++ list NoAccess folders with children finished count=" + count + " +++");
+					if (count > 0) {
+						return false;
+					} else {
+						resetLastPathId();
+						return true;
+					}
+
+				}
+			},
+			new ScheduleInsertable() {
+				private int queueSizeHighThreshold = RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD;
 				@Override protected long getQueueSizeLowThreshold() { return RELAXED_INSERTABLE_QUEUE_SIZE_LOW_THRESHOLD; }
-				@Override protected long getQueueSizeHighThreshold() { return RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD; }
+				@Override protected long getQueueSizeHighThreshold() { return queueSizeHighThreshold; }
+				private void setQueueSizeHighThreshold(int queueSizeHighThreshold) { this.queueSizeHighThreshold = queueSizeHighThreshold; }
 				private int repeatCounter=0;
+
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("+++ list folders without children +++");
+					setQueueSizeHighThreshold((RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD + getDB().getInsertableQueueSize())/2);
 					setLastPathIdAvailable(false);
 					Set<DBPathEntry> allRoots = getAllRoots();
 					Set<Long> allRootIds = getIdsFromEntries(allRoots);
@@ -531,20 +594,14 @@ class LazyMaintainerRunnable extends LazyRunnable {
 				}
 			},
 			new ScheduleInsertable() {
-				@Override public boolean isEol() throws SQLException, InterruptedException {
-					writelog2("+++ list files with children +++");
-					setLastPathIdAvailable(false);
-					Set<DBPathEntry> allRoots = getAllRoots();
-					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
-					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
-							"((type=1 OR type=3) AND (" + getArchiveExtSubSQL() + ")) AND status=1", false);
-					writelog2("+++ list files with children finished count=" + count + " +++");
-					return true;
-				}
-			},
-			new ScheduleInsertable() {
+				private int queueSizeHighThreshold = RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD;
+				@Override protected long getQueueSizeLowThreshold() { return RELAXED_INSERTABLE_QUEUE_SIZE_LOW_THRESHOLD; }
+				@Override protected long getQueueSizeHighThreshold() { return queueSizeHighThreshold; }
+				private void setQueueSizeHighThreshold(int queueSizeHighThreshold) { this.queueSizeHighThreshold = queueSizeHighThreshold; }
+
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("+++ list files without children +++");
+					setQueueSizeHighThreshold((RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD + getDB().getInsertableQueueSize())/2);
 					setLastPathIdAvailable(false);
 					Set<DBPathEntry> allRoots = getAllRoots();
 					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
@@ -555,26 +612,14 @@ class LazyMaintainerRunnable extends LazyRunnable {
 				}
 			},
 			new ScheduleInsertable() {
-				@Override public boolean isEol() throws SQLException, InterruptedException {
-					writelog2("+++ list NoAccess folders with children +++");
-					setLastPathIdAvailable(true);
-					Set<DBPathEntry> allRoots = getAllRoots();
-					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
-					int count = list(dontAccessRootIds, minus(allRoots, dontAccessRootIds),
-							"type=0 AND (status=2 OR parentid=0)", false);
-					writelog2("+++ list NoAccess folders with children finished count=" + count + " +++");
-					if (count > 0) {
-						return false;
-					} else {
-						resetLastPathId();
-						return true;
-					}
+				private int queueSizeHighThreshold = RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD;
+				@Override protected long getQueueSizeLowThreshold() { return RELAXED_INSERTABLE_QUEUE_SIZE_LOW_THRESHOLD; }
+				@Override protected long getQueueSizeHighThreshold() { return queueSizeHighThreshold; }
+				private void setQueueSizeHighThreshold(int queueSizeHighThreshold) { this.queueSizeHighThreshold = queueSizeHighThreshold; }
 
-				}
-			},
-			new ScheduleInsertable() {
 				@Override public boolean isEol() throws SQLException, InterruptedException {
 					writelog2("+++ list NoAccess folders without children +++");
+					setQueueSizeHighThreshold((RELAXED_INSERTABLE_QUEUE_SIZE_HIGH_THRESHOLD + getDB().getInsertableQueueSize())/2);
 					setLastPathIdAvailable(true);
 					Set<DBPathEntry> allRoots = getAllRoots();
 					Set<Long> dontAccessRootIds = getDB().getInsertableRootIdSet();
@@ -669,7 +714,7 @@ class LazyMaintainerRunnable extends LazyRunnable {
 			}
 	};
 
-	private static final int SCHEDULE_UPDATE_COUNT_THRESHOLD = UPDATE_QUEUE_SIZD_HIGH_THRESHOLD * 8 / 10;
+	private static final int SCHEDULE_UPDATE_COUNT_THRESHOLD = UPDATE_QUEUE_SIZE_HIGH_THRESHOLD * 8 / 10;
 	Schedule[] scheduleUpdate = {
 			new ScheduleUpdate() {
 				private int repeatCounter=0;
